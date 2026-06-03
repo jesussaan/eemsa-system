@@ -1,7 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
 import { createClient } from '@supabase/supabase-js';
