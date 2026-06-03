@@ -197,72 +197,182 @@ function Pedidos({ pedidos, setPedidos }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// REFACCIONES
 // ════════════════════════════════════════════════════════════════════════════
-function Refacciones({ refs, setRefs }) {
-  const [form, setForm] = useState({ nombre: "", costo: "", maq: "SIAT L36 #1", proveedor: "", fecha: today(), dias_entrega: "", falla: "", notas: "" });
+// REFACCIONES & PROVEEDORES
+// ════════════════════════════════════════════════════════════════════════════
+function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
+  const [subTab, setSubTab] = useState("compras");
+  const [form, setForm] = useState({ nombre: "", costo: "", maq: "SIAT L36 #1", proveedor: "", fecha: today(), dias_entrega: "", falla: "", notas: "", stock: "1" });
+  const [formProv, setFormProv] = useState({ nombre: "", telefono: "", direccion: "", monto: "", fecha: today(), que_compro: "" });
+  const [imagen, setImagen] = useState(null);
+  const [preview, setPreview] = useState(null);
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
 
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2200); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const updP = (k, v) => setFormProv(f => ({ ...f, [k]: v }));
 
-  const save = async () => {
-    if (!form.nombre || !form.costo) { showToast("⚠ Nombre y costo son obligatorios"); return; }
+  const handleImagen = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImagen(file);
+    setPreview(URL.createObjectURL(file));
+  };
+
+  const analizar = async () => {
+    if (!imagen) { showToast("⚠ Selecciona una imagen primero"); return; }
+    setLoading(true);
+    try {
+      const base64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result.split(",")[1]);
+        r.onerror = rej;
+        r.readAsDataURL(imagen);
+      });
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: base64, mediaType: imagen.type, extractTicket: true })
+      });
+      const data = await response.json();
+      const texto = data?.content?.map(b => b.text || "").join("") || "";
+      try {
+        const json = JSON.parse(texto.replace(/```json|```/g, "").trim());
+        setFormProv({ nombre: json.nombre || "", telefono: json.telefono || "", direccion: json.direccion || "", monto: json.monto || "", fecha: json.fecha || today(), que_compro: json.que_compro || "" });
+        showToast("✓ Datos extraídos por IA");
+      } catch { showToast("⚠ Llena manualmente"); }
+    } catch { showToast("❌ Error al analizar"); }
+    setLoading(false);
+  };
+
+  const saveCompra = async () => {
+    if (!formProv.nombre || !formProv.monto) { showToast("⚠ Nombre y monto obligatorios"); return; }
+    setLoading(true);
+    let imagen_url = "";
+    if (imagen) {
+      const { data } = await supabase.storage.from("refacciones").upload(`tickets/${uid()}_${imagen.name}`, imagen);
+      if (data) {
+        const { data: url } = supabase.storage.from("refacciones").getPublicUrl(data.path);
+        imagen_url = url.publicUrl;
+      }
+    }
+    const nuevo = { ...formProv, id: uid(), imagen_url, created: today() };
+    const { error } = await supabase.from("proveedores").insert([nuevo]);
+    if (error) { showToast("❌ Error al guardar"); setLoading(false); return; }
+    setProveedores(p => [nuevo, ...p]);
+    setFormProv({ nombre: "", telefono: "", direccion: "", monto: "", fecha: today(), que_compro: "" });
+    setImagen(null); setPreview(null);
+    showToast("✓ Compra guardada ☁️");
+    setLoading(false);
+  };
+
+  const saveRef = async () => {
+    if (!form.nombre || !form.costo) { showToast("⚠ Nombre y costo obligatorios"); return; }
     setLoading(true);
     const nuevo = { ...form, id: uid(), created: today() };
     const { error } = await supabase.from("refacciones").insert([nuevo]);
     if (error) { showToast("❌ Error al guardar"); setLoading(false); return; }
     setRefs(r => [nuevo, ...r]);
-    setForm(f => ({ ...f, nombre: "", costo: "", proveedor: "", dias_entrega: "", falla: "", notas: "" }));
-    showToast("✓ Refacción guardada en la nube ☁️");
+    setForm(f => ({ ...f, nombre: "", costo: "", proveedor: "", dias_entrega: "", falla: "", notas: "", stock: "1" }));
+    showToast("✓ Refacción guardada ☁️");
     setLoading(false);
   };
 
-  const del = async id => {
+  const delRef = async id => {
     if (!window.confirm("¿Eliminar?")) return;
     await supabase.from("refacciones").delete().eq("id", id);
     setRefs(r => r.filter(x => x.id !== id));
   };
 
-  const total = refs.reduce((s, r) => s + Number(r.costo || 0), 0);
-  const historial = refs.reduce((acc, r) => { const k = r.nombre?.toLowerCase().trim(); acc[k] = (acc[k] || 0) + 1; return acc; }, {});
+  const delCompra = async id => {
+    if (!window.confirm("¿Eliminar?")) return;
+    await supabase.from("proveedores").delete().eq("id", id);
+    setProveedores(p => p.filter(x => x.id !== id));
+  };
+
+  const totalCompras = proveedores.reduce((s, p) => s + Number(p.monto || 0), 0);
+  const totalRefs = refs.reduce((s, r) => s + Number(r.costo || 0), 0);
 
   return (
     <div>
       <h2 className="sec-title">🔧 Refacciones</h2>
       <div className="stat-grid">
-        <div className="stat-card accent"><div className="stat-val">{refs.length}</div><div className="stat-lbl">Total compras</div></div>
-        <div className="stat-card red"><div className="stat-val">${fmt(total)}</div><div className="stat-lbl">Gasto total</div></div>
+        <div className="stat-card accent"><div className="stat-val">{refs.length}</div><div className="stat-lbl">En inventario</div></div>
+        <div className="stat-card red"><div className="stat-val">${fmt(totalRefs)}</div><div className="stat-lbl">Valor inventario</div></div>
+        <div className="stat-card orange"><div className="stat-val">{proveedores.length}</div><div className="stat-lbl">Compras</div></div>
+        <div className="stat-card blue"><div className="stat-val">${fmt(totalCompras)}</div><div className="stat-lbl">Gasto total</div></div>
       </div>
-      <h3 className="sub-title">Registrar compra</h3>
-      <div className="form-grid">
-        <div className="field"><label>Refacción *</label><input value={form.nombre} onChange={e => upd("nombre", e.target.value)} placeholder="Rodillo anilox, correa…" /></div>
-        <div className="field"><label>Costo ($MXN) *</label><input type="number" value={form.costo} onChange={e => upd("costo", e.target.value)} placeholder="850.00" /></div>
-        <div className="field"><label>Máquina</label><select value={form.maq} onChange={e => upd("maq", e.target.value)}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>
-        <div className="field"><label>Proveedor</label><input value={form.proveedor} onChange={e => upd("proveedor", e.target.value)} placeholder="Ferrelex, Amazon…" /></div>
-        <div className="field"><label>Fecha compra</label><input type="date" value={form.fecha} onChange={e => upd("fecha", e.target.value)} /></div>
-        <div className="field"><label>Días en llegar</label><input type="number" value={form.dias_entrega} onChange={e => upd("dias_entrega", e.target.value)} placeholder="3" /></div>
-        <div className="field full"><label>Falla que originó la compra</label><input value={form.falla} onChange={e => upd("falla", e.target.value)} placeholder="Se desgastó el anilox…" /></div>
-        <div className="field full"><label>Notas</label><textarea value={form.notas} onChange={e => upd("notas", e.target.value)} placeholder="Número de parte, observaciones…" /></div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, marginTop: 12 }}>
+        <button className={`btn ${subTab === "compras" ? "btn-primary" : "btn-ghost"}`} onClick={() => setSubTab("compras")}>🛒 Compras</button>
+        <button className={`btn ${subTab === "inventario" ? "btn-primary" : "btn-ghost"}`} onClick={() => setSubTab("inventario")}>📦 Inventario</button>
       </div>
-      <button className="btn btn-primary btn-block" onClick={save} disabled={loading}>{loading ? "Guardando…" : "+ Registrar refacción"}</button>
-      <h3 className="sub-title" style={{ marginTop: 20 }}>Historial</h3>
-      {refs.length === 0 ? <p className="empty">Sin refacciones registradas.</p> : (
-        <div className="list">
-          {refs.map(r => {
-            const veces = historial[r.nombre?.toLowerCase().trim()] || 1;
-            return (
-              <div key={r.id} className="list-item">
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <div><strong>{r.nombre}</strong><span className="badge b-accent">${fmt(r.costo)}</span>{veces >= 3 && <span className="badge b-red">⚠ {veces}x</span>}</div>
-                  <button className="btn btn-danger btn-sm" onClick={() => del(r.id)}>✕</button>
+
+      {subTab === "compras" && (
+        <div>
+          <h3 className="sub-title">Registrar compra</h3>
+          <div className="field full" style={{ marginBottom: 12 }}>
+            <label>📷 Foto del ticket</label>
+            <input type="file" accept="image/*" onChange={handleImagen} />
+            {preview && <img src={preview} alt="ticket" style={{ width: "100%", maxWidth: 300, marginTop: 8, borderRadius: 8 }} />}
+            <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={analizar} disabled={loading || !imagen}>{loading ? "Analizando…" : "🤖 Analizar con IA"}</button>
+          </div>
+          <div className="form-grid">
+            <div className="field"><label>Proveedor *</label><input value={formProv.nombre} onChange={e => updP("nombre", e.target.value)} placeholder="Nombre del proveedor" /></div>
+            <div className="field"><label>Teléfono</label><input value={formProv.telefono} onChange={e => updP("telefono", e.target.value)} placeholder="667 123 4567" /></div>
+            <div className="field"><label>Monto ($MXN) *</label><input type="number" value={formProv.monto} onChange={e => updP("monto", e.target.value)} placeholder="850.00" /></div>
+            <div className="field"><label>Fecha</label><input type="date" value={formProv.fecha} onChange={e => updP("fecha", e.target.value)} /></div>
+            <div className="field full"><label>Dirección</label><input value={formProv.direccion} onChange={e => updP("direccion", e.target.value)} placeholder="Calle, colonia, ciudad" /></div>
+            <div className="field full"><label>Qué se compró</label><input value={formProv.que_compro} onChange={e => updP("que_compro", e.target.value)} placeholder="Rodillo anilox, correa…" /></div>
+          </div>
+          <button className="btn btn-primary btn-block" onClick={saveCompra} disabled={loading}>{loading ? "Guardando…" : "+ Registrar compra"}</button>
+          <h3 className="sub-title" style={{ marginTop: 20 }}>Historial de compras</h3>
+          {proveedores.length === 0 ? <p className="empty">Sin compras registradas.</p> : (
+            <div className="list">
+              {proveedores.map(p => (
+                <div key={p.id} className="list-item">
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <div><strong>{p.nombre}</strong><span className="badge b-accent">${fmt(p.monto)}</span></div>
+                    <button className="btn btn-danger btn-sm" onClick={() => delCompra(p.id)}>✕</button>
+                  </div>
+                  <div className="muted">{p.fecha} · {p.telefono}</div>
+                  {p.direccion && <div className="muted">📍 {p.direccion}</div>}
+                  {p.que_compro && <div className="muted">🔧 {p.que_compro}</div>}
                 </div>
-                <div className="muted">{r.maq} · {r.proveedor} · {r.fecha}{r.dias_entrega && ` · ${r.dias_entrega} días`}</div>
-                {r.falla && <div className="muted">Causa: {r.falla}</div>}
-              </div>
-            );
-          })}
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {subTab === "inventario" && (
+        <div>
+          <h3 className="sub-title">Agregar refacción</h3>
+          <div className="form-grid">
+            <div className="field"><label>Refacción *</label><input value={form.nombre} onChange={e => upd("nombre", e.target.value)} placeholder="Rodillo anilox, correa…" /></div>
+            <div className="field"><label>Costo ($MXN) *</label><input type="number" value={form.costo} onChange={e => upd("costo", e.target.value)} placeholder="850.00" /></div>
+            <div className="field"><label>Stock</label><input type="number" value={form.stock} onChange={e => upd("stock", e.target.value)} placeholder="1" /></div>
+            <div className="field"><label>Máquina</label><select value={form.maq} onChange={e => upd("maq", e.target.value)}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>
+            <div className="field"><label>Proveedor</label><input value={form.proveedor} onChange={e => upd("proveedor", e.target.value)} placeholder="Ferrelex, Amazon…" /></div>
+            <div className="field"><label>Fecha compra</label><input type="date" value={form.fecha} onChange={e => upd("fecha", e.target.value)} /></div>
+            <div className="field full"><label>Notas</label><textarea value={form.notas} onChange={e => upd("notas", e.target.value)} placeholder="Número de parte, observaciones…" /></div>
+          </div>
+          <button className="btn btn-primary btn-block" onClick={saveRef} disabled={loading}>{loading ? "Guardando…" : "+ Agregar al inventario"}</button>
+          <h3 className="sub-title" style={{ marginTop: 20 }}>Inventario</h3>
+          {refs.length === 0 ? <p className="empty">Sin refacciones en inventario.</p> : (
+            <div className="list">
+              {refs.map(r => (
+                <div key={r.id} className="list-item">
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <div><strong>{r.nombre}</strong><span className="badge b-accent">${fmt(r.costo)}</span><span className={`badge ${Number(r.stock) <= 1 ? "b-red" : "b-green"}`}>Stock: {r.stock || 1}</span></div>
+                    <button className="btn btn-danger btn-sm" onClick={() => delRef(r.id)}>✕</button>
+                  </div>
+                  <div className="muted">{r.maq} · {r.proveedor} · {r.fecha}</div>
+                  {r.notas && <div className="muted">{r.notas}</div>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
       {toast && <div className="toast">{toast}</div>}
@@ -475,7 +585,6 @@ const TABS = [
   { id: "ped", ico: "📋", lbl: "Pedidos" },
   { id: "ref", ico: "🔧", lbl: "Refacciones" },
   { id: "fal", ico: "⚠️", lbl: "Fallas" },
-  { id: "prov", ico: "🏪", lbl: "Proveedores" },
   { id: "ia", ico: "🤖", lbl: "Asistente" },
 ];
 
@@ -531,10 +640,10 @@ if (prov.data) setProveedores(prov.data);
       <main className="main">
         {tab === "dash" && <Dashboard pedidos={pedidos} fallas={fallas} refacciones={refs} />}
         {tab === "ped" && <Pedidos pedidos={pedidos} setPedidos={setPedidos} />}
-        {tab === "ref" && <Refacciones refs={refs} setRefs={setRefs} />}
+       {tab === "ref" && <Refacciones refs={refs} setRefs={setRefs} proveedores={proveedores} setProveedores={setProveedores} />}
         {tab === "fal" && <Fallas fallas={fallas} setFallas={setFallas} />}
         {tab === "ia" && <AsistenteIA />}
-        {tab === "prov" && <Proveedores proveedores={proveedores} setProveedores={setProveedores} />}
+       
       </main>
     </div>
   );
