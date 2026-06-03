@@ -1,3 +1,7 @@
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
 import { createClient } from '@supabase/supabase-js';
@@ -78,16 +82,48 @@ function AsistenteIA() {
 // ════════════════════════════════════════════════════════════════════════════
 // DASHBOARD
 // ════════════════════════════════════════════════════════════════════════════
-function Dashboard({ pedidos, fallas, refacciones }) {
+function Dashboard({ pedidos, fallas, refacciones, proveedores }) {
   const activos = pedidos.filter(p => p.status !== "terminado").length;
   const terminados = pedidos.filter(p => p.status === "terminado").length;
   const fallasAbiertas = fallas.filter(f => f.status === "abierta").length;
   const gastoRef = refacciones.reduce((s, r) => s + Number(r.costo || 0), 0);
   const mermaTotal = pedidos.reduce((s, p) => s + Number(p.merma || 0), 0);
-
+const generarPDF = () => {
+    const doc = new jsPDF();
+    const mes = new Date().toLocaleString("es-MX", { month: "long", year: "numeric" });
+    doc.setFillColor(26, 39, 68);
+    doc.rect(0, 0, 210, 30, "F");
+    doc.setTextColor(201, 146, 42);
+    doc.setFontSize(18);
+    doc.text("EEMSA System", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Reporte mensual — ${mes}`, 14, 23);
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.text("Resumen de Pedidos", 14, 40);
+    autoTable(doc, {
+      startY: 44,
+      head: [["No. Pedido", "Cliente", "Piezas", "Status", "Merma"]],
+      body: pedidos.map(p => [p.num, p.cliente, p.piezas, p.status, p.merma || 0]),
+    });
+    doc.text("Fallas", 14, doc.lastAutoTable.finalY + 10);
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 14,
+      head: [["Fecha", "Máquina", "Componente", "Min Paro", "Severidad"]],
+      body: fallas.map(f => [f.fecha, f.maq, f.comp, f.min_paro, f.sev]),
+    });
+    doc.text("Compras", 14, doc.lastAutoTable.finalY + 10);
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 14,
+      head: [["Proveedor", "Qué se compró", "Monto", "Fecha"]],
+      body: proveedores.map(p => [p.nombre, p.que_compro, `$${fmt(p.monto)}`, p.fecha]),
+    });
+    doc.save(`EEMSA_Reporte_${mes}.pdf`);
+  };
   return (
     <div>
       <h2 className="sec-title">📊 Dashboard</h2>
+      <button className="btn btn-primary" style={{ marginBottom: 12 }} onClick={generarPDF}>📄 Generar reporte PDF</button>
       <div className="stat-grid">
         <div className="stat-card accent"><div className="stat-val">{activos}</div><div className="stat-lbl">Pedidos activos</div></div>
         <div className="stat-card green"><div className="stat-val">{terminados}</div><div className="stat-lbl">Terminados</div></div>
