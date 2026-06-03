@@ -46,7 +46,7 @@ function AsistenteIA() {
         body: JSON.stringify({ messages: next.map(m => ({ role: m.role, content: m.content })) })
       });
       const data = await res.json();
-      const reply = data.content?.map(b => b.text || "").join("") || "Sin respuesta.";
+      const reply = data?.content?.map(b => b.text || "").join("") || data?.error || "Sin respuesta.";
       setMsgs([...next, { role: "assistant", content: reply }]);
     } catch {
       setMsgs([...next, { role: "assistant", content: "❌ Error de conexión." }]);
