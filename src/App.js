@@ -1,0 +1,358 @@
+import { useState, useEffect } from "react";
+import { createClient } from '@supabase/supabase-js';
+  import "./App.css";
+ const supabase = createClient(
+'https://mqroamvsunlfvxggifzc.supabase.co',
+'sb_publishable_KqYvpg98uxNcsCtSb6QX9A_4JEMTdgC'
+);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
+const today = () => new Date().toISOString().slice(0, 10);
+const fmt = (n) => Number(n).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// ── Constantes ────────────────────────────────────────────────────────────────
+const MAQUINAS = ["SIAT L36 #1", "SIAT L36 #2", "SIAT L36 #3"];
+const TIPOS = ["Blanca", "Canela", "Transparente", "Engomado"];
+const COMPS = ["Rodillo anilox", "Sistema de tintas", "Cliché/portacliché", "Motor principal", "Sistema de corte", "Banda transportadora", "Sistema eléctrico", "Otro"];
+const STATUS = { pendiente: "Pendiente", proceso: "En proceso", terminado: "Terminado" };
+const SEV = { leve: "Leve", moderada: "Moderada", critica: "Crítica" };
+
+// ════════════════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ════════════════════════════════════════════════════════════════════════════
+function Dashboard({ pedidos, fallas, refacciones }) {
+  const activos = pedidos.filter(p => p.status !== "terminado").length;
+  const terminados = pedidos.filter(p => p.status === "terminado").length;
+  const fallasAbiertas = fallas.filter(f => f.status === "abierta").length;
+  const gastoRef = refacciones.reduce((s, r) => s + Number(r.costo || 0), 0);
+  const mermaTotal = pedidos.reduce((s, p) => s + Number(p.merma || 0), 0);
+
+  return (
+    <div>
+      <h2 className="sec-title">📊 Dashboard</h2>
+      <div className="stat-grid">
+        <div className="stat-card accent"><div className="stat-val">{activos}</div><div className="stat-lbl">Pedidos activos</div></div>
+        <div className="stat-card green"><div className="stat-val">{terminados}</div><div className="stat-lbl">Terminados</div></div>
+        <div className="stat-card red"><div className="stat-val">{fallasAbiertas}</div><div className="stat-lbl">Fallas abiertas</div></div>
+        <div className="stat-card blue"><div className="stat-val">${fmt(gastoRef)}</div><div className="stat-lbl">Gasto refacciones</div></div>
+        <div className="stat-card orange"><div className="stat-val">{mermaTotal}</div><div className="stat-lbl">Merma total (pzas)</div></div>
+      </div>
+      <h3 className="sub-title">Pedidos recientes</h3>
+      {pedidos.length === 0 ? <p className="empty">Sin pedidos aún.</p> : (
+        <div className="list">
+          {pedidos.slice(0, 5).map(p => (
+            <div key={p.id} className="list-item">
+              <div><strong>{p.num}</strong> — {p.cliente}
+                <span className={`badge ${p.status === "terminado" ? "b-green" : p.status === "proceso" ? "b-blue" : "b-orange"}`}>{STATUS[p.status]}</span>
+              </div>
+              <div className="muted">{p.maq} · {p.fecha}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// PEDIDOS
+// ════════════════════════════════════════════════════════════════════════════
+function Pedidos({ pedidos, setPedidos }) {
+  const [form, setForm] = useState({ cliente: "", num: "", piezas: "", ancho: "", largo: "", tipo: "Blanca", color: "", maq: "SIAT L36 #1", op: "", fecha: today(), status: "pendiente", merma: "", notas: "" });
+  const [toast, setToast] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2200); };
+  const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const save = async () => {
+    if (!form.cliente || !form.num || !form.piezas) { showToast("⚠ Llena cliente, número y piezas"); return; }
+    setLoading(true);
+    const nuevo = { ...form, id: uid(), created: today() };
+    const { error } = await supabase.from("pedidos").insert([nuevo]);
+    if (error) { showToast("❌ Error al guardar"); setLoading(false); return; }
+    setPedidos(p => [nuevo, ...p]);
+    setForm(f => ({ ...f, cliente: "", num: "", piezas: "", ancho: "", largo: "", color: "", op: "", notas: "", merma: "" }));
+    showToast("✓ Pedido guardado en la nube ☁️");
+    setLoading(false);
+  };
+
+  const del = async id => {
+    if (!window.confirm("¿Eliminar pedido?")) return;
+    await supabase.from("pedidos").delete().eq("id", id);
+    setPedidos(p => p.filter(x => x.id !== id));
+  };
+
+  const chg = async (id, s) => {
+    await supabase.from("pedidos").update({ status: s }).eq("id", id);
+    setPedidos(p => p.map(x => x.id === id ? { ...x, status: s } : x));
+  };
+
+  return (
+    <div>
+      <h2 className="sec-title">📋 Pedidos</h2>
+      <div className="stat-grid">
+        <div className="stat-card accent"><div className="stat-val">{pedidos.length}</div><div className="stat-lbl">Total</div></div>
+        <div className="stat-card blue"><div className="stat-val">{pedidos.filter(p => p.status === "proceso").length}</div><div className="stat-lbl">En proceso</div></div>
+        <div className="stat-card green"><div className="stat-val">{pedidos.filter(p => p.status === "terminado").length}</div><div className="stat-lbl">Terminados</div></div>
+      </div>
+      <h3 className="sub-title">Nuevo pedido</h3>
+      <div className="form-grid">
+        <div className="field"><label>Cliente *</label><input value={form.cliente} onChange={e => upd("cliente", e.target.value)} placeholder="Nombre del cliente" /></div>
+        <div className="field"><label>No. Pedido *</label><input value={form.num} onChange={e => upd("num", e.target.value)} placeholder="P-2026-001" /></div>
+        <div className="field"><label>Piezas *</label><input type="number" value={form.piezas} onChange={e => upd("piezas", e.target.value)} placeholder="5000" /></div>
+        <div className="field"><label>Fecha entrega</label><input type="date" value={form.fecha} onChange={e => upd("fecha", e.target.value)} /></div>
+        <div className="field"><label>Ancho (mm)</label><input type="number" value={form.ancho} onChange={e => upd("ancho", e.target.value)} placeholder="48" /></div>
+        <div className="field"><label>Largo (m)</label><input type="number" value={form.largo} onChange={e => upd("largo", e.target.value)} placeholder="100" /></div>
+        <div className="field"><label>Tipo cinta</label><select value={form.tipo} onChange={e => upd("tipo", e.target.value)}>{TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
+        <div className="field"><label>Color impresión</label><input value={form.color} onChange={e => upd("color", e.target.value)} placeholder="Rojo PMS 485" /></div>
+        <div className="field"><label>Máquina</label><select value={form.maq} onChange={e => upd("maq", e.target.value)}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>
+        <div className="field"><label>Operador</label><input value={form.op} onChange={e => upd("op", e.target.value)} placeholder="William / Alfredo" /></div>
+        <div className="field"><label>Estado</label><select value={form.status} onChange={e => upd("status", e.target.value)}>{Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+        <div className="field"><label>Merma (pzas)</label><input type="number" value={form.merma} onChange={e => upd("merma", e.target.value)} placeholder="0" /></div>
+        <div className="field full"><label>Notas</label><textarea value={form.notas} onChange={e => upd("notas", e.target.value)} placeholder="Observaciones…" /></div>
+      </div>
+      <button className="btn btn-primary btn-block" onClick={save} disabled={loading}>{loading ? "Guardando…" : "+ Registrar pedido"}</button>
+      <h3 className="sub-title" style={{ marginTop: 20 }}>Registro</h3>
+      {pedidos.length === 0 ? <p className="empty">Sin pedidos registrados.</p> : (
+        <div className="list">
+          {pedidos.map(p => (
+            <div key={p.id} className="list-item">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                <div><strong>{p.num}</strong> — {p.cliente} · {Number(p.piezas).toLocaleString()} pzas</div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <select value={p.status} onChange={e => chg(p.id, e.target.value)} className="select-sm">
+                    {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                  <button className="btn btn-danger btn-sm" onClick={() => del(p.id)}>✕</button>
+                </div>
+              </div>
+              <div className="muted">{p.maq} · {p.tipo} · {p.color} · Entrega: {p.fecha}</div>
+              {p.notas && <div className="muted">{p.notas}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// REFACCIONES
+// ════════════════════════════════════════════════════════════════════════════
+function Refacciones({ refs, setRefs }) {
+  const [form, setForm] = useState({ nombre: "", costo: "", maq: "SIAT L36 #1", proveedor: "", fecha: today(), dias_entrega: "", falla: "", notas: "" });
+  const [toast, setToast] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2200); };
+  const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const save = async () => {
+    if (!form.nombre || !form.costo) { showToast("⚠ Nombre y costo son obligatorios"); return; }
+    setLoading(true);
+    const nuevo = { ...form, id: uid(), created: today() };
+    const { error } = await supabase.from("refacciones").insert([nuevo]);
+    if (error) { showToast("❌ Error al guardar"); setLoading(false); return; }
+    setRefs(r => [nuevo, ...r]);
+    setForm(f => ({ ...f, nombre: "", costo: "", proveedor: "", dias_entrega: "", falla: "", notas: "" }));
+    showToast("✓ Refacción guardada en la nube ☁️");
+    setLoading(false);
+  };
+
+  const del = async id => {
+    if (!window.confirm("¿Eliminar?")) return;
+    await supabase.from("refacciones").delete().eq("id", id);
+    setRefs(r => r.filter(x => x.id !== id));
+  };
+
+  const total = refs.reduce((s, r) => s + Number(r.costo || 0), 0);
+  const historial = refs.reduce((acc, r) => { const k = r.nombre?.toLowerCase().trim(); acc[k] = (acc[k] || 0) + 1; return acc; }, {});
+
+  return (
+    <div>
+      <h2 className="sec-title">🔧 Refacciones</h2>
+      <div className="stat-grid">
+        <div className="stat-card accent"><div className="stat-val">{refs.length}</div><div className="stat-lbl">Total compras</div></div>
+        <div className="stat-card red"><div className="stat-val">${fmt(total)}</div><div className="stat-lbl">Gasto total</div></div>
+      </div>
+      <h3 className="sub-title">Registrar compra</h3>
+      <div className="form-grid">
+        <div className="field"><label>Refacción *</label><input value={form.nombre} onChange={e => upd("nombre", e.target.value)} placeholder="Rodillo anilox, correa…" /></div>
+        <div className="field"><label>Costo ($MXN) *</label><input type="number" value={form.costo} onChange={e => upd("costo", e.target.value)} placeholder="850.00" /></div>
+        <div className="field"><label>Máquina</label><select value={form.maq} onChange={e => upd("maq", e.target.value)}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>
+        <div className="field"><label>Proveedor</label><input value={form.proveedor} onChange={e => upd("proveedor", e.target.value)} placeholder="Ferrelex, Amazon…" /></div>
+        <div className="field"><label>Fecha compra</label><input type="date" value={form.fecha} onChange={e => upd("fecha", e.target.value)} /></div>
+        <div className="field"><label>Días en llegar</label><input type="number" value={form.dias_entrega} onChange={e => upd("dias_entrega", e.target.value)} placeholder="3" /></div>
+        <div className="field full"><label>Falla que originó la compra</label><input value={form.falla} onChange={e => upd("falla", e.target.value)} placeholder="Se desgastó el anilox…" /></div>
+        <div className="field full"><label>Notas</label><textarea value={form.notas} onChange={e => upd("notas", e.target.value)} placeholder="Número de parte, observaciones…" /></div>
+      </div>
+      <button className="btn btn-primary btn-block" onClick={save} disabled={loading}>{loading ? "Guardando…" : "+ Registrar refacción"}</button>
+      <h3 className="sub-title" style={{ marginTop: 20 }}>Historial</h3>
+      {refs.length === 0 ? <p className="empty">Sin refacciones registradas.</p> : (
+        <div className="list">
+          {refs.map(r => {
+            const veces = historial[r.nombre?.toLowerCase().trim()] || 1;
+            return (
+              <div key={r.id} className="list-item">
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <div><strong>{r.nombre}</strong><span className="badge b-accent">${fmt(r.costo)}</span>{veces >= 3 && <span className="badge b-red">⚠ {veces}x</span>}</div>
+                  <button className="btn btn-danger btn-sm" onClick={() => del(r.id)}>✕</button>
+                </div>
+                <div className="muted">{r.maq} · {r.proveedor} · {r.fecha}{r.dias_entrega && ` · ${r.dias_entrega} días`}</div>
+                {r.falla && <div className="muted">Causa: {r.falla}</div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// FALLAS
+// ════════════════════════════════════════════════════════════════════════════
+function Fallas({ fallas, setFallas }) {
+  const [form, setForm] = useState({ fecha: today(), maq: "SIAT L36 #1", comp: "Rodillo anilox", min_paro: "", sev: "leve", op: "", descripcion: "", accion: "", status: "abierta" });
+  const [toast, setToast] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2200); };
+  const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const save = async () => {
+    if (!form.descripcion || !form.min_paro) { showToast("⚠ Descripción y minutos son obligatorios"); return; }
+    setLoading(true);
+    const nuevo = { ...form, id: uid(), created: today() };
+    const { error } = await supabase.from("fallas").insert([nuevo]);
+    if (error) { showToast("❌ Error al guardar"); setLoading(false); return; }
+    setFallas(f => [nuevo, ...f]);
+    setForm(f => ({ ...f, min_paro: "", descripcion: "", accion: "", status: "abierta" }));
+    showToast("✓ Falla guardada en la nube ☁️");
+    setLoading(false);
+  };
+
+  const del = async id => {
+    if (!window.confirm("¿Eliminar?")) return;
+    await supabase.from("fallas").delete().eq("id", id);
+    setFallas(f => f.filter(x => x.id !== id));
+  };
+
+  const close = async id => {
+    await supabase.from("fallas").update({ status: "cerrada" }).eq("id", id);
+    setFallas(f => f.map(x => x.id === id ? { ...x, status: "cerrada" } : x));
+  };
+
+  const sevCls = s => s === "critica" ? "b-red" : s === "moderada" ? "b-orange" : "b-green";
+
+  return (
+    <div>
+      <h2 className="sec-title">⚠️ Fallas</h2>
+      <div className="stat-grid">
+        <div className="stat-card red"><div className="stat-val">{fallas.filter(f => f.status === "abierta").length}</div><div className="stat-lbl">Abiertas</div></div>
+        <div className="stat-card orange"><div className="stat-val">{fallas.reduce((s, f) => s + Number(f.min_paro || 0), 0)}</div><div className="stat-lbl">Min paro total</div></div>
+        <div className="stat-card accent"><div className="stat-val">{fallas.filter(f => f.sev === "critica").length}</div><div className="stat-lbl">Críticas</div></div>
+      </div>
+      <h3 className="sub-title">Registrar falla</h3>
+      <div className="form-grid">
+        <div className="field"><label>Fecha</label><input type="date" value={form.fecha} onChange={e => upd("fecha", e.target.value)} /></div>
+        <div className="field"><label>Máquina</label><select value={form.maq} onChange={e => upd("maq", e.target.value)}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>
+        <div className="field"><label>Componente</label><select value={form.comp} onChange={e => upd("comp", e.target.value)}>{COMPS.map(c => <option key={c}>{c}</option>)}</select></div>
+        <div className="field"><label>Minutos de paro *</label><input type="number" value={form.min_paro} onChange={e => upd("min_paro", e.target.value)} placeholder="30" /></div>
+        <div className="field"><label>Severidad</label><select value={form.sev} onChange={e => upd("sev", e.target.value)}>{Object.entries(SEV).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+        <div className="field"><label>Operador</label><input value={form.op} onChange={e => upd("op", e.target.value)} placeholder="William / Alfredo" /></div>
+        <div className="field full"><label>Descripción *</label><textarea value={form.descripcion} onChange={e => upd("descripcion", e.target.value)} placeholder="¿Qué ocurrió?" /></div>
+        <div className="field full"><label>Acción correctiva</label><textarea value={form.accion} onChange={e => upd("accion", e.target.value)} placeholder="¿Cómo se resolvió?" /></div>
+      </div>
+      <button className="btn btn-primary btn-block" onClick={save} disabled={loading}>{loading ? "Guardando…" : "+ Registrar falla"}</button>
+      <h3 className="sub-title" style={{ marginTop: 20 }}>Historial</h3>
+      {fallas.length === 0 ? <p className="empty">Sin fallas. ¡Buena señal! 🟢</p> : (
+        <div className="list">
+          {fallas.map(f => (
+            <div key={f.id} className="list-item">
+              <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
+                <div><strong>{f.comp}</strong> — {f.maq}<span className={`badge ${sevCls(f.sev)}`}>{SEV[f.sev]}</span><span className={`badge ${f.status === "abierta" ? "b-red" : "b-green"}`}>{f.status === "abierta" ? "Abierta" : "Cerrada"}</span></div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {f.status === "abierta" && <button className="btn btn-ghost btn-sm" onClick={() => close(f.id)}>✓</button>}
+                  <button className="btn btn-danger btn-sm" onClick={() => del(f.id)}>✕</button>
+                </div>
+              </div>
+              <div className="muted">{f.fecha} · {f.min_paro} min · {f.op}</div>
+              <div className="muted">{f.descripcion}</div>
+              {f.accion && <div className="muted">✓ {f.accion}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// APP ROOT
+// ════════════════════════════════════════════════════════════════════════════
+const TABS = [
+  { id: "dash", ico: "📊", lbl: "Dashboard" },
+  { id: "ped", ico: "📋", lbl: "Pedidos" },
+  { id: "ref", ico: "🔧", lbl: "Refacciones" },
+  { id: "fal", ico: "⚠️", lbl: "Fallas" },
+];
+
+export default function App() {
+  const [tab, setTab] = useState("dash");
+  const [pedidos, setPedidos] = useState([]);
+  const [fallas, setFallas] = useState([]);
+  const [refs, setRefs] = useState([]);
+  const [cargando, setCargando] = useState(true);
+
+  useEffect(() => {
+    const cargar = async () => {
+      const [p, f, r] = await Promise.all([
+        supabase.from("pedidos").select("*").order("created", { ascending: false }),
+        supabase.from("fallas").select("*").order("created", { ascending: false }),
+        supabase.from("refacciones").select("*").order("created", { ascending: false }),
+      ]);
+      if (p.data) setPedidos(p.data);
+      if (f.data) setFallas(f.data);
+      if (r.data) setRefs(r.data);
+      setCargando(false);
+    };
+    cargar();
+  }, []);
+
+  if (cargando) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", flexDirection: "column", gap: 16, background: "#0d0f14", color: "#e8b84b" }}>
+      <div style={{ fontSize: 40 }}>⚙️</div>
+      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, letterSpacing: ".1em" }}>CARGANDO EEMSA SYSTEM…</div>
+    </div>
+  );
+
+  return (
+    <div className="app">
+      <header className="header">
+        <div className="logo">EE</div>
+        <div>
+          <div className="header-title">EEMSA System</div>
+          <div className="header-sub">Control SIAT L36 · Asesoría · Calidad · Innovación</div>
+        </div>
+        <div style={{ marginLeft: "auto", fontSize: 11, color: "#4be87a" }}>● En línea</div>
+      </header>
+      <div className="tab-bar">
+        {TABS.map(t => (
+          <button key={t.id} className={`tab-btn ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
+            <span>{t.ico}</span><span>{t.lbl}</span>
+          </button>
+        ))}
+      </div>
+      <main className="main">
+        {tab === "dash" && <Dashboard pedidos={pedidos} fallas={fallas} refacciones={refs} />}
+        {tab === "ped" && <Pedidos pedidos={pedidos} setPedidos={setPedidos} />}
+        {tab === "ref" && <Refacciones refs={refs} setRefs={setRefs} />}
+        {tab === "fal" && <Fallas fallas={fallas} setFallas={setFallas} />}
+      </main>
+    </div>
+  );
+}
