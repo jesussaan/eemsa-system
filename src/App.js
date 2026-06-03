@@ -349,7 +349,124 @@ function Fallas({ fallas, setFallas }) {
     </div>
   );
 }
+// ════════════════════════════════════════════════════════════════════════════
+// PROVEEDORES
+// ════════════════════════════════════════════════════════════════════════════
+function Proveedores({ proveedores, setProveedores }) {
+  const [imagen, setImagen] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState("");
+  const [form, setForm] = useState({ nombre: "", telefono: "", direccion: "", monto: "", fecha: today(), que_compro: "" });
 
+  const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2200); };
+  const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleImagen = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImagen(file);
+    setPreview(URL.createObjectURL(file));
+  };
+
+  const analizar = async () => {
+    if (!imagen) { showToast("⚠ Selecciona una imagen primero"); return; }
+    setLoading(true);
+    try {
+      const base64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result.split(",")[1]);
+        r.onerror = rej;
+        r.readAsDataURL(imagen);
+      });
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: base64, mediaType: imagen.type, extractTicket: true })
+      });
+      const data = await response.json();
+      const texto = data?.content?.map(b => b.text || "").join("") || "";
+      try {
+        const json = JSON.parse(texto.replace(/```json|```/g, "").trim());
+        setForm({ nombre: json.nombre || "", telefono: json.telefono || "", direccion: json.direccion || "", monto: json.monto || "", fecha: json.fecha || today(), que_compro: json.que_compro || "" });
+        showToast("✓ Datos extraídos por IA");
+      } catch { showToast("⚠ Llena manualmente"); }
+    } catch { showToast("❌ Error al analizar"); }
+    setLoading(false);
+  };
+
+  const save = async () => {
+    if (!form.nombre || !form.monto) { showToast("⚠ Nombre y monto obligatorios"); return; }
+    setLoading(true);
+    let imagen_url = "";
+    if (imagen) {
+      const { data } = await supabase.storage.from("refacciones").upload(`tickets/${uid()}_${imagen.name}`, imagen);
+      if (data) {
+        const { data: url } = supabase.storage.from("refacciones").getPublicUrl(data.path);
+        imagen_url = url.publicUrl;
+      }
+    }
+    const nuevo = { ...form, id: uid(), imagen_url, created: today() };
+    const { error } = await supabase.from("proveedores").insert([nuevo]);
+    if (error) { showToast("❌ Error al guardar"); setLoading(false); return; }
+    setProveedores(p => [nuevo, ...p]);
+    setForm({ nombre: "", telefono: "", direccion: "", monto: "", fecha: today(), que_compro: "" });
+    setImagen(null); setPreview(null);
+    showToast("✓ Proveedor guardado ☁");
+    setLoading(false);
+  };
+
+  const del = async id => {
+    if (!window.confirm("¿Eliminar?")) return;
+    await supabase.from("proveedores").delete().eq("id", id);
+    setProveedores(p => p.filter(x => x.id !== id));
+  };
+
+  const total = proveedores.reduce((s, p) => s + Number(p.monto || 0), 0);
+
+  return (
+    <div>
+      <h2 className="sec-title">🏪 Proveedores</h2>
+      <div className="stat-grid">
+        <div className="stat-card accent"><div className="stat-val">{proveedores.length}</div><div className="stat-lbl">Total</div></div>
+        <div className="stat-card red"><div className="stat-val">${fmt(total)}</div><div className="stat-lbl">Gasto total</div></div>
+      </div>
+      <h3 className="sub-title">Registrar ticket</h3>
+      <div className="field full" style={{ marginBottom: 12 }}>
+        <label>📷 Foto del ticket</label>
+        <input type="file" accept="image/*" onChange={handleImagen} />
+        {preview && <img src={preview} alt="ticket" style={{ width: "100%", maxWidth: 300, marginTop: 8, borderRadius: 8 }} />}
+        <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={analizar} disabled={loading || !imagen}>{loading ? "Analizando…" : "🤖 Analizar con IA"}</button>
+      </div>
+      <div className="form-grid">
+        <div className="field"><label>Proveedor *</label><input value={form.nombre} onChange={e => upd("nombre", e.target.value)} placeholder="Nombre del proveedor" /></div>
+        <div className="field"><label>Teléfono</label><input value={form.telefono} onChange={e => upd("telefono", e.target.value)} placeholder="667 123 4567" /></div>
+        <div className="field"><label>Monto ($MXN) *</label><input type="number" value={form.monto} onChange={e => upd("monto", e.target.value)} placeholder="850.00" /></div>
+        <div className="field"><label>Fecha</label><input type="date" value={form.fecha} onChange={e => upd("fecha", e.target.value)} /></div>
+        <div className="field full"><label>Dirección</label><input value={form.direccion} onChange={e => upd("direccion", e.target.value)} placeholder="Calle, colonia, ciudad" /></div>
+        <div className="field full"><label>Qué se compró</label><input value={form.que_compro} onChange={e => upd("que_compro", e.target.value)} placeholder="Rodillo anilox, correa…" /></div>
+      </div>
+      <button className="btn btn-primary btn-block" onClick={save} disabled={loading}>{loading ? "Guardando…" : "+ Registrar proveedor"}</button>
+      <h3 className="sub-title" style={{ marginTop: 20 }}>Historial</h3>
+      {proveedores.length === 0 ? <p className="empty">Sin proveedores.</p> : (
+        <div className="list">
+          {proveedores.map(p => (
+            <div key={p.id} className="list-item">
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <div><strong>{p.nombre}</strong><span className="badge b-accent">${fmt(p.monto)}</span></div>
+                <button className="btn btn-danger btn-sm" onClick={() => del(p.id)}>✕</button>
+              </div>
+              <div className="muted">{p.fecha} · {p.telefono}</div>
+              {p.direccion && <div className="muted">📍 {p.direccion}</div>}
+              {p.que_compro && <div className="muted">🔧 {p.que_compro}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
 // ════════════════════════════════════════════════════════════════════════════
 // APP ROOT
 // ════════════════════════════════════════════════════════════════════════════
@@ -358,6 +475,7 @@ const TABS = [
   { id: "ped", ico: "📋", lbl: "Pedidos" },
   { id: "ref", ico: "🔧", lbl: "Refacciones" },
   { id: "fal", ico: "⚠️", lbl: "Fallas" },
+  { id: "prov", ico: "🏪", lbl: "Proveedores" },
   { id: "ia", ico: "🤖", lbl: "Asistente" },
 ];
 
@@ -366,18 +484,21 @@ export default function App() {
   const [pedidos, setPedidos] = useState([]);
   const [fallas, setFallas] = useState([]);
   const [refs, setRefs] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
     const cargar = async () => {
-      const [p, f, r] = await Promise.all([
-        supabase.from("pedidos").select("*").order("created", { ascending: false }),
-        supabase.from("fallas").select("*").order("created", { ascending: false }),
-        supabase.from("refacciones").select("*").order("created", { ascending: false }),
-      ]);
-      if (p.data) setPedidos(p.data);
-      if (f.data) setFallas(f.data);
-      if (r.data) setRefs(r.data);
+      const [p, f, r, prov] = await Promise.all([
+  supabase.from("pedidos").select("*").order("created", { ascending: false }),
+  supabase.from("fallas").select("*").order("created", { ascending: false }),
+  supabase.from("refacciones").select("*").order("created", { ascending: false }),
+  supabase.from("proveedores").select("*").order("created", { ascending: false }),
+]);
+if (p.data) setPedidos(p.data);
+if (f.data) setFallas(f.data);
+if (r.data) setRefs(r.data);
+if (prov.data) setProveedores(prov.data);
       setCargando(false);
     };
     cargar();
@@ -413,6 +534,7 @@ export default function App() {
         {tab === "ref" && <Refacciones refs={refs} setRefs={setRefs} />}
         {tab === "fal" && <Fallas fallas={fallas} setFallas={setFallas} />}
         {tab === "ia" && <AsistenteIA />}
+        {tab === "prov" && <Proveedores proveedores={proveedores} setProveedores={setProveedores} />}
       </main>
     </div>
   );
