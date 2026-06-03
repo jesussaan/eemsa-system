@@ -61,7 +61,7 @@ function AsistenteIA() {
       <div className="chat-box">
         {msgs.map((m, i) => (
           <div key={i} className={`msg ${m.role === "user" ? "msg-u" : "msg-a"}`}
-            dangerouslySetInnerHTML={{ __html: m.content.replace(/\n/g, "<br>").replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") }} />
+            dangerouslySetInnerHTML={{ __html: (m.content || "").replace(/\n/g, "<br>").replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") }} />
         ))}
         {loading && <div className="msg msg-a typing">Escribiendo…</div>}
         <div ref={bottomRef} />
