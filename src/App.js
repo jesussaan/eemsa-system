@@ -87,6 +87,9 @@ function Dashboard({ pedidos, fallas, refacciones, proveedores }) {
   const fallasAbiertas = fallas.filter(f => f.status === "abierta").length;
   const gastoRef = refacciones.reduce((s, r) => s + Number(r.costo || 0), 0);
   const mermaTotal = pedidos.reduce((s, p) => s + Number(p.merma || 0), 0);
+const piezasTotal = pedidos.reduce((s, p) => s + Number(p.piezas || 0), 0);
+const mermaPct = piezasTotal > 0 ? ((mermaTotal / piezasTotal) * 100).toFixed(1) : 0;
+const cajasElaboradas = pedidos.filter(p => p.status === "terminado").reduce((s, p) => s + Number(p.piezas || 0), 0);
 const generarPDF = () => {
     const doc = new jsPDF();
     const mes = new Date().toLocaleString("es-MX", { month: "long", year: "numeric" });
@@ -128,7 +131,8 @@ const generarPDF = () => {
         <div className="stat-card green"><div className="stat-val">{terminados}</div><div className="stat-lbl">Terminados</div></div>
         <div className="stat-card red"><div className="stat-val">{fallasAbiertas}</div><div className="stat-lbl">Fallas abiertas</div></div>
         <div className="stat-card blue"><div className="stat-val">${fmt(gastoRef)}</div><div className="stat-lbl">Gasto refacciones</div></div>
-        <div className="stat-card orange"><div className="stat-val">{mermaTotal}</div><div className="stat-lbl">Merma total (pzas)</div></div>
+        <div className="stat-card orange"><div className="stat-val">{mermaPct}%</div><div className="stat-lbl">Merma total (pzas)</div></div>
+        <div className="stat-card green"><div className="stat-val">{cajasElaboradas.toLocaleString()}</div><div className="stat-lbl">Cajas elaboradas</div></div>
       </div>
       <h3 className="sub-title">Pedidos recientes</h3>
       {pedidos.length === 0 ? <p className="empty">Sin pedidos aún.</p> : (
