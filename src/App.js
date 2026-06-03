@@ -1,10 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import "./App.css";
 import { createClient } from '@supabase/supabase-js';
-  import "./App.css";
- const supabase = createClient(
-'https://mqroamvsunlfvxggifzc.supabase.co',
-'sb_publishable_KqYvpg98uxNcsCtSb6QX9A_4JEMTdgC'
+
+const supabase = createClient(
+  'https://mqroamvsunlfvxggifzc.supabase.co',
+  'sb_publishable_KqYvpg98uxNcsCtSb6QX9A_4JEMTdgC'
 );
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 const today = () => new Date().toISOString().slice(0, 10);
 const fmt = (n) => Number(n).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -15,6 +18,62 @@ const TIPOS = ["Blanca", "Canela", "Transparente", "Engomado"];
 const COMPS = ["Rodillo anilox", "Sistema de tintas", "Cliché/portacliché", "Motor principal", "Sistema de corte", "Banda transportadora", "Sistema eléctrico", "Otro"];
 const STATUS = { pendiente: "Pendiente", proceso: "En proceso", terminado: "Terminado" };
 const SEV = { leve: "Leve", moderada: "Moderada", critica: "Crítica" };
+
+// ════════════════════════════════════════════════════════════════════════════
+// ASISTENTE IA
+// ════════════════════════════════════════════════════════════════════════════
+function AsistenteIA() {
+  const [msgs, setMsgs] = useState([
+    { role: "assistant", content: "Hola Jesús 👋 Soy el asistente de producción de EEMSA. Pregúntame sobre la SIAT L36, merma, tintas, clichés, SGC o cualquier duda técnica." }
+  ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef(null);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, loading]);
+
+  const send = async () => {
+    if (!input.trim() || loading) return;
+    const userMsg = { role: "user", content: input.trim() };
+    const next = [...msgs, userMsg];
+    setMsgs(next);
+    setInput("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: next.map(m => ({ role: m.role, content: m.content })) })
+      });
+      const data = await res.json();
+      const reply = data.content?.map(b => b.text || "").join("") || "Sin respuesta.";
+      setMsgs([...next, { role: "assistant", content: reply }]);
+    } catch {
+      setMsgs([...next, { role: "assistant", content: "❌ Error de conexión." }]);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div>
+      <h2 className="sec-title">🤖 Asistente IA</h2>
+      <p className="muted" style={{ marginBottom: 12 }}>Pregunta sobre SIAT L36, anilox, clichés, merma, tintas o procedimientos SGC.</p>
+      <div className="chat-box">
+        {msgs.map((m, i) => (
+          <div key={i} className={`msg ${m.role === "user" ? "msg-u" : "msg-a"}`}
+            dangerouslySetInnerHTML={{ __html: m.content.replace(/\n/g, "<br>").replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") }} />
+        ))}
+        {loading && <div className="msg msg-a typing">Escribiendo…</div>}
+        <div ref={bottomRef} />
+      </div>
+      <div className="chat-row">
+        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Escribe tu pregunta…" disabled={loading} />
+        <button className="btn btn-primary" onClick={send} disabled={loading || !input.trim()}>Enviar</button>
+      </div>
+      <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={() => setMsgs([{ role: "assistant", content: "Chat reiniciado. ¿En qué te ayudo?" }])}>Limpiar</button>
+    </div>
+  );
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // DASHBOARD
@@ -299,6 +358,7 @@ const TABS = [
   { id: "ped", ico: "📋", lbl: "Pedidos" },
   { id: "ref", ico: "🔧", lbl: "Refacciones" },
   { id: "fal", ico: "⚠️", lbl: "Fallas" },
+  { id: "ia", ico: "🤖", lbl: "Asistente" },
 ];
 
 export default function App() {
@@ -352,6 +412,7 @@ export default function App() {
         {tab === "ped" && <Pedidos pedidos={pedidos} setPedidos={setPedidos} />}
         {tab === "ref" && <Refacciones refs={refs} setRefs={setRefs} />}
         {tab === "fal" && <Fallas fallas={fallas} setFallas={setFallas} />}
+        {tab === "ia" && <AsistenteIA />}
       </main>
     </div>
   );
