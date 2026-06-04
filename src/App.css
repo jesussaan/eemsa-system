@@ -16,8 +16,9 @@ html, body { background: var(--bg); color: var(--text); font-family: var(--font-
 .header-title { font-family: var(--font-h); font-size: 22px; font-weight: 700; letter-spacing: .04em; }
 .header-sub { font-size: 11px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
 .tab-bar { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
-.tab-bar::-webkit-scrollbar { display: none; }
-.tab-btn { flex: 1; min-width: 70px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 8px; border: none; background: none; color: var(--muted); font-family: var(--font-h); font-size: 11px; font-weight: 600; letter-spacing: .04em; cursor: pointer; transition: all .2s; border-bottom: 2px solid transparent; }
+/* stylelint-disable-next-line */
+
+
 .tab-btn span:first-child { font-size: 18px; }
 .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 .main { padding: 18px 16px 80px; flex: 1; }
