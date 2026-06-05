@@ -108,11 +108,20 @@ function AsistenteIA({ onRefrescar }) {
 }
 
 function ClicheImg({ src, style }) {
-  if (!src) return null;
-  if (src.startsWith('http')) return <img src={src} alt="cliché" style={style} />;
-  const { data } = supabase.storage.from("cliches").getPublicUrl(src);
-  if (!data?.publicUrl) return null;
-  return <img src={data.publicUrl} alt="cliché" style={style} />;
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    if (!src) return;
+    if (src.startsWith('http')) { setUrl(src); return; }
+    const { data } = supabase.storage.from("cliches").getPublicUrl(src);
+    if (data?.publicUrl) setUrl(data.publicUrl);
+  }, [src]);
+  const onError = () => {
+    if (!src || src.startsWith('http')) return;
+    supabase.storage.from("cliches").createSignedUrl(src, 24 * 3600)
+      .then(({ data }) => { if (data?.signedUrl) setUrl(data.signedUrl); });
+  };
+  if (!url) return null;
+  return <img src={url} alt="cliché" style={style} onError={onError} />;
 }
 
 function BarChart({ data, meta, lowerIsBetter = false }) {
