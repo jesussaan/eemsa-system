@@ -421,6 +421,7 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
                 </div>
                 <div className="muted">{p.tipo} · {p.medida} · {p.cajas} cajas · {p.maq}</div>
                 <div className="muted">Sol: {p.fecha_solicitud}{p.fecha_inicio && ` · Inicio: ${p.fecha_inicio}`}{p.fecha_termino && ` · Fin: ${p.fecha_termino}`}</div>
+                {p.status === "terminado" && p.fecha_inicio && p.fecha_termino && (<div className="muted">⏱ Producción: <span style={{ color: "#4be87a", fontWeight: 700 }}>{Math.round((new Date(p.fecha_termino + "T12:00:00") - new Date(p.fecha_inicio + "T12:00:00")) / 86400000)} días</span> ({p.fecha_inicio} → {p.fecha_termino})</div>)}
                 {p.status === "terminado" && p.merma_pct !== "" && p.merma_pct !== undefined && (<div className="muted">Merma: <span style={{ color: mermaOk ? "#4be87a" : "#ff4d4d", fontWeight: 700 }}>{p.merma_pct}% {mermaOk ? "🟢 OK" : "🔴 EXCEDIDA"}</span></div>)}
                 {p.cliche_url && <ClicheImg src={p.cliche_url} style={{ width: 80, height: 56, objectFit: "cover", borderRadius: 6, marginTop: 4, border: "1px solid #2a2d3a" }} />}
                 {p.notas && <div className="muted">📝 {p.notas}</div>}
