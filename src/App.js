@@ -291,9 +291,94 @@ function Pedidos({ pedidos, setPedidos }) {
   const [modalClicheImg, setModalClicheImg] = useState(null);
   const [modalClichePreview, setModalClichePreview] = useState(null);
   const [busqueda, setBusqueda] = useState("");
+  const formRef = useRef(null);
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const rollosTotales = form.cajas && form.rollos_caja ? Number(form.cajas) * Number(form.rollos_caja) : "";
+
+  const clonarPedido = (p) => {
+    setForm({
+      ...formInicial,
+      cliente: p.cliente || "",
+      num: "",
+      tipo: p.tipo || "Blanca",
+      medida: p.medida || "",
+      cajas: p.cajas || "",
+      rollos_caja: p.rollos_caja || "",
+      ancho: p.ancho || "",
+      largo: p.largo || "",
+      color: p.color || "",
+      maq: p.maq || "SIAT L36 #1",
+      op: p.op || "William",
+      fecha_solicitud: today(),
+      status: "anotado",
+    });
+    setClicheImg(null); setClichePreview(null);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    showToast("🔁 Pedido clonado — ajusta los datos y anota");
+  };
+
+  const generarNotaEntrega = (p) => {
+    const doc = new jsPDF();
+    doc.setFillColor(26, 39, 68); doc.rect(0, 0, 210, 30, "F");
+    doc.setTextColor(201, 146, 42); doc.setFontSize(18); doc.text("EEMSA System", 14, 13);
+    doc.setFontSize(10); doc.text("Nota de Entrega", 14, 22);
+    doc.setTextColor(255, 255, 255); doc.setFontSize(11);
+    doc.text(`No. Pedido: ${p.num}`, 140, 13);
+    doc.text(`Fecha: ${today()}`, 140, 22);
+    doc.setTextColor(0, 0, 0);
+    autoTable(doc, {
+      startY: 36,
+      body: [
+        ["Cliente", p.cliente || "—"],
+        ["No. Pedido", String(p.num || "—")],
+        ["Fecha solicitud", p.fecha_solicitud || "—"],
+        ["Máquina", p.maq || "—"],
+        ["Operador", p.op || "—"],
+      ],
+      theme: "plain", styles: { fontSize: 10 },
+      columnStyles: { 0: { fontStyle: "bold", cellWidth: 55, textColor: [100, 100, 100] } },
+    });
+    doc.setFontSize(11); doc.setTextColor(26, 39, 68);
+    doc.text("Producto", 14, doc.lastAutoTable.finalY + 10);
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 13,
+      head: [["Tipo", "Medida", "Cajas", "Rollos/caja", "Color impresión"]],
+      body: [[p.tipo || "—", p.medida || "—", String(p.cajas || "—"), String(p.rollos_caja || "—"), p.color || "—"]],
+      styles: { fontSize: 10 }, headStyles: { fillColor: [26, 39, 68], textColor: [201, 146, 42] },
+    });
+    const consumoRows = [];
+    if (p.fecha_inicio) consumoRows.push(["Fecha inicio producción", p.fecha_inicio]);
+    if (p.fecha_termino) consumoRows.push(["Fecha término producción", p.fecha_termino]);
+    if (p.fecha_inicio && p.fecha_termino) consumoRows.push(["Días de producción", `${Math.round((new Date(p.fecha_termino + "T12:00:00") - new Date(p.fecha_inicio + "T12:00:00")) / 86400000) + 1} días`]);
+    if (p.rollos_usados) consumoRows.push(["Rollos usados", String(p.rollos_usados)]);
+    if (p.tinta_tipo) consumoRows.push(["Tipo de tinta", p.tinta_tipo]);
+    if (p.tinta_kg) consumoRows.push(["Tinta usada", `${p.tinta_kg} kg`]);
+    if (p.alcohol_litros) consumoRows.push(["Alcohol utilizado", `${p.alcohol_litros} L`]);
+    if (p.merma_pct) consumoRows.push(["% Merma", `${p.merma_pct}%`]);
+    if (consumoRows.length > 0) {
+      doc.text("Producción y consumos", 14, doc.lastAutoTable.finalY + 10);
+      autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 13,
+        body: consumoRows,
+        theme: "plain", styles: { fontSize: 10 },
+        columnStyles: { 0: { fontStyle: "bold", cellWidth: 70, textColor: [100, 100, 100] } },
+      });
+    }
+    if (p.notas) {
+      doc.setFontSize(9); doc.setTextColor(120, 120, 120);
+      doc.text(`Notas: ${p.notas}`, 14, doc.lastAutoTable.finalY + 10);
+    }
+    const sigY = Math.min(doc.lastAutoTable ? doc.lastAutoTable.finalY + 28 : 240, 255);
+    doc.setDrawColor(180, 180, 180);
+    doc.line(14, sigY, 92, sigY); doc.line(118, sigY, 196, sigY);
+    doc.setFontSize(9); doc.setTextColor(100, 100, 100);
+    doc.text("Entregado por", 14, sigY + 6);
+    doc.text("Recibido por (firma y sello)", 118, sigY + 6);
+    doc.setFontSize(7); doc.setTextColor(160, 160, 160);
+    doc.text("EEMSA System · Control de producción SIAT L36", 14, 290);
+    doc.save(`NotaEntrega_Ped${p.num}_${(p.cliente || "").replace(/\s/g, "_")}.pdf`);
+  };
 
   const save = async () => {
     if (!form.cliente || !form.num || !form.cajas || !form.fecha_solicitud) { showToast("⚠ Llena cliente, número, cajas y fecha solicitada"); return; }
@@ -382,7 +467,7 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
         <div className="stat-card green"><div className="stat-val">{pedidos.filter(p => p.status === "terminado").length}</div><div className="stat-lbl">Terminados</div></div>
         <div className="stat-card red"><div className="stat-val">{pedidos.filter(p => p.status !== "terminado" && diasHabilesRestantes(p.fecha_solicitud) < 0).length}</div><div className="stat-lbl">Vencidos</div></div>
       </div>
-      <h3 className="sub-title">➕ Anotar pedido</h3>
+      <h3 className="sub-title" ref={formRef}>➕ Anotar pedido</h3>
       <div className="form-grid">
         <div className="field"><label>Cliente *</label><input value={form.cliente} onChange={e => upd("cliente", e.target.value)} placeholder="MAFENSA, ARIAT…" /></div>
         <div className="field"><label>No. Pedido *</label><input value={form.num} onChange={e => upd("num", e.target.value)} placeholder="84, 85…" /></div>
@@ -418,6 +503,8 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
                   <div><strong>{p.num}</strong> — {p.cliente}<span className={`badge ${colorStatus(p.status)}`}>{STATUS_PED[p.status] || p.status}</span>{badge && <span className={`badge ${badge.cls}`}>{badge.txt}</span>}</div>
                   <div style={{ display: "flex", gap: 6 }}>
+                    <button className="btn btn-ghost btn-sm" title="Nota de entrega PDF" onClick={() => generarNotaEntrega(p)}>📄</button>
+                    <button className="btn btn-ghost btn-sm" title="Clonar pedido" onClick={() => clonarPedido(p)}>🔁</button>
                     <button className="btn btn-ghost btn-sm" onClick={() => abrirModal(p)}>✏️</button>
                     <button className="btn btn-danger btn-sm" onClick={() => del(p.id)}>✕</button>
                   </div>
