@@ -115,7 +115,7 @@ function ClicheImg({ src, style }) {
   return <img src={data.publicUrl} alt="cliché" style={style} />;
 }
 
-function BarChart({ data, meta }) {
+function BarChart({ data, meta, lowerIsBetter = false }) {
   const max = Math.max(...data.map(d => d.val), meta || 0, 1);
   const BAR_H = 70;
   return (
@@ -124,9 +124,9 @@ function BarChart({ data, meta }) {
         {meta > 0 && <div style={{ position: 'absolute', left: 0, right: 0, bottom: Math.round((meta / max) * BAR_H), borderTop: '1px dashed #ff4d4d', pointerEvents: 'none', zIndex: 1 }} />}
         {data.map((d, i) => {
           const h = d.val > 0 ? Math.max(2, Math.round((d.val / max) * BAR_H)) : 2;
-          const ok = !meta || d.val >= meta;
+          const ok = !meta || (lowerIsBetter ? d.val <= meta : d.val >= meta);
           return (
-            <div key={i} title={`${d.lbl}: ${d.val} cajas`} style={{ flex: 1, height: h, background: d.val ? (ok ? '#4be87a' : '#c9922a') : '#1e2132', borderRadius: '2px 2px 0 0' }} />
+            <div key={i} title={`${d.lbl}: ${d.val}`} style={{ flex: 1, height: h, background: d.val ? (ok ? '#4be87a' : '#ff4d4d') : '#1e2132', borderRadius: '2px 2px 0 0' }} />
           );
         })}
       </div>
@@ -161,8 +161,7 @@ const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) *
   const pctMeta = diasDelMes.length > 0 ? Math.round((diasConMeta / diasDelMes.length) * 100) : 0;
   const pedidosUrgentes = pedidos.filter(p => p.status !== "terminado" && p.fecha_solicitud).map(p => ({ ...p, diasRest: diasHabilesRestantes(p.fecha_solicitud) })).sort((a, b) => a.diasRest - b.diasRest).slice(0, 5);
   const ultimas14 = [...Array(14)].map((_, i) => { const d = new Date(today() + "T12:00:00"); d.setDate(d.getDate() - 13 + i); const fecha = d.toISOString().slice(0, 10); const val = prodDiaria.filter(r => r.fecha === fecha).reduce((s, r) => s + Number(r.cajas_dia || 0), 0); return { lbl: fecha.slice(8), val }; });
-  const cajasOps = OPERADORES.map(op => prodDiaria.filter(r => r.fecha?.startsWith(mesActual) && r.op === op).reduce((s, r) => s + Number(r.cajas_dia || 0), 0));
-  const cajasMax = Math.max(...cajasOps, 1);
+  const pedidosMerma = pedidos.filter(p => p.status === "terminado" && p.merma_pct !== null && p.merma_pct !== "").slice(-10).map(p => ({ lbl: String(p.num), val: Number(p.merma_pct) }));
 
   const generarPDF = () => {
     const doc = new jsPDF();
@@ -234,6 +233,21 @@ const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) *
         </div>
         <BarChart data={ultimas14} meta={META_CAJAS} />
       </div>
+      {pedidosMerma.length > 0 && (
+        <>
+          <h3 className="sub-title">🗑 Merma % por pedido</h3>
+          <div style={{ background: "#1a1d26", borderRadius: 10, padding: "12px 16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontSize: 11, color: "#aaa" }}>% merma · meta máx {META_MERMA_PCT}%</span>
+              <div style={{ display: "flex", gap: 8, fontSize: 10, color: "#666" }}>
+                <span><span style={{ color: "#4be87a" }}>■</span> OK</span>
+                <span><span style={{ color: "#ff4d4d" }}>■</span> Excedida</span>
+              </div>
+            </div>
+            <BarChart data={pedidosMerma} meta={META_MERMA_PCT} lowerIsBetter />
+          </div>
+        </>
+      )}
     </div>
   );
 }
