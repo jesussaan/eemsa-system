@@ -234,20 +234,6 @@ const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) *
         </div>
         <BarChart data={ultimas14} meta={META_CAJAS} />
       </div>
-      <h3 className="sub-title">👥 Operadores — {mesActual}</h3>
-      <div style={{ background: "#1a1d26", borderRadius: 10, padding: "12px 16px" }}>
-        {OPERADORES.map((op, i) => (
-          <div key={op} style={{ marginBottom: i < OPERADORES.length - 1 ? 10 : 0 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-              <span style={{ color: "#e0e0e0", fontWeight: 600 }}>{op}</span>
-              <span style={{ color: "#c9922a", fontWeight: 700 }}>{cajasOps[i]} cajas</span>
-            </div>
-            <div style={{ background: "#2a2d3a", borderRadius: 4, height: 8, overflow: "hidden" }}>
-              <div style={{ width: `${Math.round((cajasOps[i] / cajasMax) * 100)}%`, height: "100%", background: i === 0 ? "#4be87a" : "#c9922a", borderRadius: 4, transition: "width .4s" }} />
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
