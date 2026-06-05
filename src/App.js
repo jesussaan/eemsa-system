@@ -108,26 +108,11 @@ function AsistenteIA({ onRefrescar }) {
 }
 
 function ClicheImg({ src, style }) {
-  const [url, setUrl] = useState(null);
-  useEffect(() => {
-    if (!src) return;
-    if (!src.startsWith('http')) {
-      supabase.storage.from("cliches").createSignedUrl(src, 7 * 24 * 3600)
-        .then(({ data }) => data && setUrl(data.signedUrl));
-      return;
-    }
-    const marker = '/object/public/cliches/';
-    const idx = src.indexOf(marker);
-    if (idx !== -1) {
-      const path = decodeURIComponent(src.slice(idx + marker.length));
-      supabase.storage.from("cliches").createSignedUrl(path, 7 * 24 * 3600)
-        .then(({ data }) => { if (data) setUrl(data.signedUrl); else setUrl(src); });
-    } else {
-      setUrl(src);
-    }
-  }, [src]);
-  if (!url) return null;
-  return <img src={url} alt="cliché" style={style} />;
+  if (!src) return null;
+  if (src.startsWith('http')) return <img src={src} alt="cliché" style={style} />;
+  const { data } = supabase.storage.from("cliches").getPublicUrl(src);
+  if (!data?.publicUrl) return null;
+  return <img src={data.publicUrl} alt="cliché" style={style} />;
 }
 
 function BarChart({ data, meta }) {
@@ -377,7 +362,7 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
         <div className="field"><label>Ancho (pulg)</label><input value={form.ancho} onChange={e => upd("ancho", e.target.value)} placeholder='2"' /></div>
         <div className="field"><label>Largo (m)</label><input type="number" value={form.largo} onChange={e => upd("largo", e.target.value)} placeholder="100" /></div>
         <div className="field"><label>Color impresión</label><input value={form.color} onChange={e => upd("color", e.target.value)} placeholder="Rojo PMS 485" /></div>
-        <div className="field"><label>Color de cinta</label><input value={form.color_cinta} onChange={e => upd("color_cinta", e.target.value)} placeholder="Blanca, Canela, Transparente…" list="colores-cinta" /><datalist id="colores-cinta"><option value="Blanca" /><option value="Canela" /><option value="Transparente" /><option value="Amarilla" /><option value="Kraft" /></datalist></div>
+        <div className="field"><label>Color de tinta</label><input value={form.color_cinta} onChange={e => upd("color_cinta", e.target.value)} placeholder="Rojo, Azul PMS 285, Negro…" /></div>
         <div className="field full"><label>📷 Foto del cliché</label><input type="file" accept="image/*" onChange={e => { const f = e.target.files[0]; if (!f) return; setClicheImg(f); setClichePreview(URL.createObjectURL(f)); }} />{clichePreview && <img src={clichePreview} alt="cliché" style={{ width: "100%", maxWidth: 260, marginTop: 8, borderRadius: 8, border: "1px solid #2a2d3a" }} />}</div>
         <div className="field"><label>Máquina</label><select value={form.maq} onChange={e => upd("maq", e.target.value)}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>
         <div className="field"><label>Operador</label><select value={form.op} onChange={e => upd("op", e.target.value)}>{OPERADORES.map(o => <option key={o}>{o}</option>)}</select></div>
@@ -409,7 +394,7 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
                 <div className="muted">{p.tipo} · {p.medida} · {p.cajas} cajas · {p.maq}</div>
                 <div className="muted">Sol: {p.fecha_solicitud}{p.fecha_inicio && ` · Inicio: ${p.fecha_inicio}`}{p.fecha_termino && ` · Fin: ${p.fecha_termino}`}</div>
                 {p.status === "terminado" && p.merma_pct !== "" && p.merma_pct !== undefined && (<div className="muted">Merma: <span style={{ color: mermaOk ? "#4be87a" : "#ff4d4d", fontWeight: 700 }}>{p.merma_pct}% {mermaOk ? "🟢 OK" : "🔴 EXCEDIDA"}</span></div>)}
-                {p.color_cinta && <div className="muted">🎨 Cinta: {p.color_cinta}</div>}
+                {p.color_cinta && <div className="muted">🎨 Tinta: {p.color_cinta}</div>}
                 {p.cliche_url && <ClicheImg src={p.cliche_url} style={{ width: 80, height: 56, objectFit: "cover", borderRadius: 6, marginTop: 4, border: "1px solid #2a2d3a" }} />}
                 {p.notas && <div className="muted">📝 {p.notas}</div>}
                 {(p.rollos_usados || p.tinta_kg || p.alcohol_litros) && (
@@ -445,7 +430,7 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
               <div className="field"><label>Merma (piezas)</label><input type="number" value={modalPedido.merma || ""} onChange={e => setModalPedido(m => ({ ...m, merma: e.target.value }))} placeholder="24" /></div>
               {modalPedido.piezas_prod && modalPedido.merma && (<div className="field"><label>% Merma (auto)</label><input value={((Number(modalPedido.merma) / Number(modalPedido.piezas_prod)) * 100).toFixed(2) + "%"} readOnly style={{ background: "#1a2744", color: Number(modalPedido.merma) / Number(modalPedido.piezas_prod) * 100 > META_MERMA_PCT ? "#ff4d4d" : "#4be87a" }} /></div>)}
               <div className="field full"><label>Notas</label><textarea value={modalPedido.notas || ""} onChange={e => setModalPedido(m => ({ ...m, notas: e.target.value }))} /></div>
-              <div className="field"><label>Color de cinta</label><input value={modalPedido.color_cinta || ""} onChange={e => setModalPedido(m => ({ ...m, color_cinta: e.target.value }))} placeholder="Blanca, Canela…" list="colores-cinta" /></div>
+              <div className="field"><label>Color de tinta</label><input value={modalPedido.color_cinta || ""} onChange={e => setModalPedido(m => ({ ...m, color_cinta: e.target.value }))} placeholder="Rojo, Azul PMS 285, Negro…" /></div>
               <div className="field full"><label>📷 Foto del cliché</label>
                 {modalPedido.cliche_url && !modalClichePreview && <ClicheImg src={modalPedido.cliche_url} style={{ width: "100%", maxWidth: 260, marginBottom: 8, borderRadius: 8, border: "1px solid #2a2d3a" }} />}
                 {modalClichePreview && <img src={modalClichePreview} alt="cliché nuevo" style={{ width: "100%", maxWidth: 260, marginBottom: 8, borderRadius: 8, border: "1px solid #c9922a" }} />}
