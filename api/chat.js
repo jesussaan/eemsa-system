@@ -377,9 +377,10 @@ ${contexto}`;
       });
       data = await response.json();
 
+      if (data.error) break;
       if (data.stop_reason !== 'tool_use') break;
 
-      const toolUseBlocks = data.content.filter(b => b.type === 'tool_use');
+      const toolUseBlocks = (data.content || []).filter(b => b.type === 'tool_use');
       const toolResults = [];
 
       for (const toolUse of toolUseBlocks) {
@@ -391,7 +392,7 @@ ${contexto}`;
       msgs = [...msgs, { role: 'assistant', content: data.content }, { role: 'user', content: toolResults }];
     }
 
-    const reply = data?.content?.filter(b => b.type === 'text').map(b => b.text).join('') || data?.error || 'Sin respuesta.';
+    const reply = ((data?.content || []).filter(b => b.type === 'text').map(b => b.text).join('')) || (data?.error?.message || data?.error) || 'Sin respuesta.';
     return res.status(200).json({ reply, tablas_actualizadas: [...tablasActualizadas] });
 
   } catch (error) {
