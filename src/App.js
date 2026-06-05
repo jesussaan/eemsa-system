@@ -4,7 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import "./App.css";
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient('https://mqroamvsunlfvxggifzc.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xcm9hbXZzdW5sZnZ4Z2dpZnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MzI3MTUsImV4cCI6MjA5NjAwODcxNX0.LObI9k9IyPGHADX_MQY7CZVaOzi7_iEuCkOgu-hHuUo');
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_KEY
+);
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 const today = () => new Date().toISOString().slice(0, 10);
@@ -16,7 +19,7 @@ const diasHabiles = (desde, hasta) => {
   const d = new Date(desde + "T12:00:00");
   const h = new Date(hasta + "T12:00:00");
   const cur = new Date(d);
-  while (cur <= h) { if (cur.getDay() !== 0) count++; cur.setDate(cur.getDate() + 1); }
+  while (cur <= h) { const d = cur.getDay(); if (d !== 0 && d !== 6) count++; cur.setDate(cur.getDate() + 1); }
   return count;
 };
 
@@ -25,7 +28,7 @@ const diasHabilesRestantes = (fechaSolicitud) => {
   const inicio = new Date(fechaSolicitud + "T12:00:00");
   const limite = new Date(inicio);
   let agregados = 0;
-  while (agregados < 15) { limite.setDate(limite.getDate() + 1); if (limite.getDay() !== 0) agregados++; }
+  while (agregados < 15) { limite.setDate(limite.getDate() + 1); const d = limite.getDay(); if (d !== 0 && d !== 6) agregados++; }
   const hoy = new Date(today() + "T12:00:00");
   let restantes = 0;
   const cur = new Date(hoy);
