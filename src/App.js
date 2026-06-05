@@ -171,6 +171,14 @@ const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) *
   const pedidosUrgentes = pedidos.filter(p => p.status !== "terminado" && p.fecha_solicitud).map(p => ({ ...p, diasRest: diasHabilesRestantes(p.fecha_solicitud) })).sort((a, b) => a.diasRest - b.diasRest).slice(0, 5);
   const ultimas14 = [...Array(14)].map((_, i) => { const d = new Date(today() + "T12:00:00"); d.setDate(d.getDate() - 13 + i); const fecha = d.toISOString().slice(0, 10); const val = prodDiaria.filter(r => r.fecha === fecha).reduce((s, r) => s + Number(r.cajas_dia || 0), 0); return { lbl: fecha.slice(8), val }; });
   const pedidosMerma = pedidos.filter(p => p.status === "terminado" && p.merma_pct !== null && p.merma_pct !== "").slice(-10).map(p => ({ lbl: String(p.cliente).slice(0, 6), val: Number(p.merma_pct) }));
+  const pedConTiempo = pedidos.filter(p => p.status === "terminado" && p.fecha_inicio && p.fecha_termino);
+  const tiempoPromedio = pedConTiempo.length > 0 ? Math.round(pedConTiempo.reduce((s, p) => s + (new Date(p.fecha_termino + "T12:00:00") - new Date(p.fecha_inicio + "T12:00:00")) / 86400000, 0) / pedConTiempo.length) : null;
+  const fallasPorComp = [
+    { comp: "Rodillo anilox", lbl: "Anilox" }, { comp: "Sistema de tintas", lbl: "Tintas" },
+    { comp: "Cliché/portacliché", lbl: "Cliché" }, { comp: "Motor principal", lbl: "Motor" },
+    { comp: "Sistema de corte", lbl: "Corte" }, { comp: "Banda transportadora", lbl: "Banda" },
+    { comp: "Sistema eléctrico", lbl: "Eléct." }, { comp: "Otro", lbl: "Otro" },
+  ].map(({ comp, lbl }) => ({ lbl, val: fallas.filter(f => f.comp === comp).reduce((s, f) => s + Number(f.min_paro || 0), 0) })).filter(d => d.val > 0).sort((a, b) => b.val - a.val);
 
   const generarPDF = () => {
     const doc = new jsPDF();
@@ -203,6 +211,7 @@ const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) *
 <div className="stat-card accent"><div className="stat-val">${fmt(valorInventario)}</div><div className="stat-lbl">Valor inventario</div></div>
         <div className={`stat-card ${metaHoyCumplida ? "green" : "red"}`}><div className="stat-val">{cajasHoy}/{META_CAJAS}</div><div className="stat-lbl">Cajas hoy {metaHoyCumplida ? "✅" : "❌"}</div></div>
         <div className={`stat-card ${pctMeta >= 80 ? "green" : pctMeta >= 50 ? "orange" : "red"}`}><div className="stat-val">{pctMeta}%</div><div className="stat-lbl">Días con meta ({diasConMeta}/{diasDelMes.length})</div></div>
+        {tiempoPromedio !== null && <div className="stat-card blue"><div className="stat-val">{tiempoPromedio}d</div><div className="stat-lbl">Días promedio por pedido ({pedConTiempo.length} ped.)</div></div>}
       </div>
       <div style={{ background: "#1a1d26", borderRadius: 10, padding: "12px 16px", marginTop: 12, marginBottom: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
@@ -245,7 +254,7 @@ const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) *
       {pedidosMerma.length > 0 && (
         <>
           <h3 className="sub-title">🗑 Merma % por pedido</h3>
-          <div style={{ background: "#1a1d26", borderRadius: 10, padding: "12px 16px" }}>
+          <div style={{ background: "#1a1d26", borderRadius: 10, padding: "12px 16px", marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
               <span style={{ fontSize: 11, color: "#aaa" }}>% merma · meta máx {META_MERMA_PCT}%</span>
               <div style={{ display: "flex", gap: 8, fontSize: 10, color: "#666" }}>
@@ -254,6 +263,15 @@ const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) *
               </div>
             </div>
             <BarChart data={pedidosMerma} meta={META_MERMA_PCT} lowerIsBetter />
+          </div>
+        </>
+      )}
+      {fallasPorComp.length > 0 && (
+        <>
+          <h3 className="sub-title">🔩 Minutos de paro por componente</h3>
+          <div style={{ background: "#1a1d26", borderRadius: 10, padding: "12px 16px" }}>
+            <span style={{ fontSize: 11, color: "#aaa" }}>Total minutos detenido por componente</span>
+            <BarChart data={fallasPorComp} />
           </div>
         </>
       )}
