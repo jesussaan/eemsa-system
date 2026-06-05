@@ -107,6 +107,53 @@ function AsistenteIA({ onRefrescar }) {
   );
 }
 
+function ClicheImg({ src, style }) {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    if (!src) return;
+    if (!src.startsWith('http')) {
+      supabase.storage.from("cliches").createSignedUrl(src, 7 * 24 * 3600)
+        .then(({ data }) => data && setUrl(data.signedUrl));
+      return;
+    }
+    const marker = '/object/public/cliches/';
+    const idx = src.indexOf(marker);
+    if (idx !== -1) {
+      const path = decodeURIComponent(src.slice(idx + marker.length));
+      supabase.storage.from("cliches").createSignedUrl(path, 7 * 24 * 3600)
+        .then(({ data }) => { if (data) setUrl(data.signedUrl); else setUrl(src); });
+    } else {
+      setUrl(src);
+    }
+  }, [src]);
+  if (!url) return null;
+  return <img src={url} alt="cliché" style={style} />;
+}
+
+function BarChart({ data, meta }) {
+  const max = Math.max(...data.map(d => d.val), meta || 0, 1);
+  const BAR_H = 70;
+  return (
+    <div style={{ paddingBottom: 14 }}>
+      <div style={{ position: 'relative', height: BAR_H, display: 'flex', alignItems: 'flex-end', gap: 2 }}>
+        {meta > 0 && <div style={{ position: 'absolute', left: 0, right: 0, bottom: Math.round((meta / max) * BAR_H), borderTop: '1px dashed #ff4d4d', pointerEvents: 'none', zIndex: 1 }} />}
+        {data.map((d, i) => {
+          const h = d.val > 0 ? Math.max(2, Math.round((d.val / max) * BAR_H)) : 2;
+          const ok = !meta || d.val >= meta;
+          return (
+            <div key={i} title={`${d.lbl}: ${d.val} cajas`} style={{ flex: 1, height: h, background: d.val ? (ok ? '#4be87a' : '#c9922a') : '#1e2132', borderRadius: '2px 2px 0 0' }} />
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: 2, marginTop: 2 }}>
+        {data.map((d, i) => (
+          <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 8, color: '#666' }}>{d.lbl}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Dashboard({ pedidos, fallas, refacciones, proveedores, prodDiaria }) {
   const activos = pedidos.filter(p => p.status !== "terminado").length;
   const fallasAbiertas = fallas.filter(f => f.status === "abierta").length;
@@ -128,6 +175,9 @@ const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) *
   const diasConMeta = diasDelMes.filter(fecha => prodDiaria.filter(r => r.fecha === fecha).reduce((s, r) => s + Number(r.cajas_dia || 0), 0) >= META_CAJAS).length;
   const pctMeta = diasDelMes.length > 0 ? Math.round((diasConMeta / diasDelMes.length) * 100) : 0;
   const pedidosUrgentes = pedidos.filter(p => p.status !== "terminado" && p.fecha_solicitud).map(p => ({ ...p, diasRest: diasHabilesRestantes(p.fecha_solicitud) })).sort((a, b) => a.diasRest - b.diasRest).slice(0, 5);
+  const ultimas14 = [...Array(14)].map((_, i) => { const d = new Date(today() + "T12:00:00"); d.setDate(d.getDate() - 13 + i); const fecha = d.toISOString().slice(0, 10); const val = prodDiaria.filter(r => r.fecha === fecha).reduce((s, r) => s + Number(r.cajas_dia || 0), 0); return { lbl: fecha.slice(8), val }; });
+  const cajasOps = OPERADORES.map(op => prodDiaria.filter(r => r.fecha?.startsWith(mesActual) && r.op === op).reduce((s, r) => s + Number(r.cajas_dia || 0), 0));
+  const cajasMax = Math.max(...cajasOps, 1);
 
   const generarPDF = () => {
     const doc = new jsPDF();
@@ -188,6 +238,31 @@ const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) *
           })}
         </div>
       )}
+      <h3 className="sub-title">📈 Producción últimas 2 semanas</h3>
+      <div style={{ background: "#1a1d26", borderRadius: 10, padding: "12px 16px", marginBottom: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+          <span style={{ fontSize: 11, color: "#aaa" }}>Cajas por día · meta {META_CAJAS}</span>
+          <div style={{ display: "flex", gap: 8, fontSize: 10, color: "#666" }}>
+            <span><span style={{ color: "#4be87a" }}>■</span> Cumplida</span>
+            <span><span style={{ color: "#c9922a" }}>■</span> Sin meta</span>
+          </div>
+        </div>
+        <BarChart data={ultimas14} meta={META_CAJAS} />
+      </div>
+      <h3 className="sub-title">👥 Operadores — {mesActual}</h3>
+      <div style={{ background: "#1a1d26", borderRadius: 10, padding: "12px 16px" }}>
+        {OPERADORES.map((op, i) => (
+          <div key={op} style={{ marginBottom: i < OPERADORES.length - 1 ? 10 : 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+              <span style={{ color: "#e0e0e0", fontWeight: 600 }}>{op}</span>
+              <span style={{ color: "#c9922a", fontWeight: 700 }}>{cajasOps[i]} cajas</span>
+            </div>
+            <div style={{ background: "#2a2d3a", borderRadius: 4, height: 8, overflow: "hidden" }}>
+              <div style={{ width: `${Math.round((cajasOps[i] / cajasMax) * 100)}%`, height: "100%", background: i === 0 ? "#4be87a" : "#c9922a", borderRadius: 4, transition: "width .4s" }} />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -215,7 +290,7 @@ function Pedidos({ pedidos, setPedidos }) {
     let cliche_url = "";
     if (clicheImg) {
       const { data: up } = await supabase.storage.from("cliches").upload(`${uid()}_${clicheImg.name}`, clicheImg);
-      if (up) { const { data: pu } = supabase.storage.from("cliches").getPublicUrl(up.path); cliche_url = pu.publicUrl; }
+      if (up) { cliche_url = up.path; }
     }
 const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.num, tipo: form.tipo, medida: form.medida, cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(rollosTotales) || null, ancho: form.ancho, largo: form.largo, color: form.color, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
     const { error } = await supabase.from("pedidos").insert([nuevo]);
@@ -260,7 +335,7 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
     };
     if (modalClicheImg) {
       const { data: up } = await supabase.storage.from("cliches").upload(`${uid()}_${modalClicheImg.name}`, modalClicheImg);
-      if (up) { const { data: pu } = supabase.storage.from("cliches").getPublicUrl(up.path); actualizado.cliche_url = pu.publicUrl; }
+      if (up) { actualizado.cliche_url = up.path; }
     }
     const { error } = await supabase.from("pedidos").update(actualizado).eq("id", modalPedido.id);
     if (error) { showToast("❌ Error: " + error.message); return; }
@@ -335,7 +410,7 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
                 <div className="muted">Sol: {p.fecha_solicitud}{p.fecha_inicio && ` · Inicio: ${p.fecha_inicio}`}{p.fecha_termino && ` · Fin: ${p.fecha_termino}`}</div>
                 {p.status === "terminado" && p.merma_pct !== "" && p.merma_pct !== undefined && (<div className="muted">Merma: <span style={{ color: mermaOk ? "#4be87a" : "#ff4d4d", fontWeight: 700 }}>{p.merma_pct}% {mermaOk ? "🟢 OK" : "🔴 EXCEDIDA"}</span></div>)}
                 {p.color_cinta && <div className="muted">🎨 Cinta: {p.color_cinta}</div>}
-                {p.cliche_url && <img src={p.cliche_url} alt="cliché" style={{ width: 80, height: 56, objectFit: "cover", borderRadius: 6, marginTop: 4, border: "1px solid #2a2d3a" }} />}
+                {p.cliche_url && <ClicheImg src={p.cliche_url} style={{ width: 80, height: 56, objectFit: "cover", borderRadius: 6, marginTop: 4, border: "1px solid #2a2d3a" }} />}
                 {p.notas && <div className="muted">📝 {p.notas}</div>}
                 {(p.rollos_usados || p.tinta_kg || p.alcohol_litros) && (
                   <div className="muted" style={{ color: "#c9922a" }}>
@@ -372,7 +447,7 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
               <div className="field full"><label>Notas</label><textarea value={modalPedido.notas || ""} onChange={e => setModalPedido(m => ({ ...m, notas: e.target.value }))} /></div>
               <div className="field"><label>Color de cinta</label><input value={modalPedido.color_cinta || ""} onChange={e => setModalPedido(m => ({ ...m, color_cinta: e.target.value }))} placeholder="Blanca, Canela…" list="colores-cinta" /></div>
               <div className="field full"><label>📷 Foto del cliché</label>
-                {modalPedido.cliche_url && !modalClichePreview && <img src={modalPedido.cliche_url} alt="cliché" style={{ width: "100%", maxWidth: 260, marginBottom: 8, borderRadius: 8, border: "1px solid #2a2d3a" }} />}
+                {modalPedido.cliche_url && !modalClichePreview && <ClicheImg src={modalPedido.cliche_url} style={{ width: "100%", maxWidth: 260, marginBottom: 8, borderRadius: 8, border: "1px solid #2a2d3a" }} />}
                 {modalClichePreview && <img src={modalClichePreview} alt="cliché nuevo" style={{ width: "100%", maxWidth: 260, marginBottom: 8, borderRadius: 8, border: "1px solid #c9922a" }} />}
                 <input type="file" accept="image/*" onChange={e => { const f = e.target.files[0]; if (!f) return; setModalClicheImg(f); setModalClichePreview(URL.createObjectURL(f)); }} />
               </div>
@@ -455,7 +530,7 @@ function ProdDiaria({ prodDiaria, setProdDiaria, pedidos }) {
         {pedidoRel?.cliche_url && (
           <div className="field full">
             <label>Cliché del pedido</label>
-            <img src={pedidoRel.cliche_url} alt="cliché" style={{ width: "100%", maxWidth: 300, borderRadius: 8, border: "1px solid #2a2d3a", marginTop: 4 }} />
+            <ClicheImg src={pedidoRel.cliche_url} style={{ width: "100%", maxWidth: 300, borderRadius: 8, border: "1px solid #2a2d3a", marginTop: 4 }} />
           </div>
         )}
         <div className="field"><label>Cajas del día *</label><input type="number" value={form.cajas_dia} onChange={e => upd("cajas_dia", e.target.value)} placeholder="12" /></div>
