@@ -53,39 +53,56 @@ const SEV = { leve: "Leve", moderada: "Moderada", critica: "Crítica" };
 const META_CAJAS = 12;
 const META_MERMA_PCT = 3;
 
-function AsistenteIA() {
-  const [msgs, setMsgs] = useState([{ role: "assistant", content: "Hola Jesús 👋 Soy el asistente de producción de EEMSA. Pregúntame sobre la SIAT L36, merma, tintas, clichés, SGC o cualquier duda técnica." }]);
+function AsistenteIA({ onRefrescar }) {
+  const [msgs, setMsgs] = useState([{ role: "assistant", content: "Hola Jesús 👋 Soy el asistente de EEMSA. Puedo **consultar y modificar** el sistema por ti.\n\nEjemplos:\n- *\"Crea el pedido #86 para MAFENSA, 50 cajas blancas, entrega 2026-06-20\"*\n- *\"Registra 12 cajas del pedido 85, operador William\"*\n- *\"La SIAT L36 #1 tuvo 30 min de paro por rodillo anilox, severidad moderada\"*\n- *\"Usa un rodillo anilox del inventario\"*\n- *\"Registra merma del pedido 84: 1800 piezas, 36 con defecto\"*" }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, loading]);
+
   const send = async () => {
     if (!input.trim() || loading) return;
     const userMsg = { role: "user", content: input.trim() };
     const next = [...msgs, userMsg];
     setMsgs(next); setInput(""); setLoading(true);
     try {
-      const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next.map(m => ({ role: m.role, content: m.content })) }) });
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: next.map(m => ({ role: m.role, content: m.content })) })
+      });
       const data = await res.json();
-      const reply = data?.content?.map(b => b.text || "").join("") || data?.error || "Sin respuesta.";
+      const reply = data?.reply || data?.content?.map(b => b.text || "").join("") || data?.error || "Sin respuesta.";
       setMsgs([...next, { role: "assistant", content: reply }]);
-    } catch { setMsgs([...next, { role: "assistant", content: "❌ Error de conexión." }]); }
+      if (data?.tablas_actualizadas?.length) onRefrescar(data.tablas_actualizadas);
+    } catch {
+      setMsgs([...next, { role: "assistant", content: "❌ Error de conexión." }]);
+    }
     setLoading(false);
   };
+
+  const formatMsg = (txt) => (txt || "")
+    .replace(/\n/g, "<br>")
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.*?)\*/g, "<em>$1</em>");
+
   return (
     <div>
       <h2 className="sec-title">🤖 Asistente IA</h2>
-      <p className="muted" style={{ marginBottom: 12 }}>Pregunta sobre SIAT L36, anilox, clichés, merma, tintas o procedimientos SGC.</p>
+      <p className="muted" style={{ marginBottom: 12 }}>Dime qué registrar o consultar — creo, actualizo y muevo datos por ti.</p>
       <div className="chat-box">
-        {msgs.map((m, i) => (<div key={i} className={`msg ${m.role === "user" ? "msg-u" : "msg-a"}`} dangerouslySetInnerHTML={{ __html: (m.content || "").replace(/\n/g, "<br>").replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") }} />))}
-        {loading && <div className="msg msg-a typing">Escribiendo…</div>}
+        {msgs.map((m, i) => (
+          <div key={i} className={`msg ${m.role === "user" ? "msg-u" : "msg-a"}`}
+            dangerouslySetInnerHTML={{ __html: formatMsg(m.content) }} />
+        ))}
+        {loading && <div className="msg msg-a typing">Procesando…</div>}
         <div ref={bottomRef} />
       </div>
       <div className="chat-row">
-        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Escribe tu pregunta…" disabled={loading} />
+        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Ej: Crea el pedido #86 para ARIAT, 30 cajas, entrega 2026-06-25…" disabled={loading} />
         <button className="btn btn-primary" onClick={send} disabled={loading || !input.trim()}>Enviar</button>
       </div>
-      <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={() => setMsgs([{ role: "assistant", content: "Chat reiniciado. ¿En qué te ayudo?" }])}>Limpiar</button>
+      <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={() => setMsgs([{ role: "assistant", content: "Chat reiniciado. ¿Qué necesitas?" }])}>Limpiar</button>
     </div>
   );
 }
@@ -736,20 +753,23 @@ export default function App() {
   const [prodDiaria, setProdDiaria] = useState([]);
   const [cargando, setCargando] = useState(true);
 
+  const cargarTablas = async (tablas) => {
+    const mapa = {
+      pedidos:    (d) => setPedidos(d),
+      fallas:     (d) => setFallas(d),
+      refacciones:(d) => setRefs(d),
+      proveedores:(d) => setProveedores(d),
+      prod_diaria:(d) => setProdDiaria(d),
+    };
+    await Promise.all(tablas.map(async t => {
+      const { data } = await supabase.from(t).select("*");
+      if (data && mapa[t]) mapa[t](data);
+    }));
+  };
+
   useEffect(() => {
     const cargar = async () => {
-      const [p, f, r, prov, pd] = await Promise.all([
-        supabase.from("pedidos").select("*"),
-        supabase.from("fallas").select("*"),
-        supabase.from("refacciones").select("*"),
-        supabase.from("proveedores").select("*"),
-        supabase.from("prod_diaria").select("*"),
-      ]);
-      if (p.data) setPedidos(p.data);
-      if (f.data) setFallas(f.data);
-      if (r.data) setRefs(r.data);
-      if (prov.data) setProveedores(prov.data);
-      if (pd.data) setProdDiaria(pd.data);
+      await cargarTablas(["pedidos", "fallas", "refacciones", "proveedores", "prod_diaria"]);
       setCargando(false);
     };
     cargar();
@@ -785,7 +805,7 @@ export default function App() {
         {tab === "prod" && <ProdDiaria prodDiaria={prodDiaria} setProdDiaria={setProdDiaria} pedidos={pedidos} />}
         {tab === "ref" && <Refacciones refs={refs} setRefs={setRefs} proveedores={proveedores} setProveedores={setProveedores} />}
         {tab === "fal" && <Fallas fallas={fallas} setFallas={setFallas} />}
-        {tab === "ia" && <AsistenteIA />}
+        {tab === "ia" && <AsistenteIA onRefrescar={cargarTablas} />}
       </main>
     </div>
   );
