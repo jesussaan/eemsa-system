@@ -466,7 +466,7 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
             <div style={{ borderTop: "1px solid #2a2d3a", margin: "16px 0 12px", paddingTop: 12 }}>
               <div style={{ fontSize: 12, color: "#c9922a", fontWeight: 700, marginBottom: 10 }}>📦 Consumos de producción</div>
               <div className="form-grid">
-                <div className="field"><label>Rollos usados</label><input type="number" value={modalPedido.rollos_usados || ""} onChange={e => setModalPedido(m => ({ ...m, rollos_usados: e.target.value }))} placeholder="36" /></div>
+                <div className="field"><label>Rollos usados</label><input type="number" step="0.5" value={modalPedido.rollos_usados || ""} onChange={e => setModalPedido(m => ({ ...m, rollos_usados: e.target.value }))} placeholder="36" /></div>
                 <div className="field"><label>Tipo de tinta</label><input value={modalPedido.tinta_tipo || ""} onChange={e => setModalPedido(m => ({ ...m, tinta_tipo: e.target.value }))} placeholder="Roja UV, Azul PMS…" /></div>
                 <div className="field"><label>Tinta usada (kg)</label><input type="number" step="0.01" value={modalPedido.tinta_kg || ""} onChange={e => setModalPedido(m => ({ ...m, tinta_kg: e.target.value }))} placeholder="0.5" /></div>
                 <div className="field"><label>Alcohol (litros)</label><input type="number" step="0.01" value={modalPedido.alcohol_litros || ""} onChange={e => setModalPedido(m => ({ ...m, alcohol_litros: e.target.value }))} placeholder="1.0" /></div>
