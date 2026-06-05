@@ -686,6 +686,8 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
   const [loading, setLoading] = useState(false);
   const [busquedaInv, setBusquedaInv] = useState("");
   const [busquedaCompras, setBusquedaCompras] = useState("");
+  const [ajustandoId, setAjustandoId] = useState(null);
+  const [cantidadAjuste, setCantidadAjuste] = useState("");
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2200); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const updP = (k, v) => setFormProv(f => ({ ...f, [k]: v }));
@@ -733,6 +735,17 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
   };
 
   const delRef = async id => { if (!window.confirm("¿Eliminar?")) return; await supabase.from("refacciones").delete().eq("id", id); setRefs(r => r.filter(x => x.id !== id)); };
+  const ajustarStock = async (r) => {
+    const cantidad = parseInt(cantidadAjuste, 10);
+    if (isNaN(cantidad) || cantidad === 0) { showToast("⚠ Ingresa una cantidad válida"); return; }
+    const nuevoStock = Number(r.stock || 0) + cantidad;
+    if (nuevoStock < 0) { showToast("⚠ Stock no puede ser negativo"); return; }
+    const { error } = await supabase.from("refacciones").update({ stock: nuevoStock }).eq("id", r.id);
+    if (error) { showToast("❌ Error al actualizar"); return; }
+    setRefs(refs => refs.map(x => x.id === r.id ? { ...x, stock: nuevoStock } : x));
+    setAjustandoId(null); setCantidadAjuste("");
+    showToast(`✓ Stock: ${nuevoStock} unidades`);
+  };
   const usarRef = async (r) => {
   const nuevoStock = Number(r.stock) - 1;
   if (nuevoStock < 0) { showToast("⚠ Sin stock disponible"); return; }
@@ -865,10 +878,18 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
                         {bajo && <span className="badge b-red">BAJO</span>}
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => usarRef(r)}>-1</button>
+                        <button className="btn btn-ghost btn-sm" title="Usar 1" onClick={() => usarRef(r)}>-1</button>
+                        <button className="btn btn-ghost btn-sm" title="Agregar stock" onClick={() => { setAjustandoId(r.id); setCantidadAjuste(""); }} style={{ color: "#4be87a" }}>+</button>
                         <button className="btn btn-danger btn-sm" onClick={() => delRef(r.id)}>✕</button>
                       </div>
                     </div>
+                    {ajustandoId === r.id && (
+                      <div style={{ display: "flex", gap: 6, marginTop: 8, alignItems: "center" }}>
+                        <input type="number" value={cantidadAjuste} onChange={e => setCantidadAjuste(e.target.value)} onKeyDown={e => { if (e.key === "Enter") ajustarStock(r); if (e.key === "Escape") setAjustandoId(null); }} placeholder="ej: 3 ó -1" autoFocus style={{ width: 100, background: "#1a1d26", border: "1px solid #c9922a", borderRadius: 6, padding: "5px 8px", color: "#e0e0e0", fontSize: 13 }} />
+                        <button className="btn btn-primary btn-sm" onClick={() => ajustarStock(r)}>✓ Guardar</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setAjustandoId(null)}>✕</button>
+                      </div>
+                    )}
                     <div className="muted">{r.maq} · {r.proveedor} · {r.fecha} · Min: {r.stock_min ?? 1}</div>
                     {r.notas && <div className="muted">{r.notas}</div>}
                   </div>
