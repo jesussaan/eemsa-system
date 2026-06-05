@@ -369,7 +369,6 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
     .map(p => ({
       ...p,
       diasRest: p.status !== "terminado" ? diasHabilesRestantes(p.fecha_solicitud) : null,
-      diasElapsed: p.status === "terminado" && p.fecha_solicitud && p.fecha_termino ? diasHabiles(p.fecha_solicitud, p.fecha_termino) : null,
     }))
     .sort((a, b) => { if (a.status === "terminado" && b.status !== "terminado") return 1; if (b.status === "terminado" && a.status !== "terminado") return -1; return (a.diasRest ?? 999) - (b.diasRest ?? 999); });
   const colorStatus = s => s === "terminado" ? "b-green" : s === "proceso" ? "b-blue" : "b-orange";
@@ -413,11 +412,9 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
         <div className="list">
           {pedidosFiltrados.map(p => {
             const mermaOk = p.merma_pct !== "" && p.merma_pct !== undefined ? Number(p.merma_pct) <= META_MERMA_PCT : null;
-            const ep = p.status !== "terminado" ? estadoPlazo(p.diasRest) : null;
-            const beTerminado = p.diasElapsed !== null ? { txt: `${p.diasElapsed}d hábiles`, cls: "b-blue", color: "#4a9eff" } : null;
-            const badge = ep || beTerminado;
+            const badge = p.status !== "terminado" ? estadoPlazo(p.diasRest) : null;
             return (
-              <div key={p.id} className="list-item" style={{ borderLeft: `3px solid ${badge?.color || "#333"}` }}>
+              <div key={p.id} className="list-item" style={{ borderLeft: `3px solid ${badge?.color || (p.status === "terminado" ? "#4be87a" : "#333")}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
                   <div><strong>{p.num}</strong> — {p.cliente}<span className={`badge ${colorStatus(p.status)}`}>{STATUS_PED[p.status] || p.status}</span>{badge && <span className={`badge ${badge.cls}`}>{badge.txt}</span>}</div>
                   <div style={{ display: "flex", gap: 6 }}>
