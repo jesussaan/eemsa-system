@@ -102,6 +102,7 @@ const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) *
   const piezasTotal = pedTerm.reduce((s, p) => s + Number(p.piezas_prod || 0), 0);
   const mermaPct = piezasTotal > 0 ? ((mermaTotal / piezasTotal) * 100).toFixed(1) : 0;
   const vencidos = pedidos.filter(p => p.status !== "terminado" && diasHabilesRestantes(p.fecha_solicitud) < 0).length;
+  const stockBajoDash = refacciones.filter(r => Number(r.stock || 0) <= Number(r.stock_min || 1)).length;
   const todayStr = today();
   const cajasHoy = prodDiaria.filter(r => r.fecha === todayStr).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
   const metaHoyCumplida = cajasHoy >= META_CAJAS;
@@ -137,6 +138,7 @@ const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) *
         <div className="stat-card red"><div className="stat-val">{vencidos}</div><div className="stat-lbl">Pedidos vencidos</div></div>
         <div className="stat-card orange"><div className="stat-val">{mermaPct}%</div><div className="stat-lbl">% Merma del mes</div></div>
         <div className="stat-card red"><div className="stat-val">{fallasAbiertas}</div><div className="stat-lbl">Fallas abiertas</div></div>
+        <div className={`stat-card ${stockBajoDash > 0 ? "red" : "green"}`}><div className="stat-val">{stockBajoDash}</div><div className="stat-lbl">Refacc. stock bajo</div></div>
        <div className="stat-card blue"><div className="stat-val">${fmt(gastoRef)}</div><div className="stat-lbl">Gasto en compras</div></div>
 <div className="stat-card accent"><div className="stat-val">${fmt(valorInventario)}</div><div className="stat-lbl">Valor inventario</div></div>
         <div className={`stat-card ${metaHoyCumplida ? "green" : "red"}`}><div className="stat-val">{cajasHoy}/{META_CAJAS}</div><div className="stat-lbl">Cajas hoy {metaHoyCumplida ? "✅" : "❌"}</div></div>
@@ -184,6 +186,7 @@ function Pedidos({ pedidos, setPedidos }) {
   const [clichePreview, setClichePreview] = useState(null);
   const [modalClicheImg, setModalClicheImg] = useState(null);
   const [modalClichePreview, setModalClichePreview] = useState(null);
+  const [busqueda, setBusqueda] = useState("");
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const rollosTotales = form.cajas && form.rollos_caja ? Number(form.cajas) * Number(form.rollos_caja) : "";
@@ -254,7 +257,9 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
     setPedidos(p => p.filter(x => x.id !== id));
   };
 
-  const pedidosFiltrados = pedidos.filter(p => filtro === "todos" ? true : p.status === filtro)
+  const pedidosFiltrados = pedidos
+    .filter(p => filtro === "todos" ? true : p.status === filtro)
+    .filter(p => !busqueda || [p.cliente, p.num, p.tipo, p.medida, p.color, p.color_cinta].some(v => String(v || "").toLowerCase().includes(busqueda.toLowerCase())))
     .map(p => ({ ...p, diasRest: diasHabilesRestantes(p.fecha_solicitud) }))
     .sort((a, b) => { if (a.status === "terminado" && b.status !== "terminado") return 1; if (b.status === "terminado" && a.status !== "terminado") return -1; return (a.diasRest ?? 999) - (b.diasRest ?? 999); });
   const colorStatus = s => s === "terminado" ? "b-green" : s === "proceso" ? "b-blue" : "b-orange";
@@ -293,6 +298,7 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
           <button key={k} className={`btn btn-sm ${filtro === k ? "btn-primary" : "btn-ghost"}`} onClick={() => setFiltro(k)}>{v}</button>
         ))}
       </div>
+      <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar por cliente, número, tipo, medida…" style={{ width: "100%", marginBottom: 8, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "8px 12px", color: "#e0e0e0", fontSize: 13 }} />
       <h3 className="sub-title">Registro ({pedidosFiltrados.length})</h3>
       {pedidosFiltrados.length === 0 ? <p className="empty">Sin pedidos en este filtro.</p> : (
         <div className="list">
@@ -478,12 +484,14 @@ function ProdDiaria({ prodDiaria, setProdDiaria, pedidos }) {
 
 function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
   const [subTab, setSubTab] = useState("compras");
-  const [form, setForm] = useState({ nombre: "", costo: "", maq: "SIAT L36 #1", proveedor: "", fecha: today(), notas: "", stock: "1" });
+  const [form, setForm] = useState({ nombre: "", costo: "", maq: "SIAT L36 #1", proveedor: "", fecha: today(), notas: "", stock: "1", stock_min: "1" });
   const [formProv, setFormProv] = useState({ nombre: "", telefono: "", direccion: "", monto: "", fecha: today(), que_compro: "" });
   const [imagen, setImagen] = useState(null);
   const [preview, setPreview] = useState(null);
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
+  const [busquedaInv, setBusquedaInv] = useState("");
+  const [busquedaCompras, setBusquedaCompras] = useState("");
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2200); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const updP = (k, v) => setFormProv(f => ({ ...f, [k]: v }));
@@ -521,11 +529,11 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
   const saveRef = async () => {
     if (!form.nombre || !form.costo) { showToast("⚠ Nombre y costo obligatorios"); return; }
     setLoading(true);
-    const nuevo = { id: uid(), created: today(), nombre: form.nombre, costo: form.costo, maq: form.maq, proveedor: form.proveedor, fecha: form.fecha, notas: form.notas, stock: form.stock };
+    const nuevo = { id: uid(), created: today(), nombre: form.nombre, costo: form.costo, maq: form.maq, proveedor: form.proveedor, fecha: form.fecha, notas: form.notas, stock: form.stock, stock_min: form.stock_min || 1 };
     const { error } = await supabase.from("refacciones").insert([nuevo]);
     if (error) { showToast("❌ Error: " + error.message); setLoading(false); return; }
     setRefs(r => [nuevo, ...r]);
-    setForm(f => ({ ...f, nombre: "", costo: "", proveedor: "", notas: "", stock: "1" }));
+    setForm(f => ({ ...f, nombre: "", costo: "", proveedor: "", notas: "", stock: "1", stock_min: "1" }));
     showToast("✓ Refacción guardada ☁️");
     setLoading(false);
   };
@@ -542,6 +550,7 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
   const delCompra = async id => { if (!window.confirm("¿Eliminar?")) return; await supabase.from("proveedores").delete().eq("id", id); setProveedores(p => p.filter(x => x.id !== id)); };
   const totalCompras = proveedores.reduce((s, p) => s + Number(p.monto || 0), 0);
   const totalRefs = refs.reduce((s, r) => s + (Number(r.costo || 0) * Number(r.stock || 1)), 0);
+  const stockBajo = refs.filter(r => Number(r.stock || 0) <= Number(r.stock_min || 1)).length;
 
   return (
     <div>
@@ -549,7 +558,7 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
       <div className="stat-grid">
         <div className="stat-card accent"><div className="stat-val">{refs.length}</div><div className="stat-lbl">En inventario</div></div>
         <div className="stat-card red"><div className="stat-val">${fmt(totalRefs)}</div><div className="stat-lbl">Valor inventario</div></div>
-        <div className="stat-card orange"><div className="stat-val">{proveedores.length}</div><div className="stat-lbl">Compras</div></div>
+        <div className={`stat-card ${stockBajo > 0 ? "red" : "green"}`}><div className="stat-val">{stockBajo}</div><div className="stat-lbl">Stock bajo ⚠</div></div>
         <div className="stat-card blue"><div className="stat-val">${fmt(totalCompras)}</div><div className="stat-lbl">Gasto total</div></div>
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 16, marginTop: 12 }}>
@@ -575,9 +584,10 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
           </div>
           <button className="btn btn-primary btn-block" onClick={saveCompra} disabled={loading}>{loading ? "Guardando…" : "+ Registrar compra"}</button>
           <h3 className="sub-title" style={{ marginTop: 20 }}>Historial de compras</h3>
+          <input value={busquedaCompras} onChange={e => setBusquedaCompras(e.target.value)} placeholder="🔍 Buscar proveedor, qué se compró…" style={{ width: "100%", marginBottom: 8, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "8px 12px", color: "#e0e0e0", fontSize: 13 }} />
           {proveedores.length === 0 ? <p className="empty">Sin compras registradas.</p> : (
             <div className="list">
-              {proveedores.map(p => (
+              {proveedores.filter(p => !busquedaCompras || [p.nombre, p.que_compro].some(v => String(v || "").toLowerCase().includes(busquedaCompras.toLowerCase()))).map(p => (
                 <div key={p.id} className="list-item">
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
                     <div><strong>{p.nombre}</strong><span className="badge b-accent">${fmt(p.monto)}</span></div>
@@ -598,7 +608,8 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
           <div className="form-grid">
             <div className="field"><label>Refacción *</label><input value={form.nombre} onChange={e => upd("nombre", e.target.value)} placeholder="Rodillo anilox, correa…" /></div>
             <div className="field"><label>Costo ($MXN) *</label><input type="number" value={form.costo} onChange={e => upd("costo", e.target.value)} placeholder="850.00" /></div>
-            <div className="field"><label>Stock</label><input type="number" value={form.stock} onChange={e => upd("stock", e.target.value)} placeholder="1" /></div>
+            <div className="field"><label>Stock actual</label><input type="number" value={form.stock} onChange={e => upd("stock", e.target.value)} placeholder="1" /></div>
+            <div className="field"><label>Stock mínimo</label><input type="number" value={form.stock_min} onChange={e => upd("stock_min", e.target.value)} placeholder="1" /></div>
             <div className="field"><label>Máquina</label><select value={form.maq} onChange={e => upd("maq", e.target.value)}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>
             <div className="field"><label>Proveedor</label><input value={form.proveedor} onChange={e => upd("proveedor", e.target.value)} placeholder="Ferrelex, Amazon…" /></div>
             <div className="field"><label>Fecha compra</label><input type="date" value={form.fecha} onChange={e => upd("fecha", e.target.value)} /></div>
@@ -606,19 +617,29 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
           </div>
           <button className="btn btn-primary btn-block" onClick={saveRef} disabled={loading}>{loading ? "Guardando…" : "+ Agregar al inventario"}</button>
           <h3 className="sub-title" style={{ marginTop: 20 }}>Inventario</h3>
+          <input value={busquedaInv} onChange={e => setBusquedaInv(e.target.value)} placeholder="🔍 Buscar refacción, máquina, proveedor…" style={{ width: "100%", marginBottom: 8, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "8px 12px", color: "#e0e0e0", fontSize: 13 }} />
           {refs.length === 0 ? <p className="empty">Sin refacciones en inventario.</p> : (
             <div className="list">
-              {refs.map(r => (
-                <div key={r.id} className="list-item">
+              {refs.filter(r => !busquedaInv || [r.nombre, r.maq, r.proveedor].some(v => String(v || "").toLowerCase().includes(busquedaInv.toLowerCase()))).map(r => {
+                const bajo = Number(r.stock || 0) <= Number(r.stock_min || 1);
+                return (
+                <div key={r.id} className="list-item" style={{ borderLeft: bajo ? "3px solid #ff4d4d" : undefined }}>
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <div><strong>{r.nombre}</strong><span className="badge b-accent">${fmt(r.costo)}</span><span className={`badge ${Number(r.stock) <= 1 ? "b-red" : "b-green"}`}>Stock: {r.stock || 1}</span></div>
-                    <button className="btn btn-ghost btn-sm" onClick={() => usarRef(r)}>-1</button>
-<button className="btn btn-danger btn-sm" onClick={() => delRef(r.id)}>✕</button>
+                    <div>
+                      <strong>{r.nombre}</strong>
+                      <span className="badge b-accent">${fmt(r.costo)}</span>
+                      <span className={`badge ${bajo ? "b-red" : "b-green"}`}>Stock: {r.stock || 0}</span>
+                      {bajo && <span className="badge b-red">⚠ BAJO</span>}
+                    </div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => usarRef(r)}>-1</button>
+                      <button className="btn btn-danger btn-sm" onClick={() => delRef(r.id)}>✕</button>
+                    </div>
                   </div>
-                  <div className="muted">{r.maq} · {r.proveedor} · {r.fecha}</div>
+                  <div className="muted">{r.maq} · {r.proveedor} · {r.fecha} · Mín: {r.stock_min || 1}</div>
                   {r.notas && <div className="muted">{r.notas}</div>}
                 </div>
-              ))}
+                );})
             </div>
           )}
         </div>
@@ -632,6 +653,7 @@ function Fallas({ fallas, setFallas }) {
   const [form, setForm] = useState({ fecha: today(), maq: "SIAT L36 #1", comp: "Rodillo anilox", min_paro: "", sev: "leve", op: "", descripcion: "", accion: "", status: "abierta" });
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2200); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -672,9 +694,10 @@ function Fallas({ fallas, setFallas }) {
       </div>
       <button className="btn btn-primary btn-block" onClick={save} disabled={loading}>{loading ? "Guardando…" : "+ Registrar falla"}</button>
       <h3 className="sub-title" style={{ marginTop: 20 }}>Historial</h3>
+      <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar por máquina, componente, descripción…" style={{ width: "100%", marginBottom: 8, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "8px 12px", color: "#e0e0e0", fontSize: 13 }} />
       {fallas.length === 0 ? <p className="empty">Sin fallas. ¡Buena señal! 🟢</p> : (
         <div className="list">
-          {fallas.map(f => (
+          {fallas.filter(f => !busqueda || [f.maq, f.comp, f.descripcion, f.op, f.sev].some(v => String(v || "").toLowerCase().includes(busqueda.toLowerCase()))).map(f => (
             <div key={f.id} className="list-item">
               <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
                 <div><strong>{f.comp}</strong> — {f.maq}<span className={`badge ${sevCls(f.sev)}`}>{SEV[f.sev]}</span><span className={`badge ${f.status === "abierta" ? "b-red" : "b-green"}`}>{f.status === "abierta" ? "Abierta" : "Cerrada"}</span></div>
