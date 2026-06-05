@@ -160,7 +160,7 @@ const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) *
   const piezasTotal = pedTerm.reduce((s, p) => s + Number(p.piezas_prod || 0), 0);
   const mermaPct = piezasTotal > 0 ? ((mermaTotal / piezasTotal) * 100).toFixed(1) : 0;
   const vencidos = pedidos.filter(p => p.status !== "terminado" && diasHabilesRestantes(p.fecha_solicitud) < 0).length;
-  const stockBajoDash = refacciones.filter(r => Number(r.stock || 0) <= Number(r.stock_min || 1)).length;
+  const stockBajoDash = refacciones.filter(r => { const min = r.stock_min ?? 1; return min > 0 && Number(r.stock || 0) <= min; }).length;
   const todayStr = today();
   const cajasHoy = prodDiaria.filter(r => r.fecha === todayStr).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
   const metaHoyCumplida = cajasHoy >= META_CAJAS;
@@ -515,7 +515,7 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
                 {p.status === "terminado" && p.merma_pct !== "" && p.merma_pct !== undefined && (<div className="muted">Merma: <span style={{ color: mermaOk ? "#4be87a" : "#ff4d4d", fontWeight: 700 }}>{p.merma_pct}% {mermaOk ? "🟢 OK" : "🔴 EXCEDIDA"}</span></div>)}
                 {p.cliche_url && <ClicheImg src={p.cliche_url} style={{ width: 80, height: 56, objectFit: "cover", borderRadius: 6, marginTop: 4, border: "1px solid #2a2d3a" }} />}
                 {p.notas && <div className="muted">📝 {p.notas}</div>}
-                {(p.rollos_usados || p.tinta_kg || p.alcohol_litros) && (
+                {p.status === "terminado" && (p.rollos_usados || p.tinta_kg || p.alcohol_litros) && (
                   <div className="muted" style={{ color: "#c9922a" }}>
                     📦 {p.rollos_usados ? `${p.rollos_usados} rollos` : ""}
                     {p.tinta_tipo ? ` · Tinta: ${p.tinta_tipo}` : ""}
@@ -723,7 +723,7 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
   const saveRef = async () => {
     if (!form.nombre || !form.costo) { showToast("⚠ Nombre y costo obligatorios"); return; }
     setLoading(true);
-    const nuevo = { id: uid(), created: today(), nombre: form.nombre, costo: form.costo, maq: form.maq, proveedor: form.proveedor, fecha: form.fecha, notas: form.notas, stock: form.stock, stock_min: form.stock_min || 1 };
+    const nuevo = { id: uid(), created: today(), nombre: form.nombre, costo: form.costo, maq: form.maq, proveedor: form.proveedor, fecha: form.fecha, notas: form.notas, stock: form.stock, stock_min: form.stock_min !== "" ? Number(form.stock_min) : 1 };
     const { error } = await supabase.from("refacciones").insert([nuevo]);
     if (error) { showToast("❌ Error: " + error.message); setLoading(false); return; }
     setRefs(r => [nuevo, ...r]);
@@ -744,7 +744,7 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
   const delCompra = async id => { if (!window.confirm("¿Eliminar?")) return; await supabase.from("proveedores").delete().eq("id", id); setProveedores(p => p.filter(x => x.id !== id)); };
   const totalCompras = proveedores.reduce((s, p) => s + Number(p.monto || 0), 0);
   const totalRefs = refs.reduce((s, r) => s + (Number(r.costo || 0) * Number(r.stock || 1)), 0);
-  const stockBajo = refs.filter(r => Number(r.stock || 0) <= Number(r.stock_min || 1)).length;
+  const stockBajo = refs.filter(r => { const min = r.stock_min ?? 1; return min > 0 && Number(r.stock || 0) <= min; }).length;
   const refsFiltradas = refs.filter(r => !busquedaInv || [r.nombre, r.maq, r.proveedor].some(v => String(v || "").toLowerCase().includes(busquedaInv.toLowerCase())));
   const comprasFiltradas = proveedores.filter(p => !busquedaCompras || [p.nombre, p.que_compro].some(v => String(v || "").toLowerCase().includes(busquedaCompras.toLowerCase())));
   const listaProveedores = Object.values(proveedores.reduce((acc, p) => {
@@ -854,7 +854,7 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
           {refs.length === 0 ? <p className="empty">Sin refacciones en inventario.</p> : (
             <div className="list">
               {refsFiltradas.map(r => {
-                const bajo = Number(r.stock || 0) <= Number(r.stock_min || 1);
+                const min = r.stock_min ?? 1; const bajo = min > 0 && Number(r.stock || 0) <= min;
                 return (
                   <div key={r.id} className="list-item" style={{ borderLeft: bajo ? "3px solid #ff4d4d" : undefined }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -869,7 +869,7 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
                         <button className="btn btn-danger btn-sm" onClick={() => delRef(r.id)}>✕</button>
                       </div>
                     </div>
-                    <div className="muted">{r.maq} · {r.proveedor} · {r.fecha} · Min: {r.stock_min || 1}</div>
+                    <div className="muted">{r.maq} · {r.proveedor} · {r.fecha} · Min: {r.stock_min ?? 1}</div>
                     {r.notas && <div className="muted">{r.notas}</div>}
                   </div>
                 );
@@ -1131,7 +1131,7 @@ export default function App() {
       <div className="tab-bar">
         {TABS.map(t => {
           const badge = t.id === "fal" ? fallas.filter(f => f.status === "abierta").length
-                      : t.id === "ref" ? refs.filter(r => Number(r.stock || 0) <= Number(r.stock_min || 1)).length
+                      : t.id === "ref" ? refs.filter(r => { const min = r.stock_min ?? 1; return min > 0 && Number(r.stock || 0) <= min; }).length
                       : 0;
           return (
             <button key={t.id} className={`tab-btn ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
