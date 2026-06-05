@@ -38,17 +38,69 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
 
   const generarPDF = () => {
     const doc = new jsPDF();
-    const mes = new Date().toLocaleString("es-MX", { month: "long", year: "numeric" });
+    const fechaGen = new Date().toLocaleString("es-MX", { month: "long", year: "numeric" });
+    const fmtMes = m => { const [y, mo] = m.split("-"); return new Date(Number(y), Number(mo) - 1, 1).toLocaleString("es-MX", { month: "long", year: "numeric" }); };
+
+    const meses = [...new Set([
+      ...pedidos.map(p => p.fecha_solicitud?.slice(0, 7)),
+      ...prodDiaria.map(r => r.fecha?.slice(0, 7)),
+      ...fallas.map(f => f.fecha?.slice(0, 7)),
+      ...proveedores.map(p => p.fecha?.slice(0, 7)),
+    ].filter(Boolean))].sort();
+
+    const pedidosPorMes = meses.map(m => {
+      const ps = pedidos.filter(p => p.fecha_solicitud?.startsWith(m));
+      if (!ps.length) return null;
+      const term = ps.filter(p => p.status === "terminado");
+      const cajas = ps.reduce((s, p) => s + Number(p.cajas || 0), 0);
+      const mermaArr = term.filter(p => p.merma_pct !== null && p.merma_pct !== "");
+      const mermaAvg = mermaArr.length > 0 ? (mermaArr.reduce((s, p) => s + Number(p.merma_pct), 0) / mermaArr.length).toFixed(1) + "%" : "—";
+      return [fmtMes(m), ps.length, term.length, cajas, mermaAvg];
+    }).filter(Boolean);
+
+    const prodPorMes = meses.map(m => {
+      const rs = prodDiaria.filter(r => r.fecha?.startsWith(m));
+      if (!rs.length) return null;
+      const dias = [...new Set(rs.map(r => r.fecha))];
+      const cajasT = rs.reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
+      const conMeta = dias.filter(f => rs.filter(r => r.fecha === f).reduce((s, r) => s + Number(r.cajas_dia || 0), 0) >= META_CAJAS).length;
+      return [fmtMes(m), dias.length, cajasT, `${conMeta}/${dias.length}`, `${dias.length > 0 ? Math.round((conMeta / dias.length) * 100) : 0}%`];
+    }).filter(Boolean);
+
+    const fallasPorMes = meses.map(m => {
+      const fs = fallas.filter(f => f.fecha?.startsWith(m));
+      if (!fs.length) return null;
+      return [fmtMes(m), fs.length, fs.reduce((s, f) => s + Number(f.min_paro || 0), 0), fs.filter(f => f.sev === "critica").length, fs.filter(f => f.status === "abierta").length];
+    }).filter(Boolean);
+
+    const comprasPorMes = meses.map(m => {
+      const cs = proveedores.filter(p => p.fecha?.startsWith(m));
+      if (!cs.length) return null;
+      return [fmtMes(m), cs.length, `$${fmt(cs.reduce((s, p) => s + Number(p.monto || 0), 0))}`];
+    }).filter(Boolean);
+
+    const tblOpts = { styles: { fontSize: 9 }, headStyles: { fillColor: [26, 39, 68], textColor: [201, 146, 42], fontStyle: "bold" }, alternateRowStyles: { fillColor: [245, 247, 250] } };
+
     doc.setFillColor(26, 39, 68); doc.rect(0, 0, 210, 30, "F");
     doc.setTextColor(201, 146, 42); doc.setFontSize(18); doc.text("EEMSA System", 14, 15);
-    doc.setFontSize(10); doc.text(`Reporte mensual — ${mes}`, 14, 23);
-    doc.setTextColor(0, 0, 0); doc.setFontSize(12); doc.text("Resumen de Pedidos", 14, 40);
-    autoTable(doc, { startY: 44, head: [["No. Pedido", "Cliente", "Cajas", "Status", "Merma %"]], body: pedidos.map(p => [p.num, p.cliente, p.cajas || 0, STATUS_PED[p.status] || p.status, p.merma_pct ? p.merma_pct + "%" : "—"]) });
-    doc.text("Fallas", 14, doc.lastAutoTable.finalY + 10);
-    autoTable(doc, { startY: doc.lastAutoTable.finalY + 14, head: [["Fecha", "Máquina", "Componente", "Min Paro", "Severidad"]], body: fallas.map(f => [f.fecha, f.maq, f.comp, f.min_paro, f.sev]) });
-    doc.text("Compras", 14, doc.lastAutoTable.finalY + 10);
-    autoTable(doc, { startY: doc.lastAutoTable.finalY + 14, head: [["Proveedor", "Qué se compró", "Monto", "Fecha"]], body: proveedores.map(p => [p.nombre, p.que_compro, `$${fmt(p.monto)}`, p.fecha]) });
-    doc.save(`EEMSA_Reporte_${mes}.pdf`);
+    doc.setFontSize(10); doc.text(`Reporte histórico mensual — generado ${fechaGen}`, 14, 23);
+
+    const sect = (titulo, head, body) => {
+      const y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 12 : 36;
+      if (y > 250) doc.addPage();
+      const yFinal = doc.lastAutoTable ? doc.lastAutoTable.finalY + 12 : 36;
+      doc.setTextColor(26, 39, 68); doc.setFontSize(12); doc.setFont(undefined, "bold");
+      doc.text(titulo, 14, yFinal);
+      doc.setFont(undefined, "normal");
+      autoTable(doc, { startY: yFinal + 4, head: [head], body, ...tblOpts });
+    };
+
+    sect("Pedidos por mes", ["Mes", "Pedidos", "Terminados", "Cajas", "Merma % prom"], pedidosPorMes.length ? pedidosPorMes : [["Sin datos", "", "", "", ""]]);
+    sect("Producción diaria por mes", ["Mes", "Días prod.", "Cajas totales", "Días con meta", "% meta"], prodPorMes.length ? prodPorMes : [["Sin datos", "", "", "", ""]]);
+    sect("Fallas por mes", ["Mes", "Total fallas", "Min. de paro", "Críticas", "Abiertas"], fallasPorMes.length ? fallasPorMes : [["Sin datos", "", "", "", ""]]);
+    sect("Compras por mes", ["Mes", "No. compras", "Monto total"], comprasPorMes.length ? comprasPorMes : [["Sin datos", "", ""]]);
+
+    doc.save(`EEMSA_Reporte_Historico_${fechaGen.replace(/ /g, "_")}.pdf`);
   };
 
   return (
