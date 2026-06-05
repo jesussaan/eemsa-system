@@ -33,7 +33,7 @@ const diasHabilesRestantes = (fechaSolicitud) => {
   let restantes = 0;
   const cur = new Date(hoy);
   if (cur > limite) return -diasHabiles(today(), limite.toISOString().slice(0, 10));
-  while (cur <= limite) { if (cur.getDay() !== 0) restantes++; cur.setDate(cur.getDate() + 1); }
+  while (cur <= limite) { const dw = cur.getDay(); if (dw !== 0 && dw !== 6) restantes++; cur.setDate(cur.getDate() + 1); }
   return restantes - 1;
 };
 
