@@ -228,7 +228,7 @@ const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) *
           {pedidosUrgentes.map(p => {
             const ep = estadoPlazo(p.diasRest);
             return (
-              <div key={p.id} className="list-item" style={{ borderLeft: `3px solid ${ep?.color || "#444"}` }}>
+              <div key={p.id} className="list-item" style={{ borderLeft: `3px solid ${p.status === "terminado" ? "#4be87a" : p.status === "proceso" ? "#4a9eff" : "#ff9900"}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div><strong>{p.num}</strong> — {p.cliente}</div>
                   {ep && <span className={`badge ${ep.cls}`}>{ep.txt}</span>}
@@ -414,7 +414,7 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
             const mermaOk = p.merma_pct !== "" && p.merma_pct !== undefined ? Number(p.merma_pct) <= META_MERMA_PCT : null;
             const badge = p.status !== "terminado" ? estadoPlazo(p.diasRest) : null;
             return (
-              <div key={p.id} className="list-item" style={{ borderLeft: `3px solid ${badge?.color || (p.status === "terminado" ? "#4be87a" : "#333")}` }}>
+              <div key={p.id} className="list-item" style={{ borderLeft: `3px solid ${p.status === "terminado" ? "#4be87a" : p.status === "proceso" ? "#4a9eff" : "#ff9900"}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
                   <div><strong>{p.num}</strong> — {p.cliente}<span className={`badge ${colorStatus(p.status)}`}>{STATUS_PED[p.status] || p.status}</span>{badge && <span className={`badge ${badge.cls}`}>{badge.txt}</span>}</div>
                   <div style={{ display: "flex", gap: 6 }}>
