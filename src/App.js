@@ -219,7 +219,12 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
       fecha_termino: modalPedido.fecha_termino || null,
       piezas_prod: n2(modalPedido.piezas_prod),
       merma: modalPedido.merma || null, merma_pct: mPct || null,
-      notas: modalPedido.notas, status: modalPedido.status
+      notas: modalPedido.notas, status: modalPedido.status,
+      rollos_usados: n2(modalPedido.rollos_usados),
+      tinta_tipo: modalPedido.tinta_tipo || null,
+      tinta_kg: n2(modalPedido.tinta_kg),
+      alcohol_litros: n2(modalPedido.alcohol_litros),
+      notas_consumo: modalPedido.notas_consumo || null,
     };
     const { error } = await supabase.from("pedidos").update(actualizado).eq("id", modalPedido.id);
     if (error) { showToast("❌ Error: " + error.message); return; }
@@ -289,6 +294,15 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
                 <div className="muted">Sol: {p.fecha_solicitud}{p.fecha_inicio && ` · Inicio: ${p.fecha_inicio}`}{p.fecha_termino && ` · Fin: ${p.fecha_termino}`}</div>
                 {p.status === "terminado" && p.merma_pct !== "" && p.merma_pct !== undefined && (<div className="muted">Merma: <span style={{ color: mermaOk ? "#4be87a" : "#ff4d4d", fontWeight: 700 }}>{p.merma_pct}% {mermaOk ? "🟢 OK" : "🔴 EXCEDIDA"}</span></div>)}
                 {p.notas && <div className="muted">📝 {p.notas}</div>}
+                {(p.rollos_usados || p.tinta_kg || p.alcohol_litros) && (
+                  <div className="muted" style={{ color: "#c9922a" }}>
+                    📦 {p.rollos_usados ? `${p.rollos_usados} rollos` : ""}
+                    {p.tinta_tipo ? ` · Tinta: ${p.tinta_tipo}` : ""}
+                    {p.tinta_kg ? ` ${p.tinta_kg}kg` : ""}
+                    {p.alcohol_litros ? ` · Alcohol: ${p.alcohol_litros}L` : ""}
+                    {p.notas_consumo ? ` · ${p.notas_consumo}` : ""}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -313,6 +327,16 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
               <div className="field"><label>Merma (piezas)</label><input type="number" value={modalPedido.merma || ""} onChange={e => setModalPedido(m => ({ ...m, merma: e.target.value }))} placeholder="24" /></div>
               {modalPedido.piezas_prod && modalPedido.merma && (<div className="field"><label>% Merma (auto)</label><input value={((Number(modalPedido.merma) / Number(modalPedido.piezas_prod)) * 100).toFixed(2) + "%"} readOnly style={{ background: "#1a2744", color: Number(modalPedido.merma) / Number(modalPedido.piezas_prod) * 100 > META_MERMA_PCT ? "#ff4d4d" : "#4be87a" }} /></div>)}
               <div className="field full"><label>Notas</label><textarea value={modalPedido.notas || ""} onChange={e => setModalPedido(m => ({ ...m, notas: e.target.value }))} /></div>
+            </div>
+            <div style={{ borderTop: "1px solid #2a2d3a", margin: "16px 0 12px", paddingTop: 12 }}>
+              <div style={{ fontSize: 12, color: "#c9922a", fontWeight: 700, marginBottom: 10 }}>📦 Consumos de producción</div>
+              <div className="form-grid">
+                <div className="field"><label>Rollos usados</label><input type="number" value={modalPedido.rollos_usados || ""} onChange={e => setModalPedido(m => ({ ...m, rollos_usados: e.target.value }))} placeholder="36" /></div>
+                <div className="field"><label>Tipo de tinta</label><input value={modalPedido.tinta_tipo || ""} onChange={e => setModalPedido(m => ({ ...m, tinta_tipo: e.target.value }))} placeholder="Roja UV, Azul PMS…" /></div>
+                <div className="field"><label>Tinta usada (kg)</label><input type="number" step="0.01" value={modalPedido.tinta_kg || ""} onChange={e => setModalPedido(m => ({ ...m, tinta_kg: e.target.value }))} placeholder="0.5" /></div>
+                <div className="field"><label>Alcohol (litros)</label><input type="number" step="0.01" value={modalPedido.alcohol_litros || ""} onChange={e => setModalPedido(m => ({ ...m, alcohol_litros: e.target.value }))} placeholder="1.0" /></div>
+                <div className="field full"><label>Otros insumos / notas</label><input value={modalPedido.notas_consumo || ""} onChange={e => setModalPedido(m => ({ ...m, notas_consumo: e.target.value }))} placeholder="Cliché nuevo, solvente, etc." /></div>
+              </div>
             </div>
             <button className="btn btn-primary btn-block" onClick={guardarModal}>💾 Guardar cambios</button>
           </div>
