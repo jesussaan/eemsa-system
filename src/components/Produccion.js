@@ -11,7 +11,7 @@ export default function Produccion({ prodDiaria, setProdDiaria, pedidos }) {
   const [loading, setLoading] = useState(false);
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const pedidoRel = pedidos.find(p => p.num === form.num_pedido || String(p.num) === String(form.num_pedido));
+  const pedidoRel = form.num_pedido ? pedidos.find(p => String(p.num) === String(form.num_pedido)) : null;
   const cajasHoy = prodDiaria.filter(r => r.fecha === form.fecha).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
   const cajasHoyConNuevo = cajasHoy + Number(form.cajas_dia || 0);
   const metaCumplida = cajasHoyConNuevo >= META_CAJAS;
@@ -56,7 +56,7 @@ export default function Produccion({ prodDiaria, setProdDiaria, pedidos }) {
         <div className="field"><label>No. Pedido *</label>
           <select value={form.num_pedido} onChange={e => upd("num_pedido", e.target.value)}>
             <option value="">— Selecciona —</option>
-            {pedidos.filter(p => p.status !== "terminado").map(p => (<option key={p.id} value={p.num}>{p.num} — {p.cliente}</option>))}
+            {pedidos.filter(p => p.status !== "terminado").map(p => (<option key={p.id} value={String(p.num)}>{p.num} — {p.cliente}</option>))}
           </select>
         </div>
         {pedidoRel && <div className="field"><label>Medida</label><input value={pedidoRel.medida || ""} readOnly style={{ background: "#1a2744", color: "#c9922a" }} /></div>}
