@@ -174,12 +174,16 @@ const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) *
 }
 
 function Pedidos({ pedidos, setPedidos }) {
-  const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", ancho: "", largo: "", color: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "anotado" };
+  const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", ancho: "", largo: "", color: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "anotado" };
   const [form, setForm] = useState(formInicial);
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
   const [modalPedido, setModalPedido] = useState(null);
   const [filtro, setFiltro] = useState("todos");
+  const [clicheImg, setClicheImg] = useState(null);
+  const [clichePreview, setClichePreview] = useState(null);
+  const [modalClicheImg, setModalClicheImg] = useState(null);
+  const [modalClichePreview, setModalClichePreview] = useState(null);
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const rollosTotales = form.cajas && form.rollos_caja ? Number(form.cajas) * Number(form.rollos_caja) : "";
@@ -188,17 +192,23 @@ function Pedidos({ pedidos, setPedidos }) {
     if (!form.cliente || !form.num || !form.cajas || !form.fecha_solicitud) { showToast("⚠ Llena cliente, número, cajas y fecha solicitada"); return; }
     setLoading(true);
     const n = (v) => v === "" ? null : Number(v);
-const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.num, tipo: form.tipo, medida: form.medida, cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(rollosTotales) || null, ancho: form.ancho, largo: form.largo, color: form.color, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status };
+    let cliche_url = "";
+    if (clicheImg) {
+      const { data: up } = await supabase.storage.from("cliches").upload(`${uid()}_${clicheImg.name}`, clicheImg);
+      if (up) { const { data: pu } = supabase.storage.from("cliches").getPublicUrl(up.path); cliche_url = pu.publicUrl; }
+    }
+const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.num, tipo: form.tipo, medida: form.medida, cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(rollosTotales) || null, ancho: form.ancho, largo: form.largo, color: form.color, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
     const { error } = await supabase.from("pedidos").insert([nuevo]);
     if (error) { showToast("❌ Error: " + error.message); setLoading(false); return; }
     setPedidos(p => [nuevo, ...p]);
     setForm(formInicial);
+    setClicheImg(null); setClichePreview(null);
     showToast("✓ Pedido anotado ☁️");
     setLoading(false);
   };
 
   const abrirModal = (p) => setModalPedido({ ...p });
-  const cerrarModal = () => setModalPedido(null);
+  const cerrarModal = () => { setModalPedido(null); setModalClicheImg(null); setModalClichePreview(null); };
 
   const guardarModal = async () => {
     if (!modalPedido) return;
@@ -225,7 +235,13 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
       tinta_kg: n2(modalPedido.tinta_kg),
       alcohol_litros: n2(modalPedido.alcohol_litros),
       notas_consumo: modalPedido.notas_consumo || null,
+      color_cinta: modalPedido.color_cinta || null,
+      cliche_url: modalPedido.cliche_url || null,
     };
+    if (modalClicheImg) {
+      const { data: up } = await supabase.storage.from("cliches").upload(`${uid()}_${modalClicheImg.name}`, modalClicheImg);
+      if (up) { const { data: pu } = supabase.storage.from("cliches").getPublicUrl(up.path); actualizado.cliche_url = pu.publicUrl; }
+    }
     const { error } = await supabase.from("pedidos").update(actualizado).eq("id", modalPedido.id);
     if (error) { showToast("❌ Error: " + error.message); return; }
     setPedidos(p => p.map(x => x.id === actualizado.id ? actualizado : x));
@@ -264,6 +280,8 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
         <div className="field"><label>Ancho (pulg)</label><input value={form.ancho} onChange={e => upd("ancho", e.target.value)} placeholder='2"' /></div>
         <div className="field"><label>Largo (m)</label><input type="number" value={form.largo} onChange={e => upd("largo", e.target.value)} placeholder="100" /></div>
         <div className="field"><label>Color impresión</label><input value={form.color} onChange={e => upd("color", e.target.value)} placeholder="Rojo PMS 485" /></div>
+        <div className="field"><label>Color de cinta</label><input value={form.color_cinta} onChange={e => upd("color_cinta", e.target.value)} placeholder="Blanca, Canela, Transparente…" list="colores-cinta" /><datalist id="colores-cinta"><option value="Blanca" /><option value="Canela" /><option value="Transparente" /><option value="Amarilla" /><option value="Kraft" /></datalist></div>
+        <div className="field full"><label>📷 Foto del cliché</label><input type="file" accept="image/*" onChange={e => { const f = e.target.files[0]; if (!f) return; setClicheImg(f); setClichePreview(URL.createObjectURL(f)); }} />{clichePreview && <img src={clichePreview} alt="cliché" style={{ width: "100%", maxWidth: 260, marginTop: 8, borderRadius: 8, border: "1px solid #2a2d3a" }} />}</div>
         <div className="field"><label>Máquina</label><select value={form.maq} onChange={e => upd("maq", e.target.value)}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>
         <div className="field"><label>Operador</label><select value={form.op} onChange={e => upd("op", e.target.value)}>{OPERADORES.map(o => <option key={o}>{o}</option>)}</select></div>
         <div className="field"><label>Fecha solicitada *</label><input type="date" value={form.fecha_solicitud} onChange={e => upd("fecha_solicitud", e.target.value)} /></div>
@@ -293,6 +311,8 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
                 <div className="muted">{p.tipo} · {p.medida} · {p.cajas} cajas · {p.maq}</div>
                 <div className="muted">Sol: {p.fecha_solicitud}{p.fecha_inicio && ` · Inicio: ${p.fecha_inicio}`}{p.fecha_termino && ` · Fin: ${p.fecha_termino}`}</div>
                 {p.status === "terminado" && p.merma_pct !== "" && p.merma_pct !== undefined && (<div className="muted">Merma: <span style={{ color: mermaOk ? "#4be87a" : "#ff4d4d", fontWeight: 700 }}>{p.merma_pct}% {mermaOk ? "🟢 OK" : "🔴 EXCEDIDA"}</span></div>)}
+                {p.color_cinta && <div className="muted">🎨 Cinta: {p.color_cinta}</div>}
+                {p.cliche_url && <img src={p.cliche_url} alt="cliché" style={{ width: 80, height: 56, objectFit: "cover", borderRadius: 6, marginTop: 4, border: "1px solid #2a2d3a" }} />}
                 {p.notas && <div className="muted">📝 {p.notas}</div>}
                 {(p.rollos_usados || p.tinta_kg || p.alcohol_litros) && (
                   <div className="muted" style={{ color: "#c9922a" }}>
@@ -327,6 +347,12 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
               <div className="field"><label>Merma (piezas)</label><input type="number" value={modalPedido.merma || ""} onChange={e => setModalPedido(m => ({ ...m, merma: e.target.value }))} placeholder="24" /></div>
               {modalPedido.piezas_prod && modalPedido.merma && (<div className="field"><label>% Merma (auto)</label><input value={((Number(modalPedido.merma) / Number(modalPedido.piezas_prod)) * 100).toFixed(2) + "%"} readOnly style={{ background: "#1a2744", color: Number(modalPedido.merma) / Number(modalPedido.piezas_prod) * 100 > META_MERMA_PCT ? "#ff4d4d" : "#4be87a" }} /></div>)}
               <div className="field full"><label>Notas</label><textarea value={modalPedido.notas || ""} onChange={e => setModalPedido(m => ({ ...m, notas: e.target.value }))} /></div>
+              <div className="field"><label>Color de cinta</label><input value={modalPedido.color_cinta || ""} onChange={e => setModalPedido(m => ({ ...m, color_cinta: e.target.value }))} placeholder="Blanca, Canela…" list="colores-cinta" /></div>
+              <div className="field full"><label>📷 Foto del cliché</label>
+                {modalPedido.cliche_url && !modalClichePreview && <img src={modalPedido.cliche_url} alt="cliché" style={{ width: "100%", maxWidth: 260, marginBottom: 8, borderRadius: 8, border: "1px solid #2a2d3a" }} />}
+                {modalClichePreview && <img src={modalClichePreview} alt="cliché nuevo" style={{ width: "100%", maxWidth: 260, marginBottom: 8, borderRadius: 8, border: "1px solid #c9922a" }} />}
+                <input type="file" accept="image/*" onChange={e => { const f = e.target.files[0]; if (!f) return; setModalClicheImg(f); setModalClichePreview(URL.createObjectURL(f)); }} />
+              </div>
             </div>
             <div style={{ borderTop: "1px solid #2a2d3a", margin: "16px 0 12px", paddingTop: 12 }}>
               <div style={{ fontSize: 12, color: "#c9922a", fontWeight: 700, marginBottom: 10 }}>📦 Consumos de producción</div>
@@ -403,6 +429,12 @@ function ProdDiaria({ prodDiaria, setProdDiaria, pedidos }) {
           </select>
         </div>
         {pedidoRel && <div className="field"><label>Medida</label><input value={pedidoRel.medida || ""} readOnly style={{ background: "#1a2744", color: "#c9922a" }} /></div>}
+        {pedidoRel?.cliche_url && (
+          <div className="field full">
+            <label>Cliché del pedido</label>
+            <img src={pedidoRel.cliche_url} alt="cliché" style={{ width: "100%", maxWidth: 300, borderRadius: 8, border: "1px solid #2a2d3a", marginTop: 4 }} />
+          </div>
+        )}
         <div className="field"><label>Cajas del día *</label><input type="number" value={form.cajas_dia} onChange={e => upd("cajas_dia", e.target.value)} placeholder="12" /></div>
         <div className="field"><label>Operador</label><select value={form.op} onChange={e => upd("op", e.target.value)}>{OPERADORES.map(o => <option key={o}>{o}</option>)}</select></div>
         {form.cajas_dia && (<div className="field"><label>Total del día</label><input value={`${cajasHoyConNuevo} cajas ${metaCumplida ? "✅ Meta cumplida" : `(faltan ${META_CAJAS - cajasHoyConNuevo})`}`} readOnly style={{ background: "#1a2744", color: metaCumplida ? "#4be87a" : "#c9922a" }} /></div>)}
