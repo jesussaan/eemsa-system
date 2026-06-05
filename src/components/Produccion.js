@@ -56,7 +56,7 @@ export default function Produccion({ prodDiaria, setProdDiaria, pedidos }) {
         <div className="field"><label>No. Pedido *</label>
           <select value={form.num_pedido} onChange={e => upd("num_pedido", e.target.value)}>
             <option value="">— Selecciona —</option>
-            {pedidos.filter(p => p.status !== "terminado").map(p => (<option key={p.id} value={String(p.num)}>{p.num} — {p.cliente}</option>))}
+            {pedidos.filter(p => p.status !== "terminado").map(p => (<option key={p.id} value={String(p.num)}>{p.num} — {p.cliente} · {p.medida}</option>))}
           </select>
         </div>
         {pedidoRel && <div className="field"><label>Medida</label><input value={pedidoRel.medida || ""} readOnly style={{ background: "#1a2744", color: "#c9922a" }} /></div>}
