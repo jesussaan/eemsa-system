@@ -868,6 +868,7 @@ function Fallas({ fallas, setFallas }) {
 function Clientes({ pedidos }) {
   const [clienteSel, setClienteSel] = useState(null);
   const [busqueda, setBusqueda] = useState("");
+  const [filtroTab, setFiltroTab] = useState("todos");
 
   const clientes = Object.values(pedidos.reduce((acc, p) => {
     const key = (p.cliente || "").trim();
@@ -896,7 +897,13 @@ function Clientes({ pedidos }) {
     return { ...c, cajasTotal, ultimaFecha, diasDesdeUltimo, frecuencia, mermaPromedio, color, sorted };
   }).sort((a, b) => (a.diasDesdeUltimo ?? 9999) - (b.diasDesdeUltimo ?? 9999));
 
-  const filtrados = clientes.filter(c => !busqueda || c.nombre.toLowerCase().includes(busqueda.toLowerCase()));
+  const porTab = {
+    todos: clientes,
+    activo: clientes.filter(c => c.diasDesdeUltimo !== null && c.diasDesdeUltimo < 30),
+    medio: clientes.filter(c => c.diasDesdeUltimo !== null && c.diasDesdeUltimo >= 30 && c.diasDesdeUltimo <= 60),
+    perdido: clientes.filter(c => c.diasDesdeUltimo !== null && c.diasDesdeUltimo > 60),
+  };
+  const filtrados = (porTab[filtroTab] || clientes).filter(c => !busqueda || c.nombre.toLowerCase().includes(busqueda.toLowerCase()));
   const seleccionado = clientes.find(c => c.nombre === clienteSel) || null;
 
   return (
@@ -908,7 +915,25 @@ function Clientes({ pedidos }) {
         <div className="stat-card orange"><div className="stat-val">{clientes.filter(c => c.diasDesdeUltimo !== null && c.diasDesdeUltimo >= 30 && c.diasDesdeUltimo <= 60).length}</div><div className="stat-lbl">30–60 días</div></div>
         <div className="stat-card red"><div className="stat-val">{clientes.filter(c => c.diasDesdeUltimo !== null && c.diasDesdeUltimo > 60).length}</div><div className="stat-lbl">Sin pedir &gt;60 días</div></div>
       </div>
-      <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar cliente…" style={{ width: "100%", margin: "8px 0", background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "8px 12px", color: "#e0e0e0", fontSize: 13 }} />
+      <div style={{ display: "flex", gap: 6, margin: "10px 0 8px", flexWrap: "wrap" }}>
+        {[
+          { key: "todos",   lbl: "Todos",           color: null,      count: clientes.length },
+          { key: "activo",  lbl: "Activo <30 días", color: "#4be87a", count: porTab.activo.length },
+          { key: "medio",   lbl: "30–60 días",       color: "#ff9900", count: porTab.medio.length },
+          { key: "perdido", lbl: "+60 días",          color: "#ff4d4d", count: porTab.perdido.length },
+        ].map(t => (
+          <button key={t.key} onClick={() => setFiltroTab(t.key)} style={{
+            padding: "6px 12px", borderRadius: 20, border: `2px solid ${filtroTab === t.key ? (t.color || "#c9922a") : "#2a2d3a"}`,
+            background: filtroTab === t.key ? (t.color ? t.color + "22" : "#c9922a22") : "transparent",
+            color: filtroTab === t.key ? (t.color || "#c9922a") : "#888",
+            fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5,
+          }}>
+            {t.lbl}
+            <span style={{ background: filtroTab === t.key ? (t.color || "#c9922a") : "#2a2d3a", color: filtroTab === t.key ? "#000" : "#aaa", borderRadius: 20, padding: "1px 6px", fontSize: 11 }}>{t.count}</span>
+          </button>
+        ))}
+      </div>
+      <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar cliente…" style={{ width: "100%", margin: "4px 0 8px", background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "8px 12px", color: "#e0e0e0", fontSize: 13 }} />
       <div className="list">
         {filtrados.map(c => (
           <div key={c.nombre} className="list-item" style={{ borderLeft: `3px solid ${c.color}`, cursor: "pointer" }} onClick={() => setClienteSel(c.nombre)}>
