@@ -366,13 +366,12 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
   const pedidosFiltrados = pedidos
     .filter(p => filtro === "todos" ? true : p.status === filtro)
     .filter(p => !busqueda || [p.cliente, p.num, p.tipo, p.medida, p.color, p.color_cinta].some(v => String(v || "").toLowerCase().includes(busqueda.toLowerCase())))
-    .map(p => {
-      const diasElapsed = p.fecha_solicitud
-        ? (p.status === "terminado" && p.fecha_termino ? diasHabiles(p.fecha_solicitud, p.fecha_termino) : diasHabiles(p.fecha_solicitud, today()))
-        : null;
-      return { ...p, diasElapsed };
-    })
-    .sort((a, b) => { if (a.status === "terminado" && b.status !== "terminado") return 1; if (b.status === "terminado" && a.status !== "terminado") return -1; return (b.diasElapsed ?? 0) - (a.diasElapsed ?? 0); });
+    .map(p => ({
+      ...p,
+      diasRest: p.status !== "terminado" ? diasHabilesRestantes(p.fecha_solicitud) : null,
+      diasElapsed: p.status === "terminado" && p.fecha_solicitud && p.fecha_termino ? diasHabiles(p.fecha_solicitud, p.fecha_termino) : null,
+    }))
+    .sort((a, b) => { if (a.status === "terminado" && b.status !== "terminado") return 1; if (b.status === "terminado" && a.status !== "terminado") return -1; return (a.diasRest ?? 999) - (b.diasRest ?? 999); });
   const colorStatus = s => s === "terminado" ? "b-green" : s === "proceso" ? "b-blue" : "b-orange";
 
   return (
@@ -414,11 +413,13 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
         <div className="list">
           {pedidosFiltrados.map(p => {
             const mermaOk = p.merma_pct !== "" && p.merma_pct !== undefined ? Number(p.merma_pct) <= META_MERMA_PCT : null;
-            const be = p.diasElapsed !== null ? (p.status === "terminado" ? { txt: `${p.diasElapsed}d hábiles`, cls: "b-blue", color: "#4a9eff" } : p.diasElapsed >= 13 ? { txt: `${p.diasElapsed}d hábiles`, cls: "b-red", color: "#ff4d4d" } : p.diasElapsed >= 8 ? { txt: `${p.diasElapsed}d hábiles`, cls: "b-orange", color: "#ff9900" } : { txt: `${p.diasElapsed}d hábiles`, cls: "b-green", color: "#4be87a" }) : null;
+            const ep = p.status !== "terminado" ? estadoPlazo(p.diasRest) : null;
+            const beTerminado = p.diasElapsed !== null ? { txt: `${p.diasElapsed}d hábiles`, cls: "b-blue", color: "#4a9eff" } : null;
+            const badge = ep || beTerminado;
             return (
-              <div key={p.id} className="list-item" style={{ borderLeft: `3px solid ${be?.color || "#333"}` }}>
+              <div key={p.id} className="list-item" style={{ borderLeft: `3px solid ${badge?.color || "#333"}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
-                  <div><strong>{p.num}</strong> — {p.cliente}<span className={`badge ${colorStatus(p.status)}`}>{STATUS_PED[p.status] || p.status}</span>{be && <span className={`badge ${be.cls}`}>{be.txt}</span>}</div>
+                  <div><strong>{p.num}</strong> — {p.cliente}<span className={`badge ${colorStatus(p.status)}`}>{STATUS_PED[p.status] || p.status}</span>{badge && <span className={`badge ${badge.cls}`}>{badge.txt}</span>}</div>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button className="btn btn-ghost btn-sm" onClick={() => abrirModal(p)}>✏️</button>
                     <button className="btn btn-danger btn-sm" onClick={() => del(p.id)}>✕</button>
