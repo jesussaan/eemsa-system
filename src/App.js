@@ -283,8 +283,9 @@ function Pedidos({ pedidos, setPedidos }) {
     const n = (v) => v === "" ? null : Number(v);
     let cliche_url = "";
     if (clicheImg) {
-      const { data: up } = await supabase.storage.from("cliches").upload(`${uid()}_${clicheImg.name}`, clicheImg);
-      if (up) { cliche_url = up.path; }
+      const { data: up, error: upErr } = await supabase.storage.from("cliches").upload(`${uid()}_${clicheImg.name}`, clicheImg);
+      if (upErr) { showToast("⚠ Foto no subida: " + upErr.message); }
+      else if (up) { cliche_url = up.path; }
     }
 const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.num, tipo: form.tipo, medida: form.medida, cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(rollosTotales) || null, ancho: form.ancho, largo: form.largo, color: form.color, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
     const { error } = await supabase.from("pedidos").insert([nuevo]);
@@ -328,8 +329,9 @@ const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.nu
       cliche_url: modalPedido.cliche_url || null,
     };
     if (modalClicheImg) {
-      const { data: up } = await supabase.storage.from("cliches").upload(`${uid()}_${modalClicheImg.name}`, modalClicheImg);
-      if (up) { actualizado.cliche_url = up.path; }
+      const { data: up, error: upErr } = await supabase.storage.from("cliches").upload(`${uid()}_${modalClicheImg.name}`, modalClicheImg);
+      if (upErr) { showToast("⚠ Foto no subida: " + upErr.message); }
+      else if (up) { actualizado.cliche_url = up.path; }
     }
     const { error } = await supabase.from("pedidos").update(actualizado).eq("id", modalPedido.id);
     if (error) { showToast("❌ Error: " + error.message); return; }
