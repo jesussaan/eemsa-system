@@ -568,6 +568,8 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
   const totalCompras = proveedores.reduce((s, p) => s + Number(p.monto || 0), 0);
   const totalRefs = refs.reduce((s, r) => s + (Number(r.costo || 0) * Number(r.stock || 1)), 0);
   const stockBajo = refs.filter(r => Number(r.stock || 0) <= Number(r.stock_min || 1)).length;
+  const refsFiltradas = refs.filter(r => !busquedaInv || [r.nombre, r.maq, r.proveedor].some(v => String(v || "").toLowerCase().includes(busquedaInv.toLowerCase())));
+  const comprasFiltradas = proveedores.filter(p => !busquedaCompras || [p.nombre, p.que_compro].some(v => String(v || "").toLowerCase().includes(busquedaCompras.toLowerCase())));
 
   return (
     <div>
@@ -604,7 +606,7 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
           <input value={busquedaCompras} onChange={e => setBusquedaCompras(e.target.value)} placeholder="🔍 Buscar proveedor, qué se compró…" style={{ width: "100%", marginBottom: 8, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "8px 12px", color: "#e0e0e0", fontSize: 13 }} />
           {proveedores.length === 0 ? <p className="empty">Sin compras registradas.</p> : (
             <div className="list">
-              {proveedores.filter(p => !busquedaCompras || [p.nombre, p.que_compro].some(v => String(v || "").toLowerCase().includes(busquedaCompras.toLowerCase()))).map(p => (
+              {comprasFiltradas.map(p => (
                 <div key={p.id} className="list-item">
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
                     <div><strong>{p.nombre}</strong><span className="badge b-accent">${fmt(p.monto)}</span></div>
@@ -637,26 +639,27 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
           <input value={busquedaInv} onChange={e => setBusquedaInv(e.target.value)} placeholder="🔍 Buscar refacción, máquina, proveedor…" style={{ width: "100%", marginBottom: 8, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "8px 12px", color: "#e0e0e0", fontSize: 13 }} />
           {refs.length === 0 ? <p className="empty">Sin refacciones en inventario.</p> : (
             <div className="list">
-              {refs.filter(r => !busquedaInv || [r.nombre, r.maq, r.proveedor].some(v => String(v || "").toLowerCase().includes(busquedaInv.toLowerCase()))).map(r => {
+              {refsFiltradas.map(r => {
                 const bajo = Number(r.stock || 0) <= Number(r.stock_min || 1);
                 return (
-                <div key={r.id} className="list-item" style={{ borderLeft: bajo ? "3px solid #ff4d4d" : undefined }}>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <div>
-                      <strong>{r.nombre}</strong>
-                      <span className="badge b-accent">${fmt(r.costo)}</span>
-                      <span className={`badge ${bajo ? "b-red" : "b-green"}`}>Stock: {r.stock || 0}</span>
-                      {bajo && <span className="badge b-red">⚠ BAJO</span>}
+                  <div key={r.id} className="list-item" style={{ borderLeft: bajo ? "3px solid #ff4d4d" : undefined }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <div>
+                        <strong>{r.nombre}</strong>
+                        <span className="badge b-accent">${fmt(r.costo)}</span>
+                        <span className={`badge ${bajo ? "b-red" : "b-green"}`}>Stock: {r.stock || 0}</span>
+                        {bajo && <span className="badge b-red">BAJO</span>}
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => usarRef(r)}>-1</button>
+                        <button className="btn btn-danger btn-sm" onClick={() => delRef(r.id)}>✕</button>
+                      </div>
                     </div>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => usarRef(r)}>-1</button>
-                      <button className="btn btn-danger btn-sm" onClick={() => delRef(r.id)}>✕</button>
-                    </div>
+                    <div className="muted">{r.maq} · {r.proveedor} · {r.fecha} · Min: {r.stock_min || 1}</div>
+                    {r.notas && <div className="muted">{r.notas}</div>}
                   </div>
-                  <div className="muted">{r.maq} · {r.proveedor} · {r.fecha} · Mín: {r.stock_min || 1}</div>
-                  {r.notas && <div className="muted">{r.notas}</div>}
-                </div>
-                );})
+                );
+              })}
             </div>
           )}
         </div>
