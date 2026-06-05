@@ -656,6 +656,14 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
   const stockBajo = refs.filter(r => Number(r.stock || 0) <= Number(r.stock_min || 1)).length;
   const refsFiltradas = refs.filter(r => !busquedaInv || [r.nombre, r.maq, r.proveedor].some(v => String(v || "").toLowerCase().includes(busquedaInv.toLowerCase())));
   const comprasFiltradas = proveedores.filter(p => !busquedaCompras || [p.nombre, p.que_compro].some(v => String(v || "").toLowerCase().includes(busquedaCompras.toLowerCase())));
+  const listaProveedores = Object.values(proveedores.reduce((acc, p) => {
+    const key = (p.nombre || "").trim().toLowerCase();
+    if (!acc[key]) acc[key] = { nombre: p.nombre, telefono: "", direccion: "", compras: [] };
+    if (p.telefono) acc[key].telefono = p.telefono;
+    if (p.direccion) acc[key].direccion = p.direccion;
+    acc[key].compras.push({ fecha: p.fecha, que_compro: p.que_compro, monto: p.monto, id: p.id });
+    return acc;
+  }, {})).map(p => ({ ...p, total: p.compras.reduce((s, c) => s + Number(c.monto || 0), 0) })).sort((a, b) => b.total - a.total);
 
   return (
     <div>
@@ -668,6 +676,7 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 16, marginTop: 12 }}>
         <button className={`btn ${subTab === "compras" ? "btn-primary" : "btn-ghost"}`} onClick={() => setSubTab("compras")}>🛒 Compras</button>
+        <button className={`btn ${subTab === "proveedores" ? "btn-primary" : "btn-ghost"}`} onClick={() => setSubTab("proveedores")}>🏪 Proveedores</button>
         <button className={`btn ${subTab === "inventario" ? "btn-primary" : "btn-ghost"}`} onClick={() => setSubTab("inventario")}>📦 Inventario</button>
       </div>
       {subTab === "compras" && (
@@ -701,6 +710,34 @@ function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
                   <div className="muted">{p.fecha} · {p.telefono}</div>
                   {p.direccion && <div className="muted">📍 {p.direccion}</div>}
                   {p.que_compro && <div className="muted">🔧 {p.que_compro}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {subTab === "proveedores" && (
+        <div>
+          <h3 className="sub-title">Proveedores ({listaProveedores.length})</h3>
+          {listaProveedores.length === 0 ? <p className="empty">Sin compras registradas.</p> : (
+            <div className="list">
+              {listaProveedores.map(p => (
+                <div key={p.nombre} className="list-item">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <strong style={{ fontSize: 15 }}>{p.nombre}</strong>
+                    <span className="badge b-accent">Total: ${fmt(p.total)}</span>
+                  </div>
+                  {p.telefono && <div className="muted">📞 {p.telefono}</div>}
+                  {p.direccion && <div className="muted">📍 {p.direccion}</div>}
+                  <div style={{ marginTop: 8, borderTop: "1px solid #2a2d3a", paddingTop: 8 }}>
+                    <div style={{ fontSize: 11, color: "#c9922a", marginBottom: 6, fontWeight: 700 }}>Compras ({p.compras.length})</div>
+                    {p.compras.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "")).map((c, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4, gap: 8 }}>
+                        <span style={{ color: "#aaa" }}>{c.fecha} · {c.que_compro || "—"}</span>
+                        <span style={{ color: "#c9922a", whiteSpace: "nowrap" }}>${fmt(c.monto)}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
