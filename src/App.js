@@ -882,11 +882,20 @@ export default function App() {
         <div style={{ marginLeft: "auto", fontSize: 11, color: "#4be87a" }}>● En línea</div>
       </header>
       <div className="tab-bar">
-        {TABS.map(t => (
-          <button key={t.id} className={`tab-btn ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
-            <span>{t.ico}</span><span>{t.lbl}</span>
-          </button>
-        ))}
+        {TABS.map(t => {
+          const badge = t.id === "fal" ? fallas.filter(f => f.status === "abierta").length
+                      : t.id === "ref" ? refs.filter(r => Number(r.stock || 0) <= Number(r.stock_min || 1)).length
+                      : 0;
+          return (
+            <button key={t.id} className={`tab-btn ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
+              <span style={{ position: "relative", display: "inline-block" }}>
+                {t.ico}
+                {badge > 0 && <span style={{ position: "absolute", top: -4, right: -7, background: "#ff4d4d", color: "#fff", borderRadius: "50%", fontSize: 9, fontWeight: 700, minWidth: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>{badge}</span>}
+              </span>
+              <span>{t.lbl}</span>
+            </button>
+          );
+        })}
       </div>
       <main className="main">
         {tab === "dash" && <Dashboard pedidos={pedidos} fallas={fallas} refacciones={refs} proveedores={proveedores} prodDiaria={prodDiaria} />}
