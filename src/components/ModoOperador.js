@@ -118,7 +118,7 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
               <>
                 <h2 style={{ color: "#ff9900", fontSize: 13, margin: "16px 0 8px", textTransform: "uppercase", letterSpacing: ".08em" }}>📋 Próximos anotados</h2>
                 {pedidosAnotados.map(p => (
-                  <div key={p.id} style={{ ...card, borderLeft: "4px solid #ff9900", opacity: 0.85 }}>
+                  <div key={p.id} onClick={() => seleccionarPedido(p)} style={{ ...card, borderLeft: "4px solid #ff9900", cursor: "pointer" }}>
                     <div style={{ fontSize: 16, fontWeight: 700, color: "#e0e0e0", marginBottom: 4 }}>{p.cliente}</div>
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13 }}>
                       <span style={{ color: "#c9922a", fontWeight: 700 }}>📏 {p.medida}</span>
@@ -128,6 +128,7 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
                       {p.rollos_caja && <span style={{ color: "#aaa" }}>🧻 {p.rollos_caja} rollos/caja</span>}
                     </div>
                     {p.fecha_solicitud && <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>Solicitud: {p.fecha_solicitud}</div>}
+                    {p.cliche_url && <div style={{ fontSize: 11, color: "#ff9900", marginTop: 4 }}>📷 Ver diseño →</div>}
                   </div>
                 ))}
               </>
@@ -155,8 +156,17 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
                 <ClicheImg src={pedidoSel.cliche_url} style={{ width: "100%", borderRadius: 10, border: "1px solid #2a2d3a" }} />
               </div>
             )}
-            <button className="btn btn-primary btn-block" style={{ marginBottom: 10, padding: 16, fontSize: 16 }} onClick={() => setVista("finalizar")}>✅ Finalizar pedido</button>
-            <button className="btn btn-danger btn-block" style={{ padding: 16, fontSize: 16 }} onClick={() => setVista("falla")}>⚠️ Reportar falla</button>
+            {pedidoSel.status === "proceso" && (
+              <>
+                <button className="btn btn-primary btn-block" style={{ marginBottom: 10, padding: 16, fontSize: 16 }} onClick={() => setVista("finalizar")}>✅ Finalizar pedido</button>
+                <button className="btn btn-danger btn-block" style={{ padding: 16, fontSize: 16 }} onClick={() => setVista("falla")}>⚠️ Reportar falla</button>
+              </>
+            )}
+            {pedidoSel.status === "anotado" && (
+              <div style={{ padding: "12px 16px", background: "#1a1d26", borderRadius: 10, textAlign: "center", color: "#666", fontSize: 13 }}>
+                Pedido anotado — solo consulta
+              </div>
+            )}
           </>
         )}
 
