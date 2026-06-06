@@ -1,16 +1,15 @@
 import { useState } from "react";
 import ClicheImg from './ClicheImg';
 import { supabase } from '../lib/supabase';
-import { uid, today } from '../lib/utils';
+import { today } from '../lib/utils';
 import { COMPS, SEV } from '../lib/constants';
 
-export default function ModoOperador({ pedidos, setPedidos, prodDiaria, setProdDiaria, setFallas, onSalir }) {
+export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }) {
   const pedidosEnProceso = pedidos.filter(p => p.status === "proceso");
   const pedidosAnotados = pedidos.filter(p => p.status === "anotado");
   const [pedidoSel, setPedidoSel] = useState(null);
-  const [vista, setVista] = useState(null); // null | "prod" | "falla"
-  const [formProd, setFormProd] = useState({ cajas_dia: "", notas: "" });
-  const [formConsumos, setFormConsumos] = useState({ rollos_usados: "", tinta_kg: "", alcohol_litros: "" });
+  const [vista, setVista] = useState(null); // null | "finalizar" | "falla"
+  const [formFin, setFormFin] = useState({ merma_pct: "", rollos_usados: "", tinta_kg: "", alcohol_litros: "", notas: "" });
   const [formFalla, setFormFalla] = useState({ comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" });
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,40 +18,35 @@ export default function ModoOperador({ pedidos, setPedidos, prodDiaria, setProdD
   const seleccionarPedido = (p) => {
     setPedidoSel(p);
     setVista(null);
-    setFormProd({ cajas_dia: "", notas: "" });
-    setFormConsumos({
+    setFormFin({
+      merma_pct: p.merma_pct ?? "",
       rollos_usados: p.rollos_usados ?? "",
       tinta_kg: p.tinta_kg ?? "",
       alcohol_litros: p.alcohol_litros ?? "",
+      notas: p.notas ?? "",
     });
     setFormFalla({ comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" });
   };
 
-  const guardarProduccion = async () => {
-    if (!formProd.cajas_dia) { showToast("⚠ Ingresa las cajas del día"); return; }
+  const finalizarPedido = async () => {
     setLoading(true);
-    const nuevo = {
-      id: uid(), created: today(), fecha: today(),
-      num_pedido: String(pedidoSel.num), cajas_dia: formProd.cajas_dia,
-      op: "William", notas: formProd.notas,
+    const update = {
+      status: "terminado",
+      fecha_termino: today(),
+      notas: formFin.notas || pedidoSel.notas || null,
     };
-    const { error: errProd } = await supabase.from("prod_diaria").insert([nuevo]);
-    if (errProd) { showToast("❌ Error al guardar producción"); setLoading(false); return; }
+    if (formFin.merma_pct !== "") update.merma_pct = formFin.merma_pct;
+    if (formFin.rollos_usados !== "") update.rollos_usados = Number(formFin.rollos_usados);
+    if (formFin.tinta_kg !== "") update.tinta_kg = Number(formFin.tinta_kg);
+    if (formFin.alcohol_litros !== "") update.alcohol_litros = Number(formFin.alcohol_litros);
 
-    const consumosUpdate = {};
-    if (formConsumos.rollos_usados !== "") consumosUpdate.rollos_usados = Number(formConsumos.rollos_usados);
-    if (formConsumos.tinta_kg !== "") consumosUpdate.tinta_kg = Number(formConsumos.tinta_kg);
-    if (formConsumos.alcohol_litros !== "") consumosUpdate.alcohol_litros = Number(formConsumos.alcohol_litros);
-    if (Object.keys(consumosUpdate).length > 0) {
-      await supabase.from("pedidos").update(consumosUpdate).eq("id", pedidoSel.id);
-      setPedidos(ps => ps.map(p => p.id === pedidoSel.id ? { ...p, ...consumosUpdate } : p));
-      setPedidoSel(prev => ({ ...prev, ...consumosUpdate }));
-    }
+    const { error } = await supabase.from("pedidos").update(update).eq("id", pedidoSel.id);
+    if (error) { showToast("❌ Error al finalizar pedido"); setLoading(false); return; }
 
-    setProdDiaria(d => [nuevo, ...d]);
+    setPedidos(ps => ps.map(p => p.id === pedidoSel.id ? { ...p, ...update } : p));
+    setPedidoSel(null);
     setVista(null);
-    setFormProd({ cajas_dia: "", notas: "" });
-    showToast("✓ Producción registrada");
+    showToast("✓ Pedido finalizado");
     setLoading(false);
   };
 
@@ -60,7 +54,8 @@ export default function ModoOperador({ pedidos, setPedidos, prodDiaria, setProdD
     if (!formFalla.descripcion || !formFalla.min_paro) { showToast("⚠ Descripción y minutos obligatorios"); return; }
     setLoading(true);
     const nueva = {
-      id: uid(), created: today(), fecha: today(),
+      id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36),
+      created: today(), fecha: today(),
       maq: pedidoSel?.maq || "SIAT L36 #1",
       comp: formFalla.comp, min_paro: formFalla.min_paro,
       sev: formFalla.sev, op: "William",
@@ -132,7 +127,7 @@ export default function ModoOperador({ pedidos, setPedidos, prodDiaria, setProdD
           </>
         )}
 
-        {/* Detalle del pedido seleccionado */}
+        {/* Detalle del pedido */}
         {pedidoSel && vista === null && (
           <>
             <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setPedidoSel(null)}>← Volver</button>
@@ -140,16 +135,11 @@ export default function ModoOperador({ pedidos, setPedidos, prodDiaria, setProdD
               <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 10 }}>{pedidoSel.cliente}</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                 <div style={miniCard}><div style={miniLbl}>Medida</div><div style={{ color: "#c9922a", fontWeight: 700, fontSize: 18 }}>{pedidoSel.medida}</div></div>
-                <div style={miniCard}><div style={miniLbl}>Cajas meta</div><div style={{ color: "#4be87a", fontWeight: 700, fontSize: 18 }}>{pedidoSel.cajas}</div></div>
+                <div style={miniCard}><div style={miniLbl}>Cajas</div><div style={{ color: "#4be87a", fontWeight: 700, fontSize: 18 }}>{pedidoSel.cajas}</div></div>
                 <div style={miniCard}><div style={miniLbl}>Tipo</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{pedidoSel.tipo}</div></div>
                 <div style={miniCard}><div style={miniLbl}>Máquina</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{pedidoSel.maq}</div></div>
               </div>
               {pedidoSel.color && <div style={{ fontSize: 12, color: "#aaa" }}>🎨 Color: {pedidoSel.color}</div>}
-              {pedidoSel.rollos_usados || pedidoSel.tinta_kg || pedidoSel.alcohol_litros ? (
-                <div style={{ marginTop: 10, padding: "8px 10px", background: "#0d0f14", borderRadius: 8, fontSize: 12, color: "#888" }}>
-                  Consumos registrados: {pedidoSel.rollos_usados ? `${pedidoSel.rollos_usados} rollos` : ""}{pedidoSel.tinta_kg ? ` · ${pedidoSel.tinta_kg}kg tinta` : ""}{pedidoSel.alcohol_litros ? ` · ${pedidoSel.alcohol_litros}L alcohol` : ""}
-                </div>
-              ) : null}
             </div>
             {pedidoSel.cliche_url && (
               <div style={{ marginBottom: 16 }}>
@@ -157,40 +147,41 @@ export default function ModoOperador({ pedidos, setPedidos, prodDiaria, setProdD
                 <ClicheImg src={pedidoSel.cliche_url} style={{ width: "100%", borderRadius: 10, border: "1px solid #2a2d3a" }} />
               </div>
             )}
-            <button className="btn btn-primary btn-block" style={{ marginBottom: 10, padding: 16, fontSize: 16 }} onClick={() => setVista("prod")}>✅ Registrar producción del día</button>
+            <button className="btn btn-primary btn-block" style={{ marginBottom: 10, padding: 16, fontSize: 16 }} onClick={() => setVista("finalizar")}>✅ Finalizar pedido</button>
             <button className="btn btn-danger btn-block" style={{ padding: 16, fontSize: 16 }} onClick={() => setVista("falla")}>⚠️ Reportar falla</button>
           </>
         )}
 
-        {/* Formulario de producción */}
-        {pedidoSel && vista === "prod" && (
+        {/* Formulario finalizar pedido */}
+        {pedidoSel && vista === "finalizar" && (
           <>
             <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setVista(null)}>← Volver</button>
-            <h3 style={{ color: "#c9922a", marginBottom: 12 }}>Producción del día — {pedidoSel.cliente}</h3>
+            <h3 style={{ color: "#4be87a", marginBottom: 4 }}>✅ Finalizar — {pedidoSel.cliente}</h3>
+            <p style={{ fontSize: 12, color: "#666", marginBottom: 14 }}>El pedido quedará como Terminado. Registra los consumos totales del pedido completo.</p>
             <div className="form-grid">
               <div className="field">
-                <label>Cajas del día *</label>
-                <input type="number" placeholder="12" value={formProd.cajas_dia} onChange={e => setFormProd(f => ({ ...f, cajas_dia: e.target.value }))} />
+                <label>Rollos usados (total pedido)</label>
+                <input type="number" placeholder="0" value={formFin.rollos_usados} onChange={e => setFormFin(f => ({ ...f, rollos_usados: e.target.value }))} />
               </div>
               <div className="field">
-                <label>Rollos usados (total acumulado pedido)</label>
-                <input type="number" placeholder="0" value={formConsumos.rollos_usados} onChange={e => setFormConsumos(f => ({ ...f, rollos_usados: e.target.value }))} />
+                <label>Tinta kg (total pedido)</label>
+                <input type="number" step="0.1" placeholder="0.0" value={formFin.tinta_kg} onChange={e => setFormFin(f => ({ ...f, tinta_kg: e.target.value }))} />
               </div>
               <div className="field">
-                <label>Tinta kg (total acumulado pedido)</label>
-                <input type="number" step="0.1" placeholder="0.0" value={formConsumos.tinta_kg} onChange={e => setFormConsumos(f => ({ ...f, tinta_kg: e.target.value }))} />
+                <label>Alcohol L (total pedido)</label>
+                <input type="number" step="0.1" placeholder="0.0" value={formFin.alcohol_litros} onChange={e => setFormFin(f => ({ ...f, alcohol_litros: e.target.value }))} />
               </div>
               <div className="field">
-                <label>Alcohol L (total acumulado pedido)</label>
-                <input type="number" step="0.1" placeholder="0.0" value={formConsumos.alcohol_litros} onChange={e => setFormConsumos(f => ({ ...f, alcohol_litros: e.target.value }))} />
+                <label>% Merma</label>
+                <input type="number" step="0.1" placeholder="0.0" value={formFin.merma_pct} onChange={e => setFormFin(f => ({ ...f, merma_pct: e.target.value }))} />
               </div>
               <div className="field full">
                 <label>Observaciones</label>
-                <textarea placeholder="Incidencias, ajustes de velocidad…" value={formProd.notas} onChange={e => setFormProd(f => ({ ...f, notas: e.target.value }))} />
+                <textarea placeholder="Notas del pedido…" value={formFin.notas} onChange={e => setFormFin(f => ({ ...f, notas: e.target.value }))} />
               </div>
             </div>
-            <button className="btn btn-primary btn-block" onClick={guardarProduccion} disabled={loading} style={{ padding: 16, fontSize: 16 }}>
-              {loading ? "Guardando…" : "✅ Guardar producción"}
+            <button className="btn btn-primary btn-block" onClick={finalizarPedido} disabled={loading} style={{ padding: 16, fontSize: 16 }}>
+              {loading ? "Guardando…" : "✅ Confirmar finalización"}
             </button>
           </>
         )}
