@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import BarChart from './BarChart';
 import { today, fmt, diasHabilesRestantes, estadoPlazo } from '../lib/utils';
-import { META_CAJAS, META_MERMA_PCT, STATUS_PED } from '../lib/constants';
+import { META_CAJAS, META_MERMA_PCT } from '../lib/constants';
 
 export default function Dashboard({ pedidos, fallas, refacciones, proveedores, prodDiaria }) {
   const activos = pedidos.filter(p => p.status !== "terminado").length;
