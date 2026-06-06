@@ -5,7 +5,8 @@ import { uid, today } from '../lib/utils';
 import { COMPS, SEV } from '../lib/constants';
 
 export default function ModoOperador({ pedidos, setPedidos, prodDiaria, setProdDiaria, setFallas, onSalir }) {
-  const pedidosActivos = pedidos.filter(p => p.status === "proceso");
+  const pedidosEnProceso = pedidos.filter(p => p.status === "proceso");
+  const pedidosAnotados = pedidos.filter(p => p.status === "anotado");
   const [pedidoSel, setPedidoSel] = useState(null);
   const [vista, setVista] = useState(null); // null | "prod" | "falla"
   const [formProd, setFormProd] = useState({ cajas_dia: "", notas: "" });
@@ -93,21 +94,41 @@ export default function ModoOperador({ pedidos, setPedidos, prodDiaria, setProdD
         {/* Lista de pedidos */}
         {!pedidoSel && (
           <>
-            <h2 style={{ color: "#c9922a", fontSize: 18, margin: "12px 0" }}>Pedidos en proceso</h2>
-            {pedidosActivos.length === 0
-              ? <p style={{ color: "#666", textAlign: "center", padding: 40 }}>Sin pedidos en proceso.</p>
-              : pedidosActivos.map(p => (
-                <div key={p.id} onClick={() => seleccionarPedido(p)} style={{ ...card, borderLeft: "4px solid #4a9eff", cursor: "pointer", active: { opacity: 0.8 } }}>
+            <h2 style={{ color: "#4a9eff", fontSize: 13, margin: "12px 0 8px", textTransform: "uppercase", letterSpacing: ".08em" }}>▶ En proceso</h2>
+            {pedidosEnProceso.length === 0
+              ? <p style={{ color: "#555", fontSize: 13, marginBottom: 16 }}>Sin pedidos en proceso.</p>
+              : pedidosEnProceso.map(p => (
+                <div key={p.id} onClick={() => seleccionarPedido(p)} style={{ ...card, borderLeft: "4px solid #4a9eff", cursor: "pointer" }}>
                   <div style={{ fontSize: 19, fontWeight: 700, color: "#fff", marginBottom: 4 }}>{p.cliente}</div>
                   <div style={{ color: "#c9922a", fontSize: 16, fontWeight: 700, marginBottom: 6 }}>📏 {p.medida}</div>
                   <div style={{ display: "flex", gap: 12, fontSize: 13, color: "#aaa", flexWrap: "wrap" }}>
                     <span>📦 {p.cajas} cajas</span>
                     <span>🎨 {p.tipo}</span>
+                    {p.color && <span>🖌 {p.color}</span>}
                     <span style={{ color: "#555" }}>#Ped {p.num}</span>
                   </div>
                 </div>
               ))
             }
+
+            {pedidosAnotados.length > 0 && (
+              <>
+                <h2 style={{ color: "#ff9900", fontSize: 13, margin: "16px 0 8px", textTransform: "uppercase", letterSpacing: ".08em" }}>📋 Próximos anotados</h2>
+                {pedidosAnotados.map(p => (
+                  <div key={p.id} style={{ ...card, borderLeft: "4px solid #ff9900", opacity: 0.85 }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: "#e0e0e0", marginBottom: 4 }}>{p.cliente}</div>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13 }}>
+                      <span style={{ color: "#c9922a", fontWeight: 700 }}>📏 {p.medida}</span>
+                      <span style={{ color: "#aaa" }}>🎨 {p.tipo}</span>
+                      {p.color && <span style={{ color: "#aaa" }}>🖌 {p.color}</span>}
+                      <span style={{ color: "#aaa" }}>📦 {p.cajas} cajas</span>
+                      {p.rollos_caja && <span style={{ color: "#aaa" }}>🧻 {p.rollos_caja} rollos/caja</span>}
+                    </div>
+                    {p.fecha_solicitud && <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>Solicitud: {p.fecha_solicitud}</div>}
+                  </div>
+                ))}
+              </>
+            )}
           </>
         )}
 
