@@ -1,10 +1,25 @@
+import { useEffect } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import BarChart from './BarChart';
 import { today, fmt, diasHabilesRestantes, estadoPlazo } from '../lib/utils';
 import { META_CAJAS, META_MERMA_PCT } from '../lib/constants';
+import { notificar } from '../lib/notificaciones';
 
 export default function Dashboard({ pedidos, fallas, refacciones, proveedores, prodDiaria }) {
+  useEffect(() => {
+    const hoy = today();
+    const yaAvisado = localStorage.getItem('vencidos_avisado');
+    if (yaAvisado === hoy) return;
+    const vencidos = pedidos
+      .filter(p => p.status !== "terminado" && p.fecha_solicitud)
+      .map(p => ({ ...p, dias: diasHabilesRestantes(p.fecha_solicitud) }))
+      .filter(p => p.dias < 0);
+    if (vencidos.length > 0) {
+      notificar('pedidos_vencidos', { pedidos: vencidos.map(p => ({ num: p.num, cliente: p.cliente, dias: p.dias })) });
+      localStorage.setItem('vencidos_avisado', hoy);
+    }
+  }, [pedidos]);
   const activos = pedidos.filter(p => p.status !== "terminado").length;
   const fallasAbiertas = fallas.filter(f => f.status === "abierta").length;
   const gastoRef = proveedores.reduce((s, p) => s + Number(p.monto || 0), 0);

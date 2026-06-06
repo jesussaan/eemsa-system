@@ -2,6 +2,7 @@ import { useState } from "react";
 import ClicheImg from './ClicheImg';
 import { supabase } from '../lib/supabase';
 import { today } from '../lib/utils';
+import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV } from '../lib/constants';
 
 export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }) {
@@ -52,6 +53,13 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
     if (error) { showToast("❌ Error al finalizar pedido"); setLoading(false); return; }
 
     setPedidos(ps => ps.map(p => p.id === pedidoSel.id ? { ...p, ...update } : p));
+    notificar('pedido_finalizado', {
+      num: pedidoSel.num, cliente: pedidoSel.cliente,
+      medida: pedidoSel.medida, tipo: pedidoSel.tipo, cajas: pedidoSel.cajas,
+      merma_pct: mermaPct, rollos_usados: update.rollos_usados,
+      tinta_kg: update.tinta_kg, alcohol_litros: update.alcohol_litros,
+      notas: update.notas,
+    });
     setPedidoSel(null);
     setVista(null);
     showToast("✓ Pedido finalizado");
