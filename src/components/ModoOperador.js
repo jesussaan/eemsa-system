@@ -9,7 +9,7 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
   const pedidosAnotados = pedidos.filter(p => p.status === "anotado");
   const [pedidoSel, setPedidoSel] = useState(null);
   const [vista, setVista] = useState(null); // null | "finalizar" | "falla"
-  const [formFin, setFormFin] = useState({ merma_pct: "", rollos_usados: "", tinta_kg: "", alcohol_litros: "", notas: "" });
+  const [formFin, setFormFin] = useState({ piezas_prod: "", merma: "", rollos_usados: "", tinta_kg: "", alcohol_litros: "", notas: "" });
   const [formFalla, setFormFalla] = useState({ comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" });
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,7 +19,8 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
     setPedidoSel(p);
     setVista(null);
     setFormFin({
-      merma_pct: p.merma_pct ?? "",
+      piezas_prod: p.piezas_prod ?? "",
+      merma: p.merma ?? "",
       rollos_usados: p.rollos_usados ?? "",
       tinta_kg: p.tinta_kg ?? "",
       alcohol_litros: p.alcohol_litros ?? "",
@@ -30,12 +31,19 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
 
   const finalizarPedido = async () => {
     setLoading(true);
+    const piezas = formFin.piezas_prod !== "" ? Number(formFin.piezas_prod) : null;
+    const mermaNum = formFin.merma !== "" ? Number(formFin.merma) : null;
+    const mermaPct = piezas && mermaNum != null && piezas > 0
+      ? ((mermaNum / piezas) * 100).toFixed(2)
+      : null;
     const update = {
       status: "terminado",
       fecha_termino: today(),
       notas: formFin.notas || pedidoSel.notas || null,
     };
-    if (formFin.merma_pct !== "") update.merma_pct = formFin.merma_pct;
+    if (piezas != null) update.piezas_prod = piezas;
+    if (mermaNum != null) update.merma = mermaNum;
+    if (mermaPct != null) update.merma_pct = mermaPct;
     if (formFin.rollos_usados !== "") update.rollos_usados = Number(formFin.rollos_usados);
     if (formFin.tinta_kg !== "") update.tinta_kg = Number(formFin.tinta_kg);
     if (formFin.alcohol_litros !== "") update.alcohol_litros = Number(formFin.alcohol_litros);
@@ -172,9 +180,19 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
                 <input type="number" step="0.1" placeholder="0.0" value={formFin.alcohol_litros} onChange={e => setFormFin(f => ({ ...f, alcohol_litros: e.target.value }))} />
               </div>
               <div className="field">
-                <label>% Merma</label>
-                <input type="number" step="0.1" placeholder="0.0" value={formFin.merma_pct} onChange={e => setFormFin(f => ({ ...f, merma_pct: e.target.value }))} />
+                <label>Piezas producidas</label>
+                <input type="number" placeholder="1800" value={formFin.piezas_prod} onChange={e => setFormFin(f => ({ ...f, piezas_prod: e.target.value }))} />
               </div>
+              <div className="field">
+                <label>Merma (piezas)</label>
+                <input type="number" placeholder="0" value={formFin.merma} onChange={e => setFormFin(f => ({ ...f, merma: e.target.value }))} />
+              </div>
+              {formFin.piezas_prod && formFin.merma && Number(formFin.piezas_prod) > 0 && (
+                <div className="field">
+                  <label>% Merma (auto)</label>
+                  <input readOnly value={((Number(formFin.merma) / Number(formFin.piezas_prod)) * 100).toFixed(2) + "%"} style={{ background: "#1a2744", color: ((Number(formFin.merma) / Number(formFin.piezas_prod)) * 100) > 3 ? "#ff4d4d" : "#4be87a" }} />
+                </div>
+              )}
               <div className="field full">
                 <label>Observaciones</label>
                 <textarea placeholder="Notas del pedido…" value={formFin.notas} onChange={e => setFormFin(f => ({ ...f, notas: e.target.value }))} />
