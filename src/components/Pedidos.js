@@ -157,6 +157,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
       notas_consumo: modalPedido.notas_consumo || null,
       color_cinta: modalPedido.color_cinta || null,
       cliche_url: modalPedido.cliche_url || null,
+      foto_producto_url: modalPedido.foto_producto_url || null,
     };
     if (modalClicheImg) {
       const { data: up, error: upErr } = await supabase.storage.from("cliches").upload(`${uid()}_${modalClicheImg.name}`, modalClicheImg);
@@ -269,7 +270,15 @@ export default function Pedidos({ pedidos, setPedidos }) {
                 <div className="muted">Sol: {p.fecha_solicitud}{p.fecha_inicio && ` · Inicio: ${p.fecha_inicio}`}{p.fecha_termino && ` · Fin: ${p.fecha_termino}`}</div>
                 {p.status === "terminado" && p.fecha_inicio && p.fecha_termino && (<div className="muted">⏱ Producción: <span style={{ color: "#4be87a", fontWeight: 700 }}>{Math.round((new Date(p.fecha_termino + "T12:00:00") - new Date(p.fecha_inicio + "T12:00:00")) / 86400000) + 1} días</span> ({p.fecha_inicio} → {p.fecha_termino})</div>)}
                 {p.status === "terminado" && p.merma_pct !== "" && p.merma_pct !== undefined && (<div className="muted">Merma: <span style={{ color: mermaOk ? "#4be87a" : "#ff4d4d", fontWeight: 700 }}>{p.merma_pct}% {mermaOk ? "🟢 OK" : "🔴 EXCEDIDA"}</span></div>)}
-                {p.cliche_url && <ClicheImg src={p.cliche_url} style={{ width: 80, height: 56, objectFit: "cover", borderRadius: 6, marginTop: 4, border: "1px solid #2a2d3a" }} />}
+                <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+                  {p.cliche_url && <ClicheImg src={p.cliche_url} style={{ width: 80, height: 56, objectFit: "cover", borderRadius: 6, border: "1px solid #2a2d3a" }} />}
+                  {p.foto_producto_url && (
+                    <div>
+                      <div style={{ fontSize: 10, color: "#4be87a", marginBottom: 2 }}>Producto terminado</div>
+                      <ClicheImg src={p.foto_producto_url} style={{ width: 80, height: 56, objectFit: "cover", borderRadius: 6, border: "1px solid #4be87a" }} />
+                    </div>
+                  )}
+                </div>
                 {p.notas && <div className="muted">📝 {p.notas}</div>}
                 {p.status === "terminado" && (p.rollos_usados || p.tinta_kg || p.alcohol_litros) && (
                   <div className="muted" style={{ color: "#c9922a" }}>

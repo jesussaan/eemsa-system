@@ -11,6 +11,8 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
   const [pedidoSel, setPedidoSel] = useState(null);
   const [vista, setVista] = useState(null); // null | "finalizar" | "falla"
   const [formFin, setFormFin] = useState({ piezas_prod: "", merma: "", rollos_usados: "", tinta_kg: "", alcohol_litros: "", notas: "" });
+  const [fotoProducto, setFotoProducto] = useState(null);
+  const [fotoPreview, setFotoPreview] = useState(null);
   const [formFalla, setFormFalla] = useState({ comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" });
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,6 +29,8 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
       alcohol_litros: p.alcohol_litros ?? "",
       notas: p.notas ?? "",
     });
+    setFotoProducto(null);
+    setFotoPreview(null);
     setFormFalla({ comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" });
   };
 
@@ -49,6 +53,12 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
     if (formFin.tinta_kg !== "") update.tinta_kg = Number(formFin.tinta_kg);
     if (formFin.alcohol_litros !== "") update.alcohol_litros = Number(formFin.alcohol_litros);
 
+    if (fotoProducto) {
+      const ext = fotoProducto.name.split('.').pop();
+      const path = `producto_${pedidoSel.id}_${Date.now()}.${ext}`;
+      const { data: up } = await supabase.storage.from("cliches").upload(path, fotoProducto, { upsert: true });
+      if (up) update.foto_producto_url = up.path;
+    }
     const { error } = await supabase.from("pedidos").update(update).eq("id", pedidoSel.id);
     if (error) { showToast("❌ Error al finalizar pedido"); setLoading(false); return; }
 
@@ -211,6 +221,11 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
                   <input readOnly value={((Number(formFin.merma) / Number(formFin.piezas_prod)) * 100).toFixed(2) + "%"} style={{ background: "#1a2744", color: ((Number(formFin.merma) / Number(formFin.piezas_prod)) * 100) > 3 ? "#ff4d4d" : "#4be87a" }} />
                 </div>
               )}
+              <div className="field full">
+                <label>📷 Foto del producto terminado</label>
+                <input type="file" accept="image/*" capture="environment" onChange={e => { const f = e.target.files[0]; if (!f) return; setFotoProducto(f); setFotoPreview(URL.createObjectURL(f)); }} />
+                {fotoPreview && <img src={fotoPreview} alt="producto" style={{ width: "100%", maxWidth: 300, marginTop: 8, borderRadius: 8, border: "1px solid #4be87a" }} />}
+              </div>
               <div className="field full">
                 <label>Observaciones</label>
                 <textarea placeholder="Notas del pedido…" value={formFin.notas} onChange={e => setFormFin(f => ({ ...f, notas: e.target.value }))} />
