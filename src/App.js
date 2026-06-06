@@ -154,6 +154,7 @@ export default function App() {
         {TABS.map(t => {
           const badge = t.id === "fal" ? fallas.filter(f => f.status === "abierta").length
                       : t.id === "ref" ? refs.filter(r => { const min = r.stock_min ?? 1; return min > 0 && Number(r.stock || 0) <= min; }).length
+                      : t.id === "ped" ? pedidos.filter(p => p.status === "pendiente").length
                       : 0;
           return (
             <button key={t.id} className={`tab-btn ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>

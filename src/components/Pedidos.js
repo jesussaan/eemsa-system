@@ -7,7 +7,7 @@ import { uid, today, diasHabilesRestantes, estadoPlazo } from '../lib/utils';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT } from '../lib/constants';
 
 export default function Pedidos({ pedidos, setPedidos }) {
-  const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", ancho: "", largo: "", color: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "anotado" };
+  const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", ancho: "", largo: "", color: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "pendiente" };
   const [form, setForm] = useState(formInicial);
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
@@ -175,22 +175,54 @@ export default function Pedidos({ pedidos, setPedidos }) {
     setPedidos(p => p.filter(x => x.id !== id));
   };
 
+  const darDeAlta = async (id) => {
+    await supabase.from("pedidos").update({ status: "anotado" }).eq("id", id);
+    setPedidos(ps => ps.map(p => p.id === id ? { ...p, status: "anotado" } : p));
+    showToast("✓ Pedido dado de alta");
+  };
+
+  const pedidosPendientes = pedidos.filter(p => p.status === "pendiente").filter(p => !busqueda || [p.cliente, p.num, p.tipo, p.medida].some(v => String(v || "").toLowerCase().includes(busqueda.toLowerCase())));
   const pedidosFiltrados = pedidos
-    .filter(p => filtro === "todos" ? true : p.status === filtro)
+    .filter(p => filtro === "pendiente" ? p.status === "pendiente" : (p.status !== "pendiente" && (filtro === "todos" ? true : p.status === filtro)))
     .filter(p => !busqueda || [p.cliente, p.num, p.tipo, p.medida, p.color, p.color_cinta].some(v => String(v || "").toLowerCase().includes(busqueda.toLowerCase())))
     .map(p => ({ ...p, diasRest: p.status !== "terminado" ? diasHabilesRestantes(p.fecha_solicitud) : null }))
     .sort((a, b) => { if (a.status === "terminado" && b.status !== "terminado") return 1; if (b.status === "terminado" && a.status !== "terminado") return -1; return (a.diasRest ?? 999) - (b.diasRest ?? 999); });
-  const colorStatus = s => s === "terminado" ? "b-green" : s === "proceso" ? "b-blue" : "b-orange";
+  const colorStatus = s => s === "terminado" ? "b-green" : s === "proceso" ? "b-blue" : s === "pendiente" ? "b-red" : "b-orange";
 
   return (
     <div>
       <h2 className="sec-title">📋 Pedidos</h2>
       <div className="stat-grid">
+        <div className="stat-card red"><div className="stat-val">{pedidos.filter(p => p.status === "pendiente").length}</div><div className="stat-lbl">Falta dar de alta</div></div>
         <div className="stat-card orange"><div className="stat-val">{pedidos.filter(p => p.status === "anotado").length}</div><div className="stat-lbl">Anotados</div></div>
         <div className="stat-card blue"><div className="stat-val">{pedidos.filter(p => p.status === "proceso").length}</div><div className="stat-lbl">En proceso</div></div>
         <div className="stat-card green"><div className="stat-val">{pedidos.filter(p => p.status === "terminado").length}</div><div className="stat-lbl">Terminados</div></div>
-        <div className="stat-card red"><div className="stat-val">{pedidos.filter(p => p.status !== "terminado" && diasHabilesRestantes(p.fecha_solicitud) < 0).length}</div><div className="stat-lbl">Vencidos</div></div>
       </div>
+
+      {pedidosPendientes.length > 0 && (
+        <div style={{ background: "#1a0a0a", border: "2px solid #ff4d4d", borderRadius: 12, padding: 14, marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <span style={{ color: "#ff4d4d", fontWeight: 700, fontSize: 14 }}>🔔 Falta dar de alta</span>
+            <span style={{ background: "#ff4d4d", color: "#fff", borderRadius: 20, padding: "2px 8px", fontSize: 12, fontWeight: 700 }}>{pedidosPendientes.length}</span>
+          </div>
+          <div className="list" style={{ margin: 0 }}>
+            {pedidosPendientes.map(p => (
+              <div key={p.id} className="list-item" style={{ borderLeft: "3px solid #ff4d4d", background: "#14080a" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
+                  <div><strong>{p.num}</strong> — {p.cliente}</div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => abrirModal(p)}>✏️</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => del(p.id)}>✕</button>
+                    <button onClick={() => darDeAlta(p.id)} style={{ padding: "4px 12px", borderRadius: 8, background: "#4be87a", color: "#000", border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>✓ Dar de alta</button>
+                  </div>
+                </div>
+                <div className="muted">{p.tipo} · {p.medida} · {p.cajas} cajas · Sol: {p.fecha_solicitud}</div>
+                {p.notas && <div className="muted">📝 {p.notas}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <h3 className="sub-title" ref={formRef}>➕ Anotar pedido</h3>
       <div className="form-grid">
         <div className="field"><label>Cliente *</label><input value={form.cliente} onChange={e => upd("cliente", e.target.value)} placeholder="MAFENSA, ARIAT…" /></div>
@@ -211,7 +243,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
       </div>
       <button className="btn btn-primary btn-block" onClick={save} disabled={loading}>{loading ? "Guardando…" : "📝 Anotar pedido"}</button>
       <div style={{ display: "flex", gap: 8, margin: "16px 0 8px", flexWrap: "wrap" }}>
-        {[["todos", "Todos"], ["anotado", "Anotados"], ["proceso", "En proceso"], ["terminado", "Terminados"]].map(([k, v]) => (
+        {[["todos", "Todos"], ["anotado", "Anotados"], ["proceso", "En proceso"], ["terminado", "Terminados"], ["pendiente", "Falta alta"]].map(([k, v]) => (
           <button key={k} className={`btn btn-sm ${filtro === k ? "btn-primary" : "btn-ghost"}`} onClick={() => setFiltro(k)}>{v}</button>
         ))}
       </div>
