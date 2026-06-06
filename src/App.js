@@ -8,6 +8,7 @@ import Refacciones from "./components/Refacciones";
 import Fallas from "./components/Fallas";
 import Clientes from "./components/Clientes";
 import AsistenteIA from "./components/AsistenteIA";
+import ModoOperador from "./components/ModoOperador";
 
 const TABS = [
   { id: "dash", ico: "📊", lbl: "Dashboard" },
@@ -19,6 +20,8 @@ const TABS = [
   { id: "ia",   ico: "🤖", lbl: "Asistente" },
 ];
 
+const PIN_SUPERVISOR = "1234";
+
 export default function App() {
   const [tab, setTab] = useState("dash");
   const [pedidos, setPedidos] = useState([]);
@@ -27,6 +30,10 @@ export default function App() {
   const [proveedores, setProveedores] = useState([]);
   const [prodDiaria, setProdDiaria] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [modo, setModo] = useState(null); // null | "operador" | "supervisor"
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
 
   const cargarTablas = async (tablas) => {
     const mapa = {
@@ -50,6 +57,20 @@ export default function App() {
     cargar();
   }, []);
 
+  const handlePinDigit = (d) => {
+    const next = pinInput + d;
+    setPinError(false);
+    if (next.length < 4) { setPinInput(next); return; }
+    if (next === PIN_SUPERVISOR) {
+      setModo("supervisor");
+      setShowPinModal(false);
+      setPinInput("");
+    } else {
+      setPinError(true);
+      setPinInput("");
+    }
+  };
+
   if (cargando) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", flexDirection: "column", gap: 16, background: "#0d0f14", color: "#e8b84b" }}>
       <div style={{ fontSize: 40 }}>⚙️</div>
@@ -57,6 +78,69 @@ export default function App() {
     </div>
   );
 
+  if (!modo) return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0d0f14", gap: 0, padding: 24 }}>
+      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 56, fontWeight: 900, color: "#c9922a", lineHeight: 1 }}>EE</div>
+      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 24, fontWeight: 700, color: "#e0e0e0", letterSpacing: ".1em", marginBottom: 8 }}>EEMSA System</div>
+      <div style={{ fontSize: 12, color: "#555", marginBottom: 40 }}>Control SIAT L36 · Calidad · Innovación</div>
+      <button
+        onClick={() => setModo("operador")}
+        style={{ width: 260, padding: "18px 0", borderRadius: 14, border: "2px solid #4a9eff", background: "#0d1a33", color: "#4a9eff", fontSize: 18, fontWeight: 700, cursor: "pointer", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+        👷 Modo Operador
+      </button>
+      <button
+        onClick={() => { setShowPinModal(true); setPinInput(""); setPinError(false); }}
+        style={{ width: 260, padding: "18px 0", borderRadius: 14, border: "2px solid #c9922a", background: "#1a1200", color: "#c9922a", fontSize: 18, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+        🔒 Modo Supervisor
+      </button>
+
+      {showPinModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}>
+          <div style={{ background: "#14171f", borderRadius: 16, padding: 28, width: 280, textAlign: "center" }}>
+            <div style={{ color: "#c9922a", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>🔒 PIN Supervisor</div>
+            <div style={{ display: "flex", justifyContent: "center", gap: 10, margin: "16px 0" }}>
+              {[0,1,2,3].map(i => (
+                <div key={i} style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${pinInput.length > i ? "#c9922a" : "#2a2d3a"}`, background: pinInput.length > i ? "#c9922a" : "transparent" }} />
+              ))}
+            </div>
+            {pinError && <div style={{ color: "#ff4d4d", fontSize: 12, marginBottom: 8 }}>PIN incorrecto</div>}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 12 }}>
+              {[1,2,3,4,5,6,7,8,9].map(n => (
+                <button key={n} onClick={() => handlePinDigit(String(n))}
+                  style={{ padding: "14px 0", borderRadius: 10, border: "1px solid #2a2d3a", background: "#1a1d26", color: "#e0e0e0", fontSize: 20, fontWeight: 700, cursor: "pointer" }}>
+                  {n}
+                </button>
+              ))}
+              <div />
+              <button onClick={() => handlePinDigit("0")}
+                style={{ padding: "14px 0", borderRadius: 10, border: "1px solid #2a2d3a", background: "#1a1d26", color: "#e0e0e0", fontSize: 20, fontWeight: 700, cursor: "pointer" }}>
+                0
+              </button>
+              <button onClick={() => { setPinInput(p => p.slice(0, -1)); setPinError(false); }}
+                style={{ padding: "14px 0", borderRadius: 10, border: "1px solid #2a2d3a", background: "#1a1d26", color: "#aaa", fontSize: 16, cursor: "pointer" }}>
+                ⌫
+              </button>
+            </div>
+            <button onClick={() => { setShowPinModal(false); setPinInput(""); setPinError(false); }}
+              style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #2a2d3a", background: "transparent", color: "#666", cursor: "pointer" }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (modo === "operador") return (
+    <ModoOperador
+      pedidos={pedidos} setPedidos={setPedidos}
+      prodDiaria={prodDiaria} setProdDiaria={setProdDiaria}
+      setFallas={setFallas}
+      onSalir={() => setModo(null)}
+    />
+  );
+
+  // modo === "supervisor"
   return (
     <div className="app">
       <header className="header">
@@ -65,7 +149,7 @@ export default function App() {
           <div className="header-title">EEMSA System</div>
           <div className="header-sub">Control SIAT L36 · Asesoría · Calidad · Innovación</div>
         </div>
-        <div style={{ marginLeft: "auto", fontSize: 11, color: "#4be87a" }}>● En línea</div>
+        <button onClick={() => setModo(null)} style={{ marginLeft: "auto", fontSize: 11, color: "#aaa", background: "transparent", border: "none", cursor: "pointer", padding: "4px 8px" }}>← Salir</button>
       </header>
       <div className="tab-bar">
         {TABS.map(t => {
