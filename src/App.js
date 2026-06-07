@@ -20,7 +20,7 @@ const TABS = [
   { id: "ia",   ico: "🤖", lbl: "Asistente" },
 ];
 
-const PIN_SUPERVISOR = "1234";
+const PIN_SUPERVISOR = "2312";
 
 export default function App() {
   const [tab, setTab] = useState("dash");
