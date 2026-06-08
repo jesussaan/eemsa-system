@@ -10,14 +10,23 @@ import Clientes from "./components/Clientes";
 import AsistenteIA from "./components/AsistenteIA";
 import ModoOperador from "./components/ModoOperador";
 
+const S = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
+const IcoDash = () => (<svg viewBox="0 0 24 24" {...S}><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>);
+const IcoPed  = () => (<svg viewBox="0 0 24 24" {...S}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>);
+const IcoProd = () => (<svg viewBox="0 0 24 24" {...S}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>);
+const IcoRef  = () => (<svg viewBox="0 0 24 24" {...S}><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>);
+const IcoFal  = () => (<svg viewBox="0 0 24 24" {...S}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>);
+const IcoCli  = () => (<svg viewBox="0 0 24 24" {...S}><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>);
+const IcoIA   = () => (<svg viewBox="0 0 24 24" {...S}><rect x="7" y="7" width="10" height="10" rx="1"/><line x1="7" y1="4" x2="7" y2="7"/><line x1="12" y1="4" x2="12" y2="7"/><line x1="17" y1="4" x2="17" y2="7"/><line x1="7" y1="17" x2="7" y2="20"/><line x1="12" y1="17" x2="12" y2="20"/><line x1="17" y1="17" x2="17" y2="20"/><line x1="4" y1="7" x2="7" y2="7"/><line x1="4" y1="12" x2="7" y2="12"/><line x1="4" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="20" y2="7"/><line x1="17" y1="12" x2="20" y2="12"/><line x1="17" y1="17" x2="20" y2="17"/></svg>);
+
 const TABS = [
-  { id: "dash", ico: "📊", lbl: "Dashboard" },
-  { id: "ped",  ico: "📋", lbl: "Pedidos" },
-  { id: "prod", ico: "📅", lbl: "Producción" },
-  { id: "ref",  ico: "🔧", lbl: "Refacciones" },
-  { id: "fal",  ico: "⚠️", lbl: "Fallas" },
-  { id: "cli",  ico: "👥", lbl: "Clientes" },
-  { id: "ia",   ico: "🤖", lbl: "Asistente" },
+  { id: "dash", Icon: IcoDash, lbl: "Dashboard" },
+  { id: "ped",  Icon: IcoPed,  lbl: "Pedidos" },
+  { id: "prod", Icon: IcoProd, lbl: "Producción" },
+  { id: "ref",  Icon: IcoRef,  lbl: "Refacc." },
+  { id: "fal",  Icon: IcoFal,  lbl: "Fallas" },
+  { id: "cli",  Icon: IcoCli,  lbl: "Clientes" },
+  { id: "ia",   Icon: IcoIA,   lbl: "IA" },
 ];
 
 const PIN_SUPERVISOR = "2312";
@@ -150,23 +159,6 @@ export default function App() {
         </div>
         <button onClick={() => setModo(null)} style={{ marginLeft: "auto", fontSize: 11, color: "#aaa", background: "transparent", border: "none", cursor: "pointer", padding: "4px 8px" }}>← Salir</button>
       </header>
-      <div className="tab-bar">
-        {TABS.map(t => {
-          const badge = t.id === "fal" ? fallas.filter(f => f.status === "abierta").length
-                      : t.id === "ref" ? refs.filter(r => { const min = r.stock_min ?? 1; return min > 0 && Number(r.stock || 0) <= min; }).length
-                      : t.id === "ped" ? pedidos.filter(p => p.status === "pendiente").length
-                      : 0;
-          return (
-            <button key={t.id} className={`tab-btn ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
-              <span style={{ position: "relative", display: "inline-block" }}>
-                {t.ico}
-                {badge > 0 && <span style={{ position: "absolute", top: -4, right: -7, background: "#ff4d4d", color: "#fff", borderRadius: "50%", fontSize: 9, fontWeight: 700, minWidth: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>{badge}</span>}
-              </span>
-              <span>{t.lbl}</span>
-            </button>
-          );
-        })}
-      </div>
       <main className="main">
         {tab === "dash" && <Dashboard pedidos={pedidos} fallas={fallas} refacciones={refs} proveedores={proveedores} prodDiaria={prodDiaria} />}
         {tab === "ped"  && <Pedidos pedidos={pedidos} setPedidos={setPedidos} />}
@@ -176,6 +168,23 @@ export default function App() {
         {tab === "cli"  && <Clientes pedidos={pedidos} />}
         {tab === "ia"   && <AsistenteIA onRefrescar={cargarTablas} />}
       </main>
+      <nav className="tab-bar">
+        {TABS.map(t => {
+          const badge = t.id === "fal" ? fallas.filter(f => f.status === "abierta").length
+                      : t.id === "ref" ? refs.filter(r => { const min = r.stock_min ?? 1; return min > 0 && Number(r.stock || 0) <= min; }).length
+                      : t.id === "ped" ? pedidos.filter(p => p.status === "pendiente").length
+                      : 0;
+          return (
+            <button key={t.id} className={`tab-btn ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
+              <span style={{ position: "relative", display: "inline-flex" }}>
+                <t.Icon />
+                {badge > 0 && <span className="tab-badge">{badge}</span>}
+              </span>
+              <span className="tab-lbl">{t.lbl}</span>
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }

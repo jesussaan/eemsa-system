@@ -15,13 +15,15 @@ html, body { background: var(--bg); color: var(--text); font-family: var(--font-
 .logo { width: 44px; height: 44px; border-radius: 8px; background: var(--accent); display: flex; align-items: center; justify-content: center; font-family: var(--font-h); font-weight: 900; font-size: 18px; color: #0d0f14; flex-shrink: 0; }
 .header-title { font-family: var(--font-h); font-size: 22px; font-weight: 700; letter-spacing: .04em; }
 .header-sub { font-size: 11px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
-.tab-bar { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
-/* stylelint-disable-next-line */
-
-
-.tab-btn span:first-child { font-size: 18px; }
-.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
-.main { padding: 18px 16px 80px; flex: 1; }
+.tab-bar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 900px; display: flex; background: var(--surface); border-top: 1px solid var(--border); z-index: 50; overflow-x: auto; scrollbar-width: none; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.tab-bar::-webkit-scrollbar { display: none; }
+.tab-btn { flex: 1; min-width: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 9px 4px 7px; border: none; background: transparent; color: var(--muted); font-family: var(--font-b); gap: 4px; cursor: pointer; transition: color .2s; position: relative; }
+.tab-btn svg { width: 22px; height: 22px; transition: stroke .2s; }
+.tab-btn.active { color: var(--accent); }
+.tab-btn.active::before { content: ''; position: absolute; top: 0; left: 20%; right: 20%; height: 2px; background: var(--accent); border-radius: 0 0 3px 3px; }
+.tab-lbl { font-size: 9px; font-weight: 600; letter-spacing: .03em; white-space: nowrap; }
+.tab-badge { position: absolute; top: 4px; right: calc(50% - 18px); background: var(--red); color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; min-width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; }
+.main { padding: 18px 16px 82px; flex: 1; }
 .sec-title { font-family: var(--font-h); font-size: 20px; font-weight: 700; color: var(--accent); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 14px; }
 .sub-title { font-family: var(--font-h); font-size: 15px; font-weight: 600; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
 .sub-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
