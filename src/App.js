@@ -164,7 +164,7 @@ export default function App() {
       <main className="main">
         {tab === "dash" && <Dashboard pedidos={pedidos} fallas={fallas} refacciones={refs} proveedores={proveedores} prodDiaria={prodDiaria} />}
         {tab === "ped"  && <Pedidos pedidos={pedidos} setPedidos={setPedidos} />}
-        {tab === "cal"  && <CalendarioEntregas pedidos={pedidos} />}
+        {tab === "cal"  && <CalendarioEntregas pedidos={pedidos} setPedidos={setPedidos} />}
         {tab === "prod" && <Produccion prodDiaria={prodDiaria} setProdDiaria={setProdDiaria} pedidos={pedidos} />}
         {tab === "ref"  && <Refacciones refs={refs} setRefs={setRefs} proveedores={proveedores} setProveedores={setProveedores} />}
         {tab === "fal"  && <Fallas fallas={fallas} setFallas={setFallas} />}
