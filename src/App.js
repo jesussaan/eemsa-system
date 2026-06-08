@@ -151,7 +151,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <div className="logo">EE</div>
+        <img src="/logo192.png" alt="EEMSA" style={{ height: 40, width: "auto" }} />
         <div>
           <div className="header-title">EEMSA System</div>
           <div className="header-sub">Control SIAT L36 · Asesoría · Calidad · Innovación</div>
