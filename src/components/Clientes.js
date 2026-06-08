@@ -100,6 +100,20 @@ export default function Clientes({ pedidos }) {
               {seleccionado.frecuencia !== null && <div className="stat-card orange"><div className="stat-val">{seleccionado.frecuencia}d</div><div className="stat-lbl">Frecuencia prom.</div></div>}
               {seleccionado.mermaPromedio !== null && <div className={`stat-card ${Number(seleccionado.mermaPromedio) > META_MERMA_PCT ? "red" : "green"}`}><div className="stat-val">{seleccionado.mermaPromedio}%</div><div className="stat-lbl">Merma prom.</div></div>}
             </div>
+            {(() => {
+              const medidaCounts = seleccionado.pedidos.reduce((acc, p) => { if (p.medida) { acc[p.medida] = (acc[p.medida] || 0) + 1; } return acc; }, {});
+              const topMedidas = Object.entries(medidaCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+              const pedConTiempo = seleccionado.pedidos.filter(p => p.status === "terminado" && p.fecha_inicio && p.fecha_termino);
+              const tiempoProm = pedConTiempo.length > 0 ? Math.round(pedConTiempo.reduce((s, p) => s + (new Date(p.fecha_termino + "T12:00:00") - new Date(p.fecha_inicio + "T12:00:00")) / 86400000 + 1, 0) / pedConTiempo.length) : null;
+              return (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                  {topMedidas.map(([med, cnt]) => (
+                    <div key={med} style={{ background: "#1a2744", borderRadius: 8, padding: "4px 10px", fontSize: 12, color: "#c9922a", fontWeight: 600 }}>{med} <span style={{ color: "#666" }}>×{cnt}</span></div>
+                  ))}
+                  {tiempoProm !== null && <div style={{ background: "#1a2613", borderRadius: 8, padding: "4px 10px", fontSize: 12, color: "#4be87a", fontWeight: 600 }}>⏱ {tiempoProm}d promedio</div>}
+                </div>
+              );
+            })()}
             <h4 style={{ color: "#aaa", fontSize: 12, marginBottom: 8 }}>Historial de pedidos</h4>
             <div className="list">
               {seleccionado.sorted.slice().reverse().map(p => (
@@ -109,6 +123,7 @@ export default function Clientes({ pedidos }) {
                     <span className={`badge ${p.status === "terminado" ? "b-green" : p.status === "proceso" ? "b-blue" : "b-orange"}`}>{STATUS_PED[p.status] || p.status}</span>
                   </div>
                   <div className="muted">{p.fecha_solicitud} · {p.tipo} · {p.medida} · {p.cajas} cajas</div>
+                  {p.fecha_estimada && p.status !== "terminado" && <div className="muted" style={{ color: "#e8b84b" }}>📅 Entrega est.: {p.fecha_estimada}</div>}
                   {p.merma_pct && <div className="muted">Merma: {p.merma_pct}%</div>}
                 </div>
               ))}

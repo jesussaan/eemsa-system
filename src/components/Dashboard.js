@@ -366,6 +366,23 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
           </div>
         </>
       )}
+      {(() => {
+        const pedMes = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual));
+        const tinta = pedMes.reduce((s, p) => s + Number(p.tinta_kg || 0), 0);
+        const alcohol = pedMes.reduce((s, p) => s + Number(p.alcohol_litros || 0), 0);
+        const rollos = pedMes.reduce((s, p) => s + Number(p.rollos_usados || 0), 0);
+        if (!tinta && !alcohol && !rollos) return null;
+        return (
+          <>
+            <h3 className="sub-title">⚗️ Consumos del mes</h3>
+            <div className="stat-grid">
+              {rollos > 0 && <div className="stat-card accent"><div className="stat-val">{rollos}</div><div className="stat-lbl">Rollos usados</div></div>}
+              {tinta > 0 && <div className="stat-card blue"><div className="stat-val">{tinta.toFixed(2)} kg</div><div className="stat-lbl">Tinta total</div></div>}
+              {alcohol > 0 && <div className="stat-card orange"><div className="stat-val">{alcohol.toFixed(2)} L</div><div className="stat-lbl">Alcohol total</div></div>}
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
