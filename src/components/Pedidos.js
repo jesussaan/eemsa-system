@@ -19,16 +19,6 @@ export default function Pedidos({ pedidos, setPedidos }) {
   const [modalClichePreview, setModalClichePreview] = useState(null);
   const [busqueda, setBusqueda] = useState("");
   const formRef = useRef(null);
-  const [vistaCalendario, setVistaCalendario] = useState(false);
-  const [mesCal, setMesCal] = useState(() => { const h = new Date(); return { y: h.getFullYear(), m: h.getMonth() }; });
-  const [diaSel, setDiaSel] = useState(null);
-  const MESES_CAL = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-  const DIAS_SEM = ["L","M","X","J","V","S","D"];
-  const mesCalStr = `${mesCal.y}-${String(mesCal.m + 1).padStart(2,"0")}`;
-  const diasMesCal = new Date(mesCal.y, mesCal.m + 1, 0).getDate();
-  const offsetCal = (() => { const d = new Date(mesCal.y, mesCal.m, 1).getDay(); return d === 0 ? 6 : d - 1; })();
-  const pedsDia = d => { const k = `${mesCalStr}-${String(d).padStart(2,"0")}`; return pedidos.filter(p => p.fecha_estimada === k && p.status !== "terminado"); };
-  const colorPed = p => { if (p.fecha_estimada < today()) return "#e84b4b"; return p.status === "proceso" ? "#4b8fe8" : "#e8b84b"; };
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const rollosTotales = form.cajas && form.rollos_caja ? Number(form.cajas) * Number(form.rollos_caja) : "";
@@ -255,75 +245,12 @@ export default function Pedidos({ pedidos, setPedidos }) {
         <div className="field full"><label>Notas</label><textarea value={form.notas} onChange={e => upd("notas", e.target.value)} placeholder="Observaciones…" /></div>
       </div>
       <button className="btn btn-primary btn-block" onClick={save} disabled={loading}>{loading ? "Guardando…" : "📝 Anotar pedido"}</button>
-      <div style={{ display: "flex", gap: 8, margin: "16px 0 8px", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {[["todos", "Todos"], ["anotado", "Anotados"], ["proceso", "En proceso"], ["terminado", "Terminados"], ["pendiente", "Falta alta"]].map(([k, v]) => (
-            <button key={k} className={`btn btn-sm ${filtro === k ? "btn-primary" : "btn-ghost"}`} onClick={() => setFiltro(k)}>{v}</button>
-          ))}
-        </div>
-        <button onClick={() => { setVistaCalendario(v => !v); setDiaSel(null); }} style={{ padding: "6px 14px", borderRadius: 8, border: `2px solid ${vistaCalendario ? "#e8b84b" : "#2a2d3a"}`, background: vistaCalendario ? "#e8b84b22" : "transparent", color: vistaCalendario ? "#e8b84b" : "#888", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
-          {vistaCalendario ? "📋 Lista" : "📅 Calendario"}
-        </button>
+      <div style={{ display: "flex", gap: 8, margin: "16px 0 8px", flexWrap: "wrap" }}>
+        {[["todos", "Todos"], ["anotado", "Anotados"], ["proceso", "En proceso"], ["terminado", "Terminados"], ["pendiente", "Falta alta"]].map(([k, v]) => (
+          <button key={k} className={`btn btn-sm ${filtro === k ? "btn-primary" : "btn-ghost"}`} onClick={() => setFiltro(k)}>{v}</button>
+        ))}
       </div>
       <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar por cliente, número, tipo, medida…" style={{ width: "100%", marginBottom: 8, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "8px 12px", color: "#e0e0e0", fontSize: 13 }} />
-
-      {vistaCalendario && (
-        <div style={{ background: "#13161e", borderRadius: 14, padding: 14, marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <button onClick={() => { setMesCal(m => m.m === 0 ? { y: m.y-1, m: 11 } : { ...m, m: m.m-1 }); setDiaSel(null); }} style={{ background: "transparent", border: "1px solid #252a38", borderRadius: 8, color: "#aaa", fontSize: 18, width: 34, height: 34, cursor: "pointer" }}>‹</button>
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 18, color: "#e8b84b", letterSpacing: ".06em" }}>{MESES_CAL[mesCal.m].toUpperCase()} {mesCal.y}</span>
-            <button onClick={() => { setMesCal(m => m.m === 11 ? { y: m.y+1, m: 0 } : { ...m, m: m.m+1 }); setDiaSel(null); }} style={{ background: "transparent", border: "1px solid #252a38", borderRadius: 8, color: "#aaa", fontSize: 18, width: 34, height: 34, cursor: "pointer" }}>›</button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 }}>
-            {DIAS_SEM.map(d => <div key={d} style={{ textAlign: "center", fontSize: 10, color: "#555", fontWeight: 700, padding: "3px 0" }}>{d}</div>)}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
-            {Array.from({ length: offsetCal }).map((_, i) => <div key={`e${i}`} />)}
-            {Array.from({ length: diasMesCal }, (_, i) => i + 1).map(d => {
-              const pds = pedsDia(d);
-              const dStr = `${mesCalStr}-${String(d).padStart(2,"0")}`;
-              const esHoy = dStr === today();
-              const sel = diaSel === d;
-              return (
-                <div key={d} onClick={() => setDiaSel(sel ? null : d)} style={{ background: sel ? "#1a2744" : "#1a1d26", border: `1.5px solid ${esHoy ? "#e8b84b" : sel ? "#4b8fe8" : "#252a38"}`, borderRadius: 8, padding: "5px 3px 3px", minHeight: 54, cursor: "pointer" }}>
-                  <div style={{ textAlign: "center", fontSize: 12, fontWeight: esHoy ? 700 : 400, color: esHoy ? "#e8b84b" : "#ccc", marginBottom: 2 }}>{d}</div>
-                  {pds.slice(0, 2).map(p => (
-                    <div key={p.id} style={{ background: colorPed(p), borderRadius: 3, padding: "1px 2px", fontSize: 8, fontWeight: 700, color: colorPed(p) === "#e8b84b" ? "#000" : "#fff", marginBottom: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {p.num} {(p.cliente||"").slice(0,6)}
-                    </div>
-                  ))}
-                  {pds.length > 2 && <div style={{ fontSize: 8, color: "#888", textAlign: "center" }}>+{pds.length-2}</div>}
-                </div>
-              );
-            })}
-          </div>
-          {diaSel !== null && (
-            <div style={{ marginTop: 12, borderTop: "1px solid #252a38", paddingTop: 12 }}>
-              {pedsDia(diaSel).length === 0
-                ? <p style={{ color: "#555", fontSize: 13, textAlign: "center", margin: 0 }}>Sin pedidos para el {diaSel} de {MESES_CAL[mesCal.m]}</p>
-                : <>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#e8b84b", marginBottom: 8 }}>{diaSel} de {MESES_CAL[mesCal.m]} — {pedsDia(diaSel).length} pedido(s)</div>
-                    {pedsDia(diaSel).map(p => (
-                      <div key={p.id} onClick={() => abrirModal(p)} style={{ background: "#0d0f14", borderLeft: `3px solid ${colorPed(p)}`, borderRadius: 8, padding: "8px 10px", marginBottom: 6, cursor: "pointer" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <strong style={{ color: "#e0e0e0" }}>Ped. {p.num}</strong>
-                          <span className={`badge ${colorStatus(p.status)}`}>{STATUS_PED[p.status]||p.status}</span>
-                        </div>
-                        <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{p.cliente} · {p.medida} · {p.cajas} cajas</div>
-                      </div>
-                    ))}
-                  </>
-              }
-            </div>
-          )}
-          <div style={{ display: "flex", gap: 14, marginTop: 12, paddingTop: 10, borderTop: "1px solid #1a1d26" }}>
-            {[["#e8b84b","Anotado"],["#4b8fe8","En proceso"],["#e84b4b","Vencido"]].map(([c,l]) => (
-              <div key={l} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#888" }}><div style={{ width: 10, height: 10, background: c, borderRadius: 2 }} />{l}</div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <h3 className="sub-title">Registro ({pedidosFiltrados.length})</h3>
       {pedidosFiltrados.length === 0 ? <p className="empty">Sin pedidos en este filtro.</p> : (
         <div className="list">
