@@ -89,8 +89,7 @@ export default function App() {
 
   if (!modo) return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0d0f14", gap: 0, padding: 24 }}>
-      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 56, fontWeight: 900, color: "#c9922a", lineHeight: 1 }}>EE</div>
-      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 24, fontWeight: 700, color: "#e0e0e0", letterSpacing: ".1em", marginBottom: 8 }}>EEMSA System</div>
+      <img src="/logo192.png" alt="EEMSA" style={{ width: 180, marginBottom: 32 }} />
       <div style={{ fontSize: 12, color: "#555", marginBottom: 40 }}>Control SIAT L36 · Calidad · Innovación</div>
       <button
         onClick={() => setModo("operador")}
