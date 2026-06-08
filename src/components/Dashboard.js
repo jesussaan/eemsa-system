@@ -52,70 +52,209 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
   ].map(({ comp, lbl }) => ({ lbl, val: fallas.filter(f => f.comp === comp).reduce((s, f) => s + Number(f.min_paro || 0), 0) })).filter(d => d.val > 0).sort((a, b) => b.val - a.val);
 
   const generarPDF = () => {
-    const doc = new jsPDF();
-    const fechaGen = new Date().toLocaleString("es-MX", { month: "long", year: "numeric" });
-    const fmtMes = m => { const [y, mo] = m.split("-"); return new Date(Number(y), Number(mo) - 1, 1).toLocaleString("es-MX", { month: "long", year: "numeric" }); };
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const W = 210, mg = 14;
+    const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+    const fmtM = n => MESES[n - 1] || "";
+    const fechaGen = new Date().toLocaleString("es-MX", { day: "2-digit", month: "long", year: "numeric" });
+    const C = { hdr: [26, 39, 68], acc: [201, 146, 42], alt: [244, 246, 251], tot: [220, 228, 248] };
 
-    const meses = [...new Set([
-      ...pedidos.map(p => p.fecha_solicitud?.slice(0, 7)),
-      ...prodDiaria.map(r => r.fecha?.slice(0, 7)),
-      ...fallas.map(f => f.fecha?.slice(0, 7)),
-      ...proveedores.map(p => p.fecha?.slice(0, 7)),
+    const anios = [...new Set([
+      ...pedidos.map(p => p.fecha_solicitud?.slice(0, 4)),
+      ...prodDiaria.map(r => r.fecha?.slice(0, 4)),
+      ...fallas.map(f => f.fecha?.slice(0, 4)),
+      ...proveedores.map(p => p.fecha?.slice(0, 4)),
     ].filter(Boolean))].sort();
 
-    const pedidosPorMes = meses.map(m => {
-      const ps = pedidos.filter(p => p.fecha_solicitud?.startsWith(m));
-      if (!ps.length) return null;
+    let pgNum = 0;
+    const drawHdr = () => {
+      pgNum++;
+      doc.setFillColor(...C.hdr); doc.rect(0, 0, W, 26, "F");
+      doc.setFillColor(...C.acc); doc.rect(0, 26, W, 1.5, "F");
+      doc.setTextColor(...C.acc); doc.setFontSize(15); doc.setFont(undefined, "bold");
+      doc.text("EEMSA System", mg, 12);
+      doc.setFontSize(8.5); doc.setFont(undefined, "normal");
+      doc.setTextColor(185, 205, 235);
+      doc.text(`Reporte Histórico Mensual  ·  ${fechaGen}`, mg, 20);
+      doc.setTextColor(170); doc.setFontSize(8);
+      doc.text(`Pág. ${pgNum}`, W - mg, 20, { align: "right" });
+    };
+    const newPage = () => { doc.addPage(); drawHdr(); return 34; };
+
+    const drawTbl = (startY, head, body, extraOpts = {}) => autoTable(doc, {
+      startY, head: [head], body,
+      styles: { fontSize: 8.5, cellPadding: { top: 2.5, right: 3, bottom: 2.5, left: 3 }, lineColor: [210, 215, 230], lineWidth: 0.15 },
+      headStyles: { fillColor: C.hdr, textColor: C.acc, fontStyle: "bold", fontSize: 9 },
+      alternateRowStyles: { fillColor: C.alt },
+      margin: { left: mg, right: mg },
+      didParseCell: (d) => {
+        if (d.section === "body" && d.row.raw[0] === "TOTAL") {
+          d.cell.styles.fontStyle = "bold"; d.cell.styles.fillColor = C.tot;
+        }
+      },
+      ...extraOpts,
+    });
+
+    // ── Página 1 ──
+    drawHdr();
+
+    // Resumen comparativo
+    doc.setTextColor(...C.hdr); doc.setFontSize(11); doc.setFont(undefined, "bold");
+    doc.text("Resumen Comparativo por Año", mg, 37);
+    doc.setFont(undefined, "normal");
+
+    const R = anios.map(a => {
+      const ps = pedidos.filter(p => p.fecha_solicitud?.startsWith(a));
       const term = ps.filter(p => p.status === "terminado");
-      const cajas = ps.reduce((s, p) => s + Number(p.cajas || 0), 0);
-      const mermaArr = term.filter(p => p.merma_pct !== null && p.merma_pct !== "");
-      const mermaAvg = mermaArr.length > 0 ? (mermaArr.reduce((s, p) => s + Number(p.merma_pct), 0) / mermaArr.length).toFixed(1) + "%" : "—";
-      return [fmtMes(m), ps.length, term.length, cajas, mermaAvg];
-    }).filter(Boolean);
+      const mArr = term.filter(p => p.merma_pct !== null && p.merma_pct !== "");
+      const fs = fallas.filter(f => f.fecha?.startsWith(a));
+      const rs = prodDiaria.filter(r => r.fecha?.startsWith(a));
+      const cs = proveedores.filter(p => p.fecha?.startsWith(a));
+      return {
+        ped: ps.length, term: term.length,
+        cajasPed: ps.reduce((s, p) => s + Number(p.cajas || 0), 0),
+        cajasP: rs.reduce((s, r) => s + Number(r.cajas_dia || 0), 0),
+        merma: mArr.length ? (mArr.reduce((s, p) => s + Number(p.merma_pct), 0) / mArr.length).toFixed(1) + "%" : "—",
+        fls: fs.length, minP: fs.reduce((s, f) => s + Number(f.min_paro || 0), 0),
+        gasto: cs.reduce((s, p) => s + Number(p.monto || 0), 0),
+      };
+    });
+    drawTbl(41, ["Indicador", ...anios], [
+      ["Total pedidos",      ...R.map(r => r.ped)],
+      ["Pedidos terminados", ...R.map(r => r.term)],
+      ["Cajas (pedidos)",    ...R.map(r => r.cajasPed)],
+      ["Cajas producidas",   ...R.map(r => r.cajasP)],
+      ["% Merma promedio",   ...R.map(r => r.merma)],
+      ["Total fallas",       ...R.map(r => r.fls)],
+      ["Min. de paro total", ...R.map(r => r.minP)],
+      ["Gasto en compras",   ...R.map(r => `$${fmt(r.gasto)}`)],
+    ], { columnStyles: { 0: { fontStyle: "bold", fillColor: [232, 238, 252], textColor: [30, 50, 120] } } });
 
-    const prodPorMes = meses.map(m => {
-      const rs = prodDiaria.filter(r => r.fecha?.startsWith(m));
-      if (!rs.length) return null;
-      const dias = [...new Set(rs.map(r => r.fecha))];
-      const cajasT = rs.reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
-      const conMeta = dias.filter(f => rs.filter(r => r.fecha === f).reduce((s, r) => s + Number(r.cajas_dia || 0), 0) >= META_CAJAS).length;
-      return [fmtMes(m), dias.length, cajasT, `${conMeta}/${dias.length}`, `${dias.length > 0 ? Math.round((conMeta / dias.length) * 100) : 0}%`];
-    }).filter(Boolean);
+    // ── Renderizador de sección ──
+    const renderSec = (titulo, head, buildRows) => {
+      let y = doc.lastAutoTable.finalY + 14;
+      if (y > 258) y = newPage();
 
-    const fallasPorMes = meses.map(m => {
-      const fs = fallas.filter(f => f.fecha?.startsWith(m));
-      if (!fs.length) return null;
-      return [fmtMes(m), fs.length, fs.reduce((s, f) => s + Number(f.min_paro || 0), 0), fs.filter(f => f.sev === "critica").length, fs.filter(f => f.status === "abierta").length];
-    }).filter(Boolean);
-
-    const comprasPorMes = meses.map(m => {
-      const cs = proveedores.filter(p => p.fecha?.startsWith(m));
-      if (!cs.length) return null;
-      return [fmtMes(m), cs.length, `$${fmt(cs.reduce((s, p) => s + Number(p.monto || 0), 0))}`];
-    }).filter(Boolean);
-
-    const tblOpts = { styles: { fontSize: 9 }, headStyles: { fillColor: [26, 39, 68], textColor: [201, 146, 42], fontStyle: "bold" }, alternateRowStyles: { fillColor: [245, 247, 250] } };
-
-    doc.setFillColor(26, 39, 68); doc.rect(0, 0, 210, 30, "F");
-    doc.setTextColor(201, 146, 42); doc.setFontSize(18); doc.text("EEMSA System", 14, 15);
-    doc.setFontSize(10); doc.text(`Reporte histórico mensual — generado ${fechaGen}`, 14, 23);
-
-    const sect = (titulo, head, body) => {
-      const y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 12 : 36;
-      if (y > 250) doc.addPage();
-      const yFinal = doc.lastAutoTable ? doc.lastAutoTable.finalY + 12 : 36;
-      doc.setTextColor(26, 39, 68); doc.setFontSize(12); doc.setFont(undefined, "bold");
-      doc.text(titulo, 14, yFinal);
+      doc.setFillColor(...C.hdr); doc.rect(mg, y, W - mg * 2, 7.5, "F");
+      doc.setTextColor(...C.acc); doc.setFontSize(9.5); doc.setFont(undefined, "bold");
+      doc.text(titulo, mg + 3, y + 5.2);
       doc.setFont(undefined, "normal");
-      autoTable(doc, { startY: yFinal + 4, head: [head], body, ...tblOpts });
+
+      let isFirst = true;
+      anios.forEach(anio => {
+        const rows = buildRows(anio);
+        if (!rows.length) return;
+
+        let tblY;
+        if (isFirst) {
+          doc.setTextColor(70, 95, 165); doc.setFontSize(8.5); doc.setFont(undefined, "bold");
+          doc.text(`▸ ${anio}`, mg, y + 12);
+          doc.setFont(undefined, "normal");
+          tblY = y + 15;
+          isFirst = false;
+        } else {
+          const prev = doc.lastAutoTable.finalY;
+          if (prev + 18 > 265) {
+            const ny = newPage();
+            doc.setTextColor(120, 140, 185); doc.setFontSize(8); doc.setFont(undefined, "italic");
+            doc.text(`${titulo} (cont.)`, mg, ny);
+            doc.setFont(undefined, "normal");
+            doc.setTextColor(70, 95, 165); doc.setFontSize(8.5); doc.setFont(undefined, "bold");
+            doc.text(`▸ ${anio}`, mg, ny + 7);
+            doc.setFont(undefined, "normal");
+            tblY = ny + 10;
+          } else {
+            doc.setTextColor(70, 95, 165); doc.setFontSize(8.5); doc.setFont(undefined, "bold");
+            doc.text(`▸ ${anio}`, mg, prev + 8);
+            doc.setFont(undefined, "normal");
+            tblY = prev + 11;
+          }
+        }
+        drawTbl(tblY, head, rows);
+      });
+
+      if (isFirst) {
+        doc.setTextColor(150); doc.setFontSize(8.5);
+        doc.text("Sin datos registrados.", mg + 3, y + 16);
+      }
     };
 
-    sect("Pedidos por mes", ["Mes", "Pedidos", "Terminados", "Cajas", "Merma % prom"], pedidosPorMes.length ? pedidosPorMes : [["Sin datos", "", "", "", ""]]);
-    sect("Producción diaria por mes", ["Mes", "Días prod.", "Cajas totales", "Días con meta", "% meta"], prodPorMes.length ? prodPorMes : [["Sin datos", "", "", "", ""]]);
-    sect("Fallas por mes", ["Mes", "Total fallas", "Min. de paro", "Críticas", "Abiertas"], fallasPorMes.length ? fallasPorMes : [["Sin datos", "", "", "", ""]]);
-    sect("Compras por mes", ["Mes", "No. compras", "Monto total"], comprasPorMes.length ? comprasPorMes : [["Sin datos", "", ""]]);
+    // 1. Pedidos
+    renderSec("1. Pedidos por mes", ["Mes", "Total", "Terminados", "En proceso", "Cajas", "Merma % prom."], anio => {
+      const rows = [];
+      for (let m = 1; m <= 12; m++) {
+        const k = `${anio}-${String(m).padStart(2, "0")}`;
+        const ps = pedidos.filter(p => p.fecha_solicitud?.startsWith(k));
+        if (!ps.length) continue;
+        const term = ps.filter(p => p.status === "terminado").length;
+        const enP = ps.filter(p => ["proceso","anotado","pendiente"].includes(p.status)).length;
+        const cajas = ps.reduce((s, p) => s + Number(p.cajas || 0), 0);
+        const mArr = ps.filter(p => p.status === "terminado" && p.merma_pct !== null && p.merma_pct !== "");
+        rows.push([fmtM(m), ps.length, term, enP, cajas, mArr.length ? (mArr.reduce((s, p) => s + Number(p.merma_pct), 0) / mArr.length).toFixed(1) + "%" : "—"]);
+      }
+      if (rows.length > 1) rows.push(["TOTAL", rows.reduce((s,r)=>s+r[1],0), rows.reduce((s,r)=>s+r[2],0), rows.reduce((s,r)=>s+r[3],0), rows.reduce((s,r)=>s+r[4],0), "—"]);
+      return rows;
+    });
 
-    doc.save(`EEMSA_Reporte_Historico_${fechaGen.replace(/ /g, "_")}.pdf`);
+    // 2. Producción
+    renderSec("2. Producción diaria por mes", ["Mes", "Días prod.", "Cajas totales", "Prom./día", "Días con meta", "% meta"], anio => {
+      const rows = [];
+      for (let m = 1; m <= 12; m++) {
+        const k = `${anio}-${String(m).padStart(2, "0")}`;
+        const rs = prodDiaria.filter(r => r.fecha?.startsWith(k));
+        if (!rs.length) continue;
+        const dias = [...new Set(rs.map(r => r.fecha))];
+        const cajasT = rs.reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
+        const conMeta = dias.filter(f => rs.filter(r => r.fecha === f).reduce((s, r) => s + Number(r.cajas_dia || 0), 0) >= META_CAJAS).length;
+        rows.push([fmtM(m), dias.length, cajasT, dias.length ? Math.round(cajasT/dias.length) : 0, `${conMeta}/${dias.length}`, `${dias.length ? Math.round(conMeta/dias.length*100) : 0}%`]);
+      }
+      if (rows.length > 1) rows.push(["TOTAL", rows.reduce((s,r)=>s+r[1],0), rows.reduce((s,r)=>s+r[2],0), "—", "—", "—"]);
+      return rows;
+    });
+
+    // 3. Fallas
+    renderSec("3. Fallas por mes", ["Mes", "Total fallas", "Min. de paro", "Críticas", "Moderadas", "Abiertas"], anio => {
+      const rows = [];
+      for (let m = 1; m <= 12; m++) {
+        const k = `${anio}-${String(m).padStart(2, "0")}`;
+        const fs = fallas.filter(f => f.fecha?.startsWith(k));
+        if (!fs.length) continue;
+        rows.push([fmtM(m), fs.length, fs.reduce((s,f)=>s+Number(f.min_paro||0),0), fs.filter(f=>f.sev==="critica").length, fs.filter(f=>f.sev==="moderada").length, fs.filter(f=>f.status==="abierta").length]);
+      }
+      if (rows.length > 1) rows.push(["TOTAL", rows.reduce((s,r)=>s+r[1],0), rows.reduce((s,r)=>s+r[2],0), rows.reduce((s,r)=>s+r[3],0), rows.reduce((s,r)=>s+r[4],0), rows.reduce((s,r)=>s+r[5],0)]);
+      return rows;
+    });
+
+    // 4. Compras
+    renderSec("4. Compras de refacciones por mes", ["Mes", "No. compras", "Monto total", "Prom. por compra"], anio => {
+      const rows = [];
+      for (let m = 1; m <= 12; m++) {
+        const k = `${anio}-${String(m).padStart(2, "0")}`;
+        const cs = proveedores.filter(p => p.fecha?.startsWith(k));
+        if (!cs.length) continue;
+        const monto = cs.reduce((s, p) => s + Number(p.monto || 0), 0);
+        rows.push([fmtM(m), cs.length, `$${fmt(monto)}`, `$${fmt(cs.length ? Math.round(monto/cs.length) : 0)}`]);
+      }
+      if (rows.length > 1) {
+        const totalMonto = rows.reduce((s, r) => s + Number(String(r[2]).replace(/[^0-9.]/g, "")), 0);
+        const totalComp = rows.reduce((s, r) => s + r[1], 0);
+        rows.push(["TOTAL", totalComp, `$${fmt(totalMonto)}`, `$${fmt(totalComp ? Math.round(totalMonto/totalComp) : 0)}`]);
+      }
+      return rows;
+    });
+
+    // ── Footers en todas las páginas ──
+    const totalPgs = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPgs; i++) {
+      doc.setPage(i);
+      doc.setFillColor(...C.hdr); doc.rect(0, 288, W, 10, "F");
+      doc.setTextColor(...C.acc); doc.setFontSize(7);
+      doc.text("EEMSA System  ·  Reporte Confidencial", mg, 294);
+      doc.setTextColor(180); doc.setFontSize(7);
+      doc.text(`${i} / ${totalPgs}`, W - mg, 294, { align: "right" });
+    }
+
+    doc.save(`EEMSA_Reporte_${new Date().getFullYear()}.pdf`);
   };
 
   return (
