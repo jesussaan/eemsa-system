@@ -9,6 +9,7 @@ import Fallas from "./components/Fallas";
 import Clientes from "./components/Clientes";
 import AsistenteIA from "./components/AsistenteIA";
 import ModoOperador from "./components/ModoOperador"
+import ModoVentas from "./components/ModoVentas";
 import CalendarioEntregas from "./components/CalendarioEntregas";
 
 const S = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
@@ -100,6 +101,11 @@ export default function App() {
         👷 Modo Operador
       </button>
       <button
+        onClick={() => setModo("ventas")}
+        style={{ width: 260, padding: "18px 0", borderRadius: 14, border: "2px solid #4be87a", background: "#0d1a14", color: "#4be87a", fontSize: 18, fontWeight: 700, cursor: "pointer", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+        🛒 Módulo Ventas
+      </button>
+      <button
         onClick={() => { setShowPinModal(true); setPinInput(""); setPinError(false); }}
         style={{ width: 260, padding: "18px 0", borderRadius: 14, border: "2px solid #c9922a", background: "#1a1200", color: "#c9922a", fontSize: 18, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
         🔒 Modo Supervisor
@@ -146,6 +152,13 @@ export default function App() {
     <ModoOperador
       pedidos={pedidos} setPedidos={setPedidos}
       setFallas={setFallas}
+      onSalir={() => setModo(null)}
+    />
+  );
+
+  if (modo === "ventas") return (
+    <ModoVentas
+      pedidos={pedidos} setPedidos={setPedidos}
       onSalir={() => setModo(null)}
     />
   );
