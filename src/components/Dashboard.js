@@ -61,6 +61,7 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
 
     const anios = [...new Set([
       ...pedidos.map(p => p.fecha_solicitud?.slice(0, 4)),
+      ...pedidos.map(p => p.fecha_termino?.slice(0, 4)),
       ...prodDiaria.map(r => r.fecha?.slice(0, 4)),
       ...fallas.map(f => f.fecha?.slice(0, 4)),
       ...proveedores.map(p => p.fecha?.slice(0, 4)),
@@ -81,19 +82,22 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
     };
     const newPage = () => { doc.addPage(); drawHdr(); return 34; };
 
-    const drawTbl = (startY, head, body, extraOpts = {}) => autoTable(doc, {
-      startY, head: [head], body,
-      styles: { fontSize: 8.5, cellPadding: { top: 2.5, right: 3, bottom: 2.5, left: 3 }, lineColor: [210, 215, 230], lineWidth: 0.15 },
-      headStyles: { fillColor: C.hdr, textColor: C.acc, fontStyle: "bold", fontSize: 9 },
-      alternateRowStyles: { fillColor: C.alt },
-      margin: { left: mg, right: mg },
-      didParseCell: (d) => {
-        if (d.section === "body" && d.row.raw[0] === "TOTAL") {
-          d.cell.styles.fontStyle = "bold"; d.cell.styles.fillColor = C.tot;
-        }
-      },
-      ...extraOpts,
-    });
+    const drawTbl = (startY, head, body, extraOpts = {}) => {
+      const { fontSize = 8.5, ...restOpts } = extraOpts;
+      return autoTable(doc, {
+        startY, head: [head], body,
+        styles: { fontSize, cellPadding: { top: 2.5, right: 3, bottom: 2.5, left: 3 }, lineColor: [210, 215, 230], lineWidth: 0.15 },
+        headStyles: { fillColor: C.hdr, textColor: C.acc, fontStyle: "bold", fontSize: Math.max(fontSize, 8.5) },
+        alternateRowStyles: { fillColor: C.alt },
+        margin: { left: mg, right: mg },
+        didParseCell: (d) => {
+          if (d.section === "body" && d.row.raw[0] === "TOTAL") {
+            d.cell.styles.fontStyle = "bold"; d.cell.styles.fillColor = C.tot;
+          }
+        },
+        ...restOpts,
+      });
+    };
 
     // ── Página 1 ──
     drawHdr();
@@ -105,7 +109,7 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
 
     const R = anios.map(a => {
       const ps = pedidos.filter(p => p.fecha_solicitud?.startsWith(a));
-      const term = ps.filter(p => p.status === "terminado");
+      const term = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(a));
       const mArr = term.filter(p => p.merma_pct !== null && p.merma_pct !== "");
       const fs = fallas.filter(f => f.fecha?.startsWith(a));
       const rs = prodDiaria.filter(r => r.fecha?.startsWith(a));
@@ -131,7 +135,7 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
     ], { columnStyles: { 0: { fontStyle: "bold", fillColor: [232, 238, 252], textColor: [30, 50, 120] } } });
 
     // ── Renderizador de sección ──
-    const renderSec = (titulo, head, buildRows) => {
+    const renderSec = (titulo, head, buildRows, tblOpts = {}) => {
       let y = doc.lastAutoTable.finalY + 14;
       if (y > 258) y = newPage();
 
@@ -170,7 +174,7 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
             tblY = prev + 11;
           }
         }
-        drawTbl(tblY, head, rows);
+        drawTbl(tblY, head, rows, tblOpts);
       });
 
       if (isFirst) {
@@ -179,20 +183,22 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
       }
     };
 
-    // 1. Pedidos
-    renderSec("1. Pedidos por mes", ["Mes", "Total", "Terminados", "En proceso", "Cajas", "Merma % prom."], anio => {
+    // 1. Pedidos terminados por mes (por fecha de término)
+    renderSec("1. Pedidos terminados por mes (por fecha de término)", ["Mes", "Pedidos term.", "Cajas", "Merma pzas.", "Merma % prom."], anio => {
       const rows = [];
       for (let m = 1; m <= 12; m++) {
         const k = `${anio}-${String(m).padStart(2, "0")}`;
-        const ps = pedidos.filter(p => p.fecha_solicitud?.startsWith(k));
+        const ps = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(k));
         if (!ps.length) continue;
-        const term = ps.filter(p => p.status === "terminado").length;
-        const enP = ps.filter(p => ["proceso","anotado","pendiente"].includes(p.status)).length;
         const cajas = ps.reduce((s, p) => s + Number(p.cajas || 0), 0);
-        const mArr = ps.filter(p => p.status === "terminado" && p.merma_pct !== null && p.merma_pct !== "");
-        rows.push([fmtM(m), ps.length, term, enP, cajas, mArr.length ? (mArr.reduce((s, p) => s + Number(p.merma_pct), 0) / mArr.length).toFixed(1) + "%" : "—"]);
+        const mermaP = ps.reduce((s, p) => s + Number(p.merma || 0), 0);
+        const mArr = ps.filter(p => p.merma_pct !== null && p.merma_pct !== "");
+        rows.push([fmtM(m), ps.length, cajas, mermaP || "—", mArr.length ? (mArr.reduce((s, p) => s + Number(p.merma_pct), 0) / mArr.length).toFixed(1) + "%" : "—"]);
       }
-      if (rows.length > 1) rows.push(["TOTAL", rows.reduce((s,r)=>s+r[1],0), rows.reduce((s,r)=>s+r[2],0), rows.reduce((s,r)=>s+r[3],0), rows.reduce((s,r)=>s+r[4],0), "—"]);
+      if (rows.length > 1) {
+        const totMerma = rows.reduce((s, r) => s + (isNaN(Number(r[3])) ? 0 : Number(r[3])), 0);
+        rows.push(["TOTAL", rows.reduce((s,r)=>s+r[1],0), rows.reduce((s,r)=>s+r[2],0), totMerma || "—", "—"]);
+      }
       return rows;
     });
 
@@ -242,6 +248,29 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
       }
       return rows;
     });
+
+    // 5. Desglose por cinta / pedido finalizado
+    renderSec("5. Desglose de cintas finalizadas por mes", ["Mes", "Pedido", "Cliente", "Medida", "Cajas", "Merma pzas.", "Merma %"], anio => {
+      const ps = pedidos
+        .filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(anio))
+        .sort((a, b) => (a.fecha_termino || "").localeCompare(b.fecha_termino || ""));
+      if (!ps.length) return [];
+      const rows = ps.map(p => [
+        p.fecha_termino ? fmtM(parseInt(p.fecha_termino.slice(5, 7))) : "—",
+        p.num || "—",
+        p.cliente || "—",
+        p.medida || "—",
+        p.cajas || 0,
+        (p.merma !== null && p.merma !== undefined && p.merma !== "") ? p.merma : "—",
+        (p.merma_pct !== null && p.merma_pct !== undefined && p.merma_pct !== "") ? p.merma_pct + "%" : "—",
+      ]);
+      const mArr = ps.filter(p => p.merma_pct !== null && p.merma_pct !== undefined && p.merma_pct !== "");
+      const avgMerma = mArr.length ? (mArr.reduce((s, p) => s + Number(p.merma_pct), 0) / mArr.length).toFixed(1) + "%" : "—";
+      const totCajas = ps.reduce((s, p) => s + Number(p.cajas || 0), 0);
+      const totMermaP = ps.reduce((s, p) => s + Number(p.merma || 0), 0);
+      rows.push(["TOTAL", `${ps.length} cintas`, "", "", totCajas, totMermaP || "—", avgMerma]);
+      return rows;
+    }, { fontSize: 8 });
 
     // ── Footers en todas las páginas ──
     const totalPgs = doc.internal.getNumberOfPages();
