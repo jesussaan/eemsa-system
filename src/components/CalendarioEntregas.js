@@ -194,7 +194,7 @@ export default function CalendarioEntregas({ pedidos, setPedidos }) {
           )}
 
           {selPeds.length === 0 && !asignando && (
-            <p style={{ color:"#444", fontSize:13, margin:0 }}>Sin entregas para este día.{sinFecha.length > 0 ? " Toca "+ '"+ Asignar pedido aquí"' + " para agregar uno." : ""}</p>
+            <p style={{ color:"#444", fontSize:13, margin:0 }}>Sin entregas para este día.{sinFecha.length > 0 ? ` Toca "+ Asignar pedido aquí" para agregar uno.` : ""}</p>
           )}
 
           {selPeds.map(p => {
