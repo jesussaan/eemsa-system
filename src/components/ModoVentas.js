@@ -10,7 +10,7 @@ const S = { fill:"none", stroke:"currentColor", strokeWidth:2, strokeLinecap:"ro
 const IcoAgenda = () => (<svg viewBox="0 0 24 24" {...S}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="8" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="15" r="1" fill="currentColor" stroke="none"/></svg>);
 const IcoNuevo  = () => (<svg viewBox="0 0 24 24" {...S}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>);
 
-const FORM_INIT = { cliente:"", num:"", tipo:"Blanca", medida:"", cajas:"", rollos_caja:"", fecha_estimada:"", notas:"" };
+const FORM_INIT = { cliente:"", num:"", tipo:"Blanca", medida:"", cajas:"", rollos_caja:"", tinta_tipo:"", notas:"" };
 
 const STATUS_LBL = { pendiente:"Pendiente", anotado:"Anotado", proceso:"En proceso", terminado:"Terminado" };
 
@@ -59,8 +59,8 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
       medida:          form.medida.trim(),
       cajas:           Number(form.cajas),
       rollos_caja:     form.rollos_caja ? Number(form.rollos_caja) : null,
-      fecha_solicitud: hoy,
-      fecha_estimada:  form.fecha_estimada || null,
+      tinta_tipo:      form.tinta_tipo.trim() || null,
+      fecha_solicitud: form.fecha_solicitud || hoy,
       notas:           form.notas.trim() || null,
       status:          "pendiente",
       maq:             "SIAT L36 #1",
@@ -251,9 +251,14 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
                 <input type="number" min="0" value={form.cajas} onChange={e=>upd("cajas",e.target.value)} placeholder="0" style={inputStyle} />
               </div>
 
-              <div style={{ gridColumn:"1/-1" }}>
-                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>📅 Fecha deseada de entrega</label>
-                <input type="date" value={form.fecha_estimada} onChange={e=>upd("fecha_estimada",e.target.value)} style={inputStyle} />
+              <div>
+                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Tinta</label>
+                <input value={form.tinta_tipo} onChange={e=>upd("tinta_tipo",e.target.value)} placeholder="Ej: Roja UV, Azul PMS…" style={inputStyle} />
+              </div>
+
+              <div>
+                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>📅 Fecha de solicitud</label>
+                <input type="date" value={form.fecha_solicitud||hoy} onChange={e=>upd("fecha_solicitud",e.target.value)} style={inputStyle} />
               </div>
 
               <div style={{ gridColumn:"1/-1" }}>
