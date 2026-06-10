@@ -50,6 +50,17 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
     }));
   };
 
+  const iniciarPedido = async () => {
+    setLoading(true);
+    const update = { status: "proceso", fecha_inicio: pedidoSel.fecha_inicio || today() };
+    const { error } = await supabase.from("pedidos").update(update).eq("id", pedidoSel.id);
+    if (error) { showToast("❌ Error al iniciar pedido"); setLoading(false); return; }
+    setPedidos(ps => ps.map(p => p.id === pedidoSel.id ? { ...p, ...update } : p));
+    setPedidoSel(p => ({ ...p, ...update }));
+    showToast("▶ Pedido en proceso");
+    setLoading(false);
+  };
+
   const finalizarPedido = async () => {
     setLoading(true);
     const piezas = formFin.piezas_prod !== "" ? Number(formFin.piezas_prod) : null;
@@ -58,7 +69,7 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
       ? ((mermaNum / piezas) * 100).toFixed(2)
       : null;
     const update = {
-      status: "terminado",
+      status: "pendiente",
       fecha_termino: today(),
       notas: formFin.notas || pedidoSel.notas || null,
     };
@@ -212,9 +223,9 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
               </>
             )}
             {pedidoSel.status === "anotado" && (
-              <div style={{ padding: "12px 16px", background: "#1a1d26", borderRadius: 10, textAlign: "center", color: "#666", fontSize: 13 }}>
-                Pedido anotado — solo consulta
-              </div>
+              <button className="btn btn-primary btn-block" style={{ padding: 16, fontSize: 16 }} onClick={iniciarPedido} disabled={loading}>
+                {loading ? "Guardando…" : "▶ Poner en proceso"}
+              </button>
             )}
           </>
         )}
@@ -224,7 +235,7 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
           <>
             <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setVista(null)}>← Volver</button>
             <h3 style={{ color: "#4be87a", marginBottom: 4 }}>✅ Finalizar — {pedidoSel.cliente}</h3>
-            <p style={{ fontSize: 12, color: "#666", marginBottom: 14 }}>El pedido quedará como Terminado. Registra los consumos totales del pedido completo.</p>
+            <p style={{ fontSize: 12, color: "#666", marginBottom: 14 }}>El pedido quedará pendiente de dar de alta. Registra los consumos totales del pedido completo.</p>
             <div className="form-grid">
               <div className="field">
                 <label>Rollos usados (total pedido)</label>
