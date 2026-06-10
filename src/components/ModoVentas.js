@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
-import { today } from "../lib/utils";
+import { today, uid } from "../lib/utils";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const DIAS  = ["LUN","MAR","MIÉ","JUE","VIE","SÁB","DOM"];
@@ -53,6 +53,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
     if (!form.cajas)          { showToast("⚠ Escribe el número de cajas"); return; }
     setSaving(true);
     const nuevo = {
+      id:              uid(),
       cliente:         form.cliente.trim(),
       num:             form.num.trim() || `V-${Date.now().toString().slice(-5)}`,
       tipo:            form.tipo,
