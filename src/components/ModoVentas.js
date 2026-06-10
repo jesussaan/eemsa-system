@@ -177,7 +177,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
                             <span style={{ background:cc+"33", color:cc, borderRadius:6, padding:"2px 8px", fontSize:11, fontWeight:700 }}>{STATUS_LBL[p.status]||p.status}</span>
                           </div>
                           <div style={{ fontSize:13, color:"#aaa" }}>{p.cliente}</div>
-                          <div style={{ fontSize:12, color:"#666", marginTop:2 }}>{p.medida} · {p.cajas} cajas</div>
+                          <div style={{ fontSize:12, color:"#666", marginTop:2 }}>{p.medida} · {p.cajas} cajas{p.rollos_totales ? ` · ${p.rollos_totales} piezas/rollos` : ""}</div>
                         </div>
                       );
                     })
@@ -204,7 +204,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
                           <div style={{ fontSize:11, color:"#555" }}>{diasFaltan===0?"Hoy":diasFaltan>0?`en ${diasFaltan}d`:`hace ${Math.abs(diasFaltan)}d`}</div>
                         </div>
                       </div>
-                      <div style={{ fontSize:12, color:"#555", marginTop:2 }}>{p.medida} · {p.cajas} cajas</div>
+                      <div style={{ fontSize:12, color:"#555", marginTop:2 }}>{p.medida} · {p.cajas} cajas{p.rollos_totales ? ` · ${p.rollos_totales} piezas/rollos` : ""}</div>
                     </div>
                   );
                 })}
