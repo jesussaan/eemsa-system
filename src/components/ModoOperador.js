@@ -7,7 +7,9 @@ import { COMPS, SEV } from '../lib/constants';
 
 export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }) {
   const pedidosEnProceso = pedidos.filter(p => p.status === "proceso");
-  const pedidosAnotados = pedidos.filter(p => p.status === "anotado");
+  const pedidosAnotados = pedidos
+    .filter(p => p.status === "anotado")
+    .sort((a, b) => (a.orden ?? 9999) - (b.orden ?? 9999) || (a.fecha_solicitud || "").localeCompare(b.fecha_solicitud || ""));
   const [pedidoSel, setPedidoSel] = useState(null);
   const [vista, setVista] = useState(null); // null | "finalizar" | "falla"
   const [formFin, setFormFin] = useState({ piezas_prod: "", merma: "", rollos_usados: "", tinta_kg: "", alcohol_litros: "", notas: "" });
@@ -32,6 +34,22 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
     setFotoProducto(null);
     setFotoPreview(null);
     setFormFalla({ comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" });
+  };
+
+  const moverPedido = async (id, dir) => {
+    const idx = pedidosAnotados.findIndex(p => p.id === id);
+    const otroIdx = idx + dir;
+    if (otroIdx < 0 || otroIdx >= pedidosAnotados.length) return;
+    const a = pedidosAnotados[idx], b = pedidosAnotados[otroIdx];
+    const ordenA = a.orden ?? idx;
+    const ordenB = b.orden ?? otroIdx;
+    await supabase.from("pedidos").update({ orden: ordenB }).eq("id", a.id);
+    await supabase.from("pedidos").update({ orden: ordenA }).eq("id", b.id);
+    setPedidos(ps => ps.map(p => {
+      if (p.id === a.id) return { ...p, orden: ordenB };
+      if (p.id === b.id) return { ...p, orden: ordenA };
+      return p;
+    }));
   };
 
   const finalizarPedido = async () => {
@@ -134,19 +152,34 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
 
             {pedidosAnotados.length > 0 && (
               <>
-                <h2 style={{ color: "#ff9900", fontSize: 13, margin: "16px 0 8px", textTransform: "uppercase", letterSpacing: ".08em" }}>📋 Próximos anotados</h2>
-                {pedidosAnotados.map(p => (
-                  <div key={p.id} onClick={() => seleccionarPedido(p)} style={{ ...card, borderLeft: "4px solid #ff9900", cursor: "pointer" }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: "#e0e0e0", marginBottom: 4 }}>{p.cliente}</div>
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13 }}>
-                      <span style={{ color: "#c9922a", fontWeight: 700 }}>📏 {p.medida}</span>
-                      <span style={{ color: "#aaa" }}>🎨 {p.tipo}</span>
-                      {p.color && <span style={{ color: "#aaa" }}>🖌 {p.color}</span>}
-                      <span style={{ color: "#aaa" }}>📦 {p.cajas} cajas</span>
-                      {p.rollos_caja && <span style={{ color: "#aaa" }}>🧻 {p.rollos_caja} rollos/caja</span>}
+                <h2 style={{ color: "#ff9900", fontSize: 13, margin: "16px 0 8px", textTransform: "uppercase", letterSpacing: ".08em" }}>📋 Próximos anotados — orden de salida</h2>
+                {pedidosAnotados.map((p, i) => (
+                  <div key={p.id} onClick={() => seleccionarPedido(p)} style={{ ...card, borderLeft: "4px solid #ff9900", cursor: "pointer", display: "flex", gap: 10, alignItems: "stretch" }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                      <div style={{ color: "#ff9900", fontWeight: 800, fontSize: 16, marginBottom: 2 }}>{i + 1}</div>
+                      <button
+                        onClick={e => { e.stopPropagation(); moverPedido(p.id, -1); }}
+                        disabled={i === 0}
+                        style={{ background: "#0d0f14", border: "1px solid #2a2d3a", borderRadius: 6, color: i === 0 ? "#333" : "#e0e0e0", width: 28, height: 28, cursor: i === 0 ? "default" : "pointer" }}
+                      >▲</button>
+                      <button
+                        onClick={e => { e.stopPropagation(); moverPedido(p.id, 1); }}
+                        disabled={i === pedidosAnotados.length - 1}
+                        style={{ background: "#0d0f14", border: "1px solid #2a2d3a", borderRadius: 6, color: i === pedidosAnotados.length - 1 ? "#333" : "#e0e0e0", width: 28, height: 28, cursor: i === pedidosAnotados.length - 1 ? "default" : "pointer" }}
+                      >▼</button>
                     </div>
-                    {p.fecha_solicitud && <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>Solicitud: {p.fecha_solicitud}</div>}
-                    {p.cliche_url && <div style={{ fontSize: 11, color: "#ff9900", marginTop: 4 }}>📷 Ver diseño →</div>}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: "#e0e0e0", marginBottom: 4 }}>{p.cliente}</div>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13 }}>
+                        <span style={{ color: "#c9922a", fontWeight: 700 }}>📏 {p.medida}</span>
+                        <span style={{ color: "#aaa" }}>🎨 {p.tipo}</span>
+                        {p.color && <span style={{ color: "#aaa" }}>🖌 {p.color}</span>}
+                        <span style={{ color: "#aaa" }}>📦 {p.cajas} cajas</span>
+                        {p.rollos_caja && <span style={{ color: "#aaa" }}>🧻 {p.rollos_caja} rollos/caja</span>}
+                      </div>
+                      {p.fecha_solicitud && <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>Solicitud: {p.fecha_solicitud}</div>}
+                      {p.cliche_url && <div style={{ fontSize: 11, color: "#ff9900", marginTop: 4 }}>📷 Ver diseño →</div>}
+                    </div>
                   </div>
                 ))}
               </>
