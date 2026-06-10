@@ -5,7 +5,7 @@ import { today } from '../lib/utils';
 import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV } from '../lib/constants';
 
-export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }) {
+export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, onSalir }) {
   const pedidosEnProceso = pedidos.filter(p => p.status === "proceso");
   const pedidosAnotados = pedidos
     .filter(p => p.status === "anotado")
@@ -19,6 +19,7 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
+  const compsSugeridos = [...new Set([...COMPS, ...fallas.map(f => f.comp).filter(Boolean)])];
 
   const seleccionarPedido = (p) => {
     setPedidoSel(p);
@@ -287,9 +288,8 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
             <div className="form-grid">
               <div className="field">
                 <label>Componente</label>
-                <select value={formFalla.comp} onChange={e => setFormFalla(f => ({ ...f, comp: e.target.value }))}>
-                  {COMPS.map(c => <option key={c}>{c}</option>)}
-                </select>
+                <input list="comps-list-op" value={formFalla.comp} onChange={e => setFormFalla(f => ({ ...f, comp: e.target.value }))} placeholder="Escribe o elige un componente" />
+                <datalist id="comps-list-op">{compsSugeridos.map(c => <option key={c} value={c} />)}</datalist>
               </div>
               <div className="field">
                 <label>Minutos de paro *</label>

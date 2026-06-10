@@ -23,6 +23,8 @@ export default function Fallas({ fallas, setFallas }) {
     setLoading(false);
   };
 
+  const compsSugeridos = [...new Set([...COMPS, ...fallas.map(f => f.comp).filter(Boolean)])];
+
   const del = async id => { if (!window.confirm("¿Eliminar?")) return; await supabase.from("fallas").delete().eq("id", id); setFallas(f => f.filter(x => x.id !== id)); };
   const close = async id => { await supabase.from("fallas").update({ status: "cerrada" }).eq("id", id); setFallas(f => f.map(x => x.id === id ? { ...x, status: "cerrada" } : x)); };
   const sevCls = s => s === "critica" ? "b-red" : s === "moderada" ? "b-orange" : "b-green";
@@ -39,7 +41,11 @@ export default function Fallas({ fallas, setFallas }) {
       <div className="form-grid">
         <div className="field"><label>Fecha</label><input type="date" value={form.fecha} onChange={e => upd("fecha", e.target.value)} /></div>
         <div className="field"><label>Máquina</label><select value={form.maq} onChange={e => upd("maq", e.target.value)}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>
-        <div className="field"><label>Componente</label><select value={form.comp} onChange={e => upd("comp", e.target.value)}>{COMPS.map(c => <option key={c}>{c}</option>)}</select></div>
+        <div className="field">
+          <label>Componente</label>
+          <input list="comps-list" value={form.comp} onChange={e => upd("comp", e.target.value)} placeholder="Escribe o elige un componente" />
+          <datalist id="comps-list">{compsSugeridos.map(c => <option key={c} value={c} />)}</datalist>
+        </div>
         <div className="field"><label>Minutos de paro *</label><input type="number" value={form.min_paro} onChange={e => upd("min_paro", e.target.value)} placeholder="30" /></div>
         <div className="field"><label>Severidad</label><select value={form.sev} onChange={e => upd("sev", e.target.value)}>{Object.entries(SEV).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
         <div className="field"><label>Operador</label><select value={form.op} onChange={e => upd("op", e.target.value)}><option value="">—</option>{OPERADORES.map(o => <option key={o}>{o}</option>)}</select></div>

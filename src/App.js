@@ -157,7 +157,7 @@ export default function App() {
   if (modo === "operador") return (
     <ModoOperador
       pedidos={pedidos} setPedidos={setPedidos}
-      setFallas={setFallas}
+      fallas={fallas} setFallas={setFallas}
       onSalir={() => setModo(null)}
     />
   );
