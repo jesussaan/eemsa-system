@@ -152,6 +152,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                   <div style={{ color: "#c9922a", fontSize: 16, fontWeight: 700, marginBottom: 6 }}>📏 {p.medida}</div>
                   <div style={{ display: "flex", gap: 12, fontSize: 13, color: "#aaa", flexWrap: "wrap" }}>
                     <span>📦 {p.cajas} cajas</span>
+                    {p.rollos_totales && <span>🧻 {p.rollos_totales} piezas/rollos</span>}
                     <span>🎨 {p.tipo}</span>
                     {p.color && <span>🖌 {p.color}</span>}
                     <span style={{ color: "#555" }}>#Ped {p.num}</span>
@@ -186,6 +187,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                         {p.color && <span style={{ color: "#aaa" }}>🖌 {p.color}</span>}
                         <span style={{ color: "#aaa" }}>📦 {p.cajas} cajas</span>
                         {p.rollos_caja && <span style={{ color: "#aaa" }}>🧻 {p.rollos_caja} rollos/caja</span>}
+                        {p.rollos_totales && <span style={{ color: "#aaa" }}>🧮 {p.rollos_totales} piezas/rollos</span>}
                       </div>
                       {p.fecha_solicitud && <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>Solicitud: {p.fecha_solicitud}</div>}
                       {p.cliche_url && <div style={{ fontSize: 11, color: "#ff9900", marginTop: 4 }}>📷 Ver diseño →</div>}
@@ -206,6 +208,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                 <div style={miniCard}><div style={miniLbl}>Medida</div><div style={{ color: "#c9922a", fontWeight: 700, fontSize: 18 }}>{pedidoSel.medida}</div></div>
                 <div style={miniCard}><div style={miniLbl}>Cajas</div><div style={{ color: "#4be87a", fontWeight: 700, fontSize: 18 }}>{pedidoSel.cajas}</div></div>
+                {pedidoSel.rollos_totales && <div style={miniCard}><div style={miniLbl}>Piezas / rollos totales</div><div style={{ color: "#4be87a", fontWeight: 700, fontSize: 18 }}>{pedidoSel.rollos_totales}</div></div>}
                 <div style={miniCard}><div style={miniLbl}>Tipo</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{pedidoSel.tipo}</div></div>
                 <div style={miniCard}><div style={miniLbl}>Máquina</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{pedidoSel.maq}</div></div>
               </div>
