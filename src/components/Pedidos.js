@@ -7,7 +7,7 @@ import { uid, today, diasHabilesRestantes, estadoPlazo } from '../lib/utils';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT } from '../lib/constants';
 
 export default function Pedidos({ pedidos, setPedidos }) {
-  const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", rollos_totales: "", ancho: "", largo: "", color: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_estimada: "", fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "pendiente" };
+  const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", rollos_totales: "", ancho: "", largo: "", color: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_estimada: "", fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "anotado" };
   const [form, setForm] = useState(formInicial);
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
