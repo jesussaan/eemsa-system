@@ -40,15 +40,13 @@ export default function ModoOperador({ pedidos, setPedidos, setFallas, onSalir }
     const idx = pedidosAnotados.findIndex(p => p.id === id);
     const otroIdx = idx + dir;
     if (otroIdx < 0 || otroIdx >= pedidosAnotados.length) return;
-    const a = pedidosAnotados[idx], b = pedidosAnotados[otroIdx];
-    const ordenA = a.orden ?? idx;
-    const ordenB = b.orden ?? otroIdx;
-    await supabase.from("pedidos").update({ orden: ordenB }).eq("id", a.id);
-    await supabase.from("pedidos").update({ orden: ordenA }).eq("id", b.id);
+    const nuevaLista = [...pedidosAnotados];
+    [nuevaLista[idx], nuevaLista[otroIdx]] = [nuevaLista[otroIdx], nuevaLista[idx]];
+    const updates = nuevaLista.map((p, i) => ({ id: p.id, orden: i }));
+    await Promise.all(updates.map(u => supabase.from("pedidos").update({ orden: u.orden }).eq("id", u.id)));
     setPedidos(ps => ps.map(p => {
-      if (p.id === a.id) return { ...p, orden: ordenB };
-      if (p.id === b.id) return { ...p, orden: ordenA };
-      return p;
+      const u = updates.find(x => x.id === p.id);
+      return u ? { ...p, orden: u.orden } : p;
     }));
   };
 
