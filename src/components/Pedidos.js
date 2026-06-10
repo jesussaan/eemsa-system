@@ -7,7 +7,7 @@ import { uid, today, diasHabilesRestantes, estadoPlazo } from '../lib/utils';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT } from '../lib/constants';
 
 export default function Pedidos({ pedidos, setPedidos }) {
-  const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", ancho: "", largo: "", color: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_estimada: "", fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "pendiente" };
+  const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", rollos_totales: "", ancho: "", largo: "", color: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_estimada: "", fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "pendiente" };
   const [form, setForm] = useState(formInicial);
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,8 +20,15 @@ export default function Pedidos({ pedidos, setPedidos }) {
   const [busqueda, setBusqueda] = useState("");
   const formRef = useRef(null);
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
-  const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const rollosTotales = form.cajas && form.rollos_caja ? Number(form.cajas) * Number(form.rollos_caja) : "";
+  const upd = (k, v) => setForm(f => {
+    const nf = { ...f, [k]: v };
+    if ((k === "cajas" || k === "rollos_caja") && !f.rollos_totales) {
+      const c = k === "cajas" ? v : nf.cajas;
+      const r = k === "rollos_caja" ? v : nf.rollos_caja;
+      if (c && r) nf.rollos_totales = String(Number(c) * Number(r));
+    }
+    return nf;
+  });
 
   const clonarPedido = (p) => {
     setForm({
@@ -32,6 +39,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
       medida: p.medida || "",
       cajas: p.cajas || "",
       rollos_caja: p.rollos_caja || "",
+      rollos_totales: p.rollos_totales || "",
       ancho: p.ancho || "",
       largo: p.largo || "",
       color: p.color || "",
@@ -117,7 +125,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
       if (upErr) { showToast("⚠ Foto no subida: " + upErr.message); }
       else if (up) { cliche_url = up.path; }
     }
-    const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.num, tipo: form.tipo, medida: form.medida, cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(rollosTotales) || null, ancho: form.ancho, largo: form.largo, color: form.color, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
+    const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.num, tipo: form.tipo, medida: form.medida, cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(form.rollos_totales), ancho: form.ancho, largo: form.largo, color: form.color, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
     const { error } = await supabase.from("pedidos").insert([nuevo]);
     if (error) { showToast("❌ Error: " + error.message); setLoading(false); return; }
     setPedidos(p => [nuevo, ...p]);
@@ -233,7 +241,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
         <div className="field"><label>Medida (ej: 2"x100)</label><input value={form.medida} onChange={e => upd("medida", e.target.value)} placeholder='2"x100' /></div>
         <div className="field"><label>Cajas solicitadas *</label><input type="number" value={form.cajas} onChange={e => upd("cajas", e.target.value)} placeholder="50" /></div>
         <div className="field"><label>Rollos por caja</label><input type="number" value={form.rollos_caja} onChange={e => upd("rollos_caja", e.target.value)} placeholder="36" /></div>
-        {rollosTotales && <div className="field"><label>Rollos totales (auto)</label><input value={rollosTotales} readOnly style={{ background: "#1a2744", color: "#c9922a" }} /></div>}
+        <div className="field"><label>Rollos / piezas totales</label><input type="number" value={form.rollos_totales} onChange={e => upd("rollos_totales", e.target.value)} placeholder="1800" /></div>
         <div className="field"><label>Ancho (pulg)</label><input value={form.ancho} onChange={e => upd("ancho", e.target.value)} placeholder='2"' /></div>
         <div className="field"><label>Largo (m)</label><input type="number" value={form.largo} onChange={e => upd("largo", e.target.value)} placeholder="100" /></div>
         <div className="field"><label>Color impresión</label><input value={form.color} onChange={e => upd("color", e.target.value)} placeholder="Rojo PMS 485" /></div>
@@ -308,6 +316,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
               <div className="field"><label>Operador</label><select value={modalPedido.op || ""} onChange={e => setModalPedido(m => ({ ...m, op: e.target.value }))}>{OPERADORES.map(o => <option key={o}>{o}</option>)}</select></div>
               <div className="field"><label>Cajas solicitadas</label><input type="number" value={modalPedido.cajas || ""} onChange={e => setModalPedido(m => ({ ...m, cajas: e.target.value }))} /></div>
               <div className="field"><label>Rollos por caja</label><input type="number" value={modalPedido.rollos_caja || ""} onChange={e => setModalPedido(m => ({ ...m, rollos_caja: e.target.value }))} /></div>
+              <div className="field"><label>Rollos / piezas totales</label><input type="number" value={modalPedido.rollos_totales || ""} onChange={e => setModalPedido(m => ({ ...m, rollos_totales: e.target.value }))} placeholder="1800" /></div>
               <div className="field"><label>Fecha solicitada</label><input type="date" value={modalPedido.fecha_solicitud || ""} onChange={e => setModalPedido(m => ({ ...m, fecha_solicitud: e.target.value }))} /></div>
               <div className="field"><label>📅 Entrega estimada</label><input type="date" value={modalPedido.fecha_estimada || ""} onChange={e => setModalPedido(m => ({ ...m, fecha_estimada: e.target.value }))} /></div>
               <div className="field"><label>Fecha inicio</label><input type="date" value={modalPedido.fecha_inicio || ""} onChange={e => setModalPedido(m => ({ ...m, fecha_inicio: e.target.value }))} /></div>
