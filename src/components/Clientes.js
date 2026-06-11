@@ -2,7 +2,7 @@ import { useState } from "react";
 import { today } from '../lib/utils';
 import { STATUS_PED, META_MERMA_PCT } from '../lib/constants';
 
-export default function Clientes({ pedidos }) {
+export default function Clientes({ pedidos, ocultarMerma }) {
   const [clienteSel, setClienteSel] = useState(null);
   const [busqueda, setBusqueda] = useState("");
   const [filtroTab, setFiltroTab] = useState("todos");
@@ -98,7 +98,7 @@ export default function Clientes({ pedidos }) {
               <span className="muted">📋 {c.pedidos.length} pedidos</span>
               <span className="muted">📦 {c.cajasTotal} cajas</span>
               {c.frecuencia !== null && <span className="muted">🔄 Cada {c.frecuencia}d</span>}
-              {c.mermaPromedio !== null && <span className="muted" style={{ color: Number(c.mermaPromedio) > META_MERMA_PCT ? "#ff4d4d" : "#4be87a" }}>🗑 Merma: {c.mermaPromedio}%</span>}
+              {!ocultarMerma && c.mermaPromedio !== null && <span className="muted" style={{ color: Number(c.mermaPromedio) > META_MERMA_PCT ? "#ff4d4d" : "#4be87a" }}>🗑 Merma: {c.mermaPromedio}%</span>}
             </div>
           </div>
         ))}
@@ -114,7 +114,7 @@ export default function Clientes({ pedidos }) {
               <div className="stat-card accent"><div className="stat-val">{seleccionado.pedidos.length}</div><div className="stat-lbl">Pedidos</div></div>
               <div className="stat-card blue"><div className="stat-val">{seleccionado.cajasTotal}</div><div className="stat-lbl">Cajas total</div></div>
               {seleccionado.frecuencia !== null && <div className="stat-card orange"><div className="stat-val">{seleccionado.frecuencia}d</div><div className="stat-lbl">Frecuencia prom.</div></div>}
-              {seleccionado.mermaPromedio !== null && <div className={`stat-card ${Number(seleccionado.mermaPromedio) > META_MERMA_PCT ? "red" : "green"}`}><div className="stat-val">{seleccionado.mermaPromedio}%</div><div className="stat-lbl">Merma prom.</div></div>}
+              {!ocultarMerma && seleccionado.mermaPromedio !== null && <div className={`stat-card ${Number(seleccionado.mermaPromedio) > META_MERMA_PCT ? "red" : "green"}`}><div className="stat-val">{seleccionado.mermaPromedio}%</div><div className="stat-lbl">Merma prom.</div></div>}
             </div>
             {(() => {
               const medidaCounts = seleccionado.pedidos.reduce((acc, p) => { if (p.medida) { acc[p.medida] = (acc[p.medida] || 0) + 1; } return acc; }, {});
@@ -140,7 +140,7 @@ export default function Clientes({ pedidos }) {
                   </div>
                   <div className="muted">{p.fecha_solicitud} · {p.tipo} · {p.medida} · {p.cajas} cajas</div>
                   {p.fecha_estimada && p.status !== "terminado" && <div className="muted" style={{ color: "#e8b84b" }}>📅 Entrega est.: {p.fecha_estimada}</div>}
-                  {p.merma_pct && <div className="muted">Merma: {p.merma_pct}%</div>}
+                  {!ocultarMerma && p.merma_pct && <div className="muted">Merma: {p.merma_pct}%</div>}
                 </div>
               ))}
             </div>

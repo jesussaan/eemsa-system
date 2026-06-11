@@ -284,7 +284,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
         )}
 
         {/* ── CLIENTES ── */}
-        {tab === "clientes" && <Clientes pedidos={pedidos} />}
+        {tab === "clientes" && <Clientes pedidos={pedidos} ocultarMerma />}
       </main>
 
       {/* Toast */}
