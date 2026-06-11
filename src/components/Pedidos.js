@@ -7,7 +7,7 @@ import { uid, today, diasHabilesRestantes, estadoPlazo, siguienteNumPedido } fro
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT } from '../lib/constants';
 
 export default function Pedidos({ pedidos, setPedidos }) {
-  const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", rollos_totales: "", ancho: "", largo: "", color: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_estimada: "", fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "anotado" };
+  const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", rollos_totales: "", ancho: "", largo: "", color: "", color_cinta: "", tinta_tipo: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_estimada: "", fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "anotado" };
   const [form, setForm] = useState(() => ({ ...formInicial, num: siguienteNumPedido(pedidos) }));
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
@@ -43,6 +43,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
       ancho: p.ancho || "",
       largo: p.largo || "",
       color: p.color || "",
+      tinta_tipo: p.tinta_tipo || "",
       maq: p.maq || "SIAT L36 #1",
       op: p.op || "William",
       fecha_solicitud: today(),
@@ -125,7 +126,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
       if (upErr) { showToast("⚠ Foto no subida: " + upErr.message); }
       else if (up) { cliche_url = up.path; }
     }
-    const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.num, tipo: form.tipo, medida: form.medida, cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(form.rollos_totales), ancho: form.ancho, largo: form.largo, color: form.color, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
+    const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.num, tipo: form.tipo, medida: form.medida, cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(form.rollos_totales), ancho: form.ancho, largo: form.largo, color: form.color, color_cinta: form.color_cinta || null, tinta_tipo: form.tinta_tipo.trim() || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
     const { error } = await supabase.from("pedidos").insert([nuevo]);
     if (error) { showToast("❌ Error: " + error.message); setLoading(false); return; }
     setPedidos(p => [nuevo, ...p]);
@@ -245,6 +246,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
         <div className="field"><label>Ancho (pulg)</label><input value={form.ancho} onChange={e => upd("ancho", e.target.value)} placeholder='2"' /></div>
         <div className="field"><label>Largo (m)</label><input type="number" value={form.largo} onChange={e => upd("largo", e.target.value)} placeholder="100" /></div>
         <div className="field"><label>Color impresión</label><input value={form.color} onChange={e => upd("color", e.target.value)} placeholder="Rojo PMS 485" /></div>
+        <div className="field"><label>Tipo de tinta</label><input value={form.tinta_tipo} onChange={e => upd("tinta_tipo", e.target.value)} placeholder="Roja UV, Azul PMS…" /></div>
         <div className="field full"><label>📷 Foto del cliché</label><input type="file" accept="image/*" onChange={e => { const f = e.target.files[0]; if (!f) return; setClicheImg(f); setClichePreview(URL.createObjectURL(f)); }} />{clichePreview && <img src={clichePreview} alt="cliché" style={{ width: "100%", maxWidth: 260, marginTop: 8, borderRadius: 8, border: "1px solid #2a2d3a" }} />}</div>
         <div className="field"><label>Máquina</label><select value={form.maq} onChange={e => upd("maq", e.target.value)}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>
         <div className="field"><label>Operador</label><select value={form.op} onChange={e => upd("op", e.target.value)}>{OPERADORES.map(o => <option key={o}>{o}</option>)}</select></div>
