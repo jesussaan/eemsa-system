@@ -1,7 +1,7 @@
 import { useState } from "react";
 import ClicheImg from './ClicheImg';
 import { supabase } from "../lib/supabase";
-import { today } from "../lib/utils";
+import { today, diasHabiles } from "../lib/utils";
 
 export default function ModoEmilio({ pedidos, setPedidos, onSalir }) {
   const [toast, setToast] = useState("");
@@ -70,6 +70,7 @@ export default function ModoEmilio({ pedidos, setPedidos, onSalir }) {
                 {p.alcohol_litros != null && p.alcohol_litros !== "" && <div style={miniCard}><div style={miniLbl}>Alcohol usado</div><div style={{ color: "#e0e0e0", fontSize: 16 }}>{p.alcohol_litros} L</div></div>}
                 {p.fecha_inicio && <div style={miniCard}><div style={miniLbl}>Fecha inicio</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{p.fecha_inicio}</div></div>}
                 {p.fecha_termino && <div style={miniCard}><div style={miniLbl}>Fecha término</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{p.fecha_termino}</div></div>}
+                {p.fecha_inicio && p.fecha_termino && <div style={miniCard}><div style={miniLbl}>Días hábiles producción</div><div style={{ color: "#c9922a", fontWeight: 700, fontSize: 16 }}>{diasHabiles(p.fecha_inicio, p.fecha_termino)}</div></div>}
               </div>
               {p.notas && <div style={{ fontSize: 12, color: "#aaa", marginTop: 8 }}>📝 {p.notas}</div>}
               {p.foto_producto_url && (
