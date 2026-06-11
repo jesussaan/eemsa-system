@@ -12,7 +12,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     .sort((a, b) => (a.orden ?? 9999) - (b.orden ?? 9999) || (a.fecha_solicitud || "").localeCompare(b.fecha_solicitud || ""));
   const [pedidoSel, setPedidoSel] = useState(null);
   const [vista, setVista] = useState(null); // null | "finalizar" | "falla"
-  const [formFin, setFormFin] = useState({ piezas_prod: "", merma: "", rollos_usados: "", tinta_tipo: "", tinta_kg: "", alcohol_litros: "", notas: "" });
+  const [formFin, setFormFin] = useState({ piezas_prod: "", merma: "", rollos_usados: "", tinta_kg: "", alcohol_litros: "", notas: "" });
   const [fotoProducto, setFotoProducto] = useState(null);
   const [fotoPreview, setFotoPreview] = useState(null);
   const [formFalla, setFormFalla] = useState({ comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" });
@@ -20,7 +20,6 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
   const [loading, setLoading] = useState(false);
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
   const compsSugeridos = [...new Set([...COMPS, ...fallas.map(f => f.comp).filter(Boolean)])];
-  const tintasSugeridas = [...new Set(pedidos.map(p => p.tinta_tipo).filter(Boolean))];
 
   const seleccionarPedido = (p) => {
     setPedidoSel(p);
@@ -29,7 +28,6 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
       piezas_prod: p.piezas_prod ?? "",
       merma: p.merma ?? "",
       rollos_usados: p.rollos_usados ?? "",
-      tinta_tipo: p.tinta_tipo ?? "",
       tinta_kg: p.tinta_kg ?? "",
       alcohol_litros: p.alcohol_litros ?? "",
       notas: p.notas ?? "",
@@ -80,7 +78,6 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     if (mermaNum != null) update.merma = mermaNum;
     if (mermaPct != null) update.merma_pct = mermaPct;
     if (formFin.rollos_usados !== "") update.rollos_usados = Number(formFin.rollos_usados);
-    if (formFin.tinta_tipo.trim() !== "") update.tinta_tipo = formFin.tinta_tipo.trim();
     if (formFin.tinta_kg !== "") update.tinta_kg = Number(formFin.tinta_kg);
     if (formFin.alcohol_litros !== "") update.alcohol_litros = Number(formFin.alcohol_litros);
 
@@ -247,11 +244,6 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
               <div className="field">
                 <label>Rollos usados (total pedido)</label>
                 <input type="number" placeholder="0" value={formFin.rollos_usados} onChange={e => setFormFin(f => ({ ...f, rollos_usados: e.target.value }))} />
-              </div>
-              <div className="field">
-                <label>Tinta utilizada (color/tipo)</label>
-                <input list="tintas-list" placeholder="Ej: Roja UV, Azul PMS…" value={formFin.tinta_tipo} onChange={e => setFormFin(f => ({ ...f, tinta_tipo: e.target.value }))} />
-                <datalist id="tintas-list">{tintasSugeridas.map(t => <option key={t} value={t} />)}</datalist>
               </div>
               <div className="field">
                 <label>Tinta kg (total pedido)</label>
