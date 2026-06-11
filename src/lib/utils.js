@@ -1,4 +1,12 @@
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+export const siguienteNumPedido = (pedidos) => {
+  const max = pedidos.reduce((m, p) => {
+    const n = parseInt(p.num, 10);
+    return !isNaN(n) && n > m ? n : m;
+  }, 0);
+  return String(max + 1);
+};
 export const today = () => new Date().toISOString().slice(0, 10);
 export const fmt = (n) => Number(n).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 

@@ -3,12 +3,12 @@ import autoTable from 'jspdf-autotable';
 import { useState, useRef } from "react";
 import ClicheImg from './ClicheImg';
 import { supabase } from '../lib/supabase';
-import { uid, today, diasHabilesRestantes, estadoPlazo } from '../lib/utils';
+import { uid, today, diasHabilesRestantes, estadoPlazo, siguienteNumPedido } from '../lib/utils';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT } from '../lib/constants';
 
 export default function Pedidos({ pedidos, setPedidos }) {
   const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", rollos_totales: "", ancho: "", largo: "", color: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_estimada: "", fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "anotado" };
-  const [form, setForm] = useState(formInicial);
+  const [form, setForm] = useState(() => ({ ...formInicial, num: siguienteNumPedido(pedidos) }));
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
   const [modalPedido, setModalPedido] = useState(null);
@@ -34,7 +34,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
     setForm({
       ...formInicial,
       cliente: p.cliente || "",
-      num: "",
+      num: siguienteNumPedido(pedidos),
       tipo: p.tipo || "Blanca",
       medida: p.medida || "",
       cajas: p.cajas || "",
@@ -129,7 +129,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
     const { error } = await supabase.from("pedidos").insert([nuevo]);
     if (error) { showToast("❌ Error: " + error.message); setLoading(false); return; }
     setPedidos(p => [nuevo, ...p]);
-    setForm(formInicial);
+    setForm({ ...formInicial, num: siguienteNumPedido([nuevo, ...pedidos]) });
     setClicheImg(null); setClichePreview(null);
     showToast("✓ Pedido anotado ☁️");
     setLoading(false);
@@ -236,7 +236,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
       <h3 className="sub-title" ref={formRef}>➕ Anotar pedido</h3>
       <div className="form-grid">
         <div className="field"><label>Cliente *</label><input value={form.cliente} onChange={e => upd("cliente", e.target.value)} placeholder="MAFENSA, ARIAT…" /></div>
-        <div className="field"><label>No. Pedido *</label><input value={form.num} onChange={e => upd("num", e.target.value)} placeholder="84, 85…" /></div>
+        <div className="field"><label>No. Pedido * <span style={{ color: "#666", fontWeight: 400 }}>(sugerido)</span></label><input value={form.num} onChange={e => upd("num", e.target.value)} placeholder="84, 85…" /></div>
         <div className="field"><label>Tipo cinta</label><select value={form.tipo} onChange={e => upd("tipo", e.target.value)}>{TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
         <div className="field"><label>Medida (ej: 2"x100)</label><input value={form.medida} onChange={e => upd("medida", e.target.value)} placeholder='2"x100' /></div>
         <div className="field"><label>Cajas solicitadas *</label><input type="number" value={form.cajas} onChange={e => upd("cajas", e.target.value)} placeholder="50" /></div>

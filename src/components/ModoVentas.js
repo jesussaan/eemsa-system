@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
-import { today, uid } from "../lib/utils";
+import { today, uid, siguienteNumPedido } from "../lib/utils";
 import { TIPOS } from "../lib/constants";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -17,7 +17,7 @@ const STATUS_LBL = { pendiente:"Pendiente", anotado:"Anotado", proceso:"En proce
 export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
   const hoy = today();
   const [tab, setTab]   = useState("agenda");
-  const [form, setForm] = useState(FORM_INIT);
+  const [form, setForm] = useState(() => ({ ...FORM_INIT, num: siguienteNumPedido(pedidos) }));
   const [saving, setSaving] = useState(false);
   const [toast, setToast]   = useState("");
 
@@ -70,8 +70,9 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
     };
     const { data, error } = await supabase.from("pedidos").insert([nuevo]).select().single();
     if (error) { showToast("❌ Error: " + error.message); setSaving(false); return; }
-    setPedidos(ps => [data || nuevo, ...ps]);
-    setForm(FORM_INIT);
+    const guardado = data || nuevo;
+    setPedidos(ps => [guardado, ...ps]);
+    setForm({ ...FORM_INIT, num: siguienteNumPedido([guardado, ...pedidos]) });
     showToast("✅ Pedido registrado correctamente");
     setTab("agenda");
     setSaving(false);
@@ -232,7 +233,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
               </div>
 
               <div>
-                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>No. Pedido</label>
+                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>No. Pedido <span style={{ color:"#555", fontWeight:400 }}>(sugerido, edítalo si no aplica)</span></label>
                 <input value={form.num} onChange={e=>upd("num",e.target.value)} placeholder="Ej: 1042" style={inputStyle} />
               </div>
 
