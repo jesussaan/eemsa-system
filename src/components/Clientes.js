@@ -6,6 +6,7 @@ export default function Clientes({ pedidos }) {
   const [clienteSel, setClienteSel] = useState(null);
   const [busqueda, setBusqueda] = useState("");
   const [filtroTab, setFiltroTab] = useState("todos");
+  const [orden, setOrden] = useState("recientes");
 
   const clientes = Object.values(pedidos.reduce((acc, p) => {
     const key = (p.cliente || "").trim();
@@ -40,7 +41,14 @@ export default function Clientes({ pedidos }) {
     medio: clientes.filter(c => c.diasDesdeUltimo !== null && c.diasDesdeUltimo >= 30 && c.diasDesdeUltimo <= 60),
     perdido: clientes.filter(c => c.diasDesdeUltimo !== null && c.diasDesdeUltimo > 60),
   };
-  const filtrados = (porTab[filtroTab] || clientes).filter(c => !busqueda || c.nombre.toLowerCase().includes(busqueda.toLowerCase()));
+  const filtrados = (porTab[filtroTab] || clientes)
+    .filter(c => !busqueda || c.nombre.toLowerCase().includes(busqueda.toLowerCase()))
+    .sort((a, b) => {
+      if (orden === "alfabetico") return a.nombre.localeCompare(b.nombre);
+      if (orden === "mas_dias") return (b.diasDesdeUltimo ?? -1) - (a.diasDesdeUltimo ?? -1);
+      if (orden === "menos_dias") return (a.diasDesdeUltimo ?? 9999) - (b.diasDesdeUltimo ?? 9999);
+      return (a.diasDesdeUltimo ?? 9999) - (b.diasDesdeUltimo ?? 9999);
+    });
   const seleccionado = clientes.find(c => c.nombre === clienteSel) || null;
 
   return (
@@ -70,7 +78,15 @@ export default function Clientes({ pedidos }) {
           </button>
         ))}
       </div>
-      <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar cliente…" style={{ width: "100%", margin: "4px 0 8px", background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "8px 12px", color: "#e0e0e0", fontSize: 13 }} />
+      <div style={{ display: "flex", gap: 8, margin: "4px 0 8px" }}>
+        <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar cliente…" style={{ flex: 1, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "8px 12px", color: "#e0e0e0", fontSize: 13 }} />
+        <select value={orden} onChange={e => setOrden(e.target.value)} style={{ background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "8px 12px", color: "#e0e0e0", fontSize: 13 }}>
+          <option value="recientes">Más recientes primero</option>
+          <option value="alfabetico">Alfabético (A-Z)</option>
+          <option value="mas_dias">Más días sin pedir</option>
+          <option value="menos_dias">Menos días sin pedir</option>
+        </select>
+      </div>
       <div className="list">
         {filtrados.map(c => (
           <div key={c.nombre} className="list-item" style={{ borderLeft: `3px solid ${c.color}`, cursor: "pointer" }} onClick={() => setClienteSel(c.nombre)}>
