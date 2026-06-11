@@ -187,6 +187,24 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
         { prop: "30/70", nombre: "Azul oscuro intenso", hex: "#07327B" },
       ],
     },
+    {
+      titulo: "Naranja 172C + Gris 425C",
+      desc: "Tonos café y tierra.",
+      tonos: [
+        { prop: "70/30", nombre: "Naranja apagado", hex: "#D25434" },
+        { prop: "50/50", nombre: "Café dorado", hex: "#B85E48" },
+        { prop: "30/70", nombre: "Café gris", hex: "#9D685C" },
+      ],
+    },
+    {
+      titulo: "Rojo 032C + Gris 425C",
+      desc: "Rojos apagados y sofisticados.",
+      tonos: [
+        { prop: "70/30", nombre: "Rojo ladrillo", hex: "#CA4751" },
+        { prop: "50/50", nombre: "Terracota", hex: "#B2555D" },
+        { prop: "30/70", nombre: "Gris rojizo", hex: "#9A6269" },
+      ],
+    },
   ];
 
   return (
