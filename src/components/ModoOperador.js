@@ -250,8 +250,8 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                 <input type="number" step="0.1" placeholder="0.0" value={formFin.tinta_kg} onChange={e => setFormFin(f => ({ ...f, tinta_kg: e.target.value }))} />
               </div>
               <div className="field">
-                <label>Alcohol L (total pedido)</label>
-                <input type="number" step="0.1" placeholder="0.0" value={formFin.alcohol_litros} onChange={e => setFormFin(f => ({ ...f, alcohol_litros: e.target.value }))} />
+                <label>Alcohol litros (ej: 0.75)</label>
+                <input type="number" step="0.01" placeholder="0.75" value={formFin.alcohol_litros} onChange={e => setFormFin(f => ({ ...f, alcohol_litros: e.target.value }))} />
               </div>
               <div className="field">
                 <label>Piezas producidas</label>
