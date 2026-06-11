@@ -211,8 +211,8 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                 {pedidoSel.rollos_totales && <div style={miniCard}><div style={miniLbl}>Piezas / rollos totales</div><div style={{ color: "#4be87a", fontWeight: 700, fontSize: 18 }}>{pedidoSel.rollos_totales}</div></div>}
                 <div style={miniCard}><div style={miniLbl}>Tipo</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{pedidoSel.tipo}</div></div>
                 <div style={miniCard}><div style={miniLbl}>Máquina</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{pedidoSel.maq}</div></div>
+                {pedidoSel.color && <div style={miniCard}><div style={miniLbl}>Tinta / Color</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{pedidoSel.color}</div></div>}
               </div>
-              {pedidoSel.color && <div style={{ fontSize: 12, color: "#aaa" }}>🎨 Color: {pedidoSel.color}</div>}
             </div>
             {pedidoSel.cliche_url && (
               <div style={{ marginBottom: 16 }}>
