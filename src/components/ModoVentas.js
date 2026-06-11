@@ -2,6 +2,7 @@ import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { today, uid, siguienteNumPedido } from "../lib/utils";
 import { TIPOS } from "../lib/constants";
+import Clientes from "./Clientes";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const DIAS  = ["LUN","MAR","MIÉ","JUE","VIE","SÁB","DOM"];
@@ -9,6 +10,7 @@ const DIAS  = ["LUN","MAR","MIÉ","JUE","VIE","SÁB","DOM"];
 const S = { fill:"none", stroke:"currentColor", strokeWidth:2, strokeLinecap:"round", strokeLinejoin:"round" };
 const IcoAgenda = () => (<svg viewBox="0 0 24 24" {...S}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="8" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="15" r="1" fill="currentColor" stroke="none"/></svg>);
 const IcoNuevo  = () => (<svg viewBox="0 0 24 24" {...S}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>);
+const IcoCli    = () => (<svg viewBox="0 0 24 24" {...S}><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>);
 
 const FORM_INIT = { cliente:"", num:"", tipo:"Blanca", medida:"", cajas:"", rollos_caja:"", rollos_totales:"", tinta_tipo:"", notas:"" };
 
@@ -280,6 +282,9 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
             </button>
           </div>
         )}
+
+        {/* ── CLIENTES ── */}
+        {tab === "clientes" && <Clientes pedidos={pedidos} />}
       </main>
 
       {/* Toast */}
@@ -292,8 +297,9 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
       {/* Bottom nav */}
       <nav style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:640, background:"#11131a", borderTop:"1px solid #1e2130", display:"flex", paddingBottom:"env(safe-area-inset-bottom,0px)", zIndex:50 }}>
         {[
-          { id:"agenda", Icon:IcoAgenda, lbl:"Agenda" },
-          { id:"nuevo",  Icon:IcoNuevo,  lbl:"Nuevo Pedido" },
+          { id:"agenda",   Icon:IcoAgenda, lbl:"Agenda" },
+          { id:"nuevo",    Icon:IcoNuevo,  lbl:"Nuevo Pedido" },
+          { id:"clientes", Icon:IcoCli,    lbl:"Clientes" },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{ flex:1, background:"transparent", border:"none", padding:"9px 4px 7px", display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer", color:tab===t.id?"#e8b84b":"#555", borderTop:tab===t.id?"2px solid #e8b84b":"2px solid transparent" }}>
             <span style={{ width:22, height:22 }}><t.Icon /></span>
