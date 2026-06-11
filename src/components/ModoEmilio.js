@@ -52,6 +52,7 @@ export default function ModoEmilio({ pedidos, setPedidos, onSalir }) {
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13, marginBottom: 10 }}>
               <span style={{ color: "#c9922a", fontWeight: 700 }}>📏 {p.medida}</span>
               <span style={{ color: "#aaa" }}>🎨 {p.tipo}</span>
+              {(p.color || p.tinta_tipo) && <span style={{ color: "#aaa" }}>🖌 Tinta: {p.color || p.tinta_tipo}</span>}
               <span style={{ color: "#aaa" }}>📦 {p.cajas} cajas</span>
               <span style={{ color: "#555" }}>#Ped {p.num}</span>
             </div>
@@ -65,7 +66,6 @@ export default function ModoEmilio({ pedidos, setPedidos, onSalir }) {
                 {p.merma != null && p.merma !== "" && <div style={miniCard}><div style={miniLbl}>Merma (piezas)</div><div style={{ color: "#e0e0e0", fontSize: 16 }}>{p.merma}</div></div>}
                 {p.merma_pct != null && p.merma_pct !== "" && <div style={miniCard}><div style={miniLbl}>% Merma</div><div style={{ color: Number(p.merma_pct) > 3 ? "#ff4d4d" : "#4be87a", fontWeight: 700, fontSize: 16 }}>{p.merma_pct}%</div></div>}
                 {p.rollos_usados != null && p.rollos_usados !== "" && <div style={miniCard}><div style={miniLbl}>Rollos usados</div><div style={{ color: "#e0e0e0", fontSize: 16 }}>{p.rollos_usados}</div></div>}
-                {p.tinta_tipo && <div style={miniCard}><div style={miniLbl}>Tinta utilizada</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{p.tinta_tipo}</div></div>}
                 {p.tinta_kg != null && p.tinta_kg !== "" && <div style={miniCard}><div style={miniLbl}>Tinta usada</div><div style={{ color: "#e0e0e0", fontSize: 16 }}>{p.tinta_kg} kg</div></div>}
                 {p.alcohol_litros != null && p.alcohol_litros !== "" && <div style={miniCard}><div style={miniLbl}>Alcohol usado</div><div style={{ color: "#e0e0e0", fontSize: 16 }}>{p.alcohol_litros} L</div></div>}
                 {p.fecha_inicio && <div style={miniCard}><div style={miniLbl}>Fecha inicio</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{p.fecha_inicio}</div></div>}
