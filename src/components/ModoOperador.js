@@ -124,9 +124,70 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     setLoading(false);
   };
 
+  const textoSobre = (hex) => {
+    const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? "#1a1a1a" : "#fff";
+  };
   const card = { background: "#1a1d26", borderRadius: 12, padding: 16, marginBottom: 12 };
   const miniCard = { background: "#0d0f14", borderRadius: 8, padding: "8px 12px" };
   const miniLbl = { fontSize: 10, color: "#666", marginBottom: 2, textTransform: "uppercase", letterSpacing: ".05em" };
+
+  const combinaciones = [
+    {
+      titulo: "Amarillo + Rojo 032C",
+      desc: "Produce naranjas. Más amarillo = naranja claro. Más rojo = naranja intenso.",
+      tonos: [
+        { prop: "70/30", nombre: "Naranja claro cálido", hex: "#F9AA13" },
+        { prop: "50/50", nombre: "Naranja brillante", hex: "#F68820" },
+        { prop: "30/70", nombre: "Naranja rojizo", hex: "#F3662C" },
+      ],
+    },
+    {
+      titulo: "Amarillo + Azul Reflex",
+      desc: "Produce verdes. Más amarillo = más cálido. Más azul = más frío.",
+      tonos: [
+        { prop: "70/30", nombre: "Verde olivo", hex: "#B1AD31" },
+        { prop: "50/50", nombre: "Verde medio", hex: "#7F8D52" },
+        { prop: "30/70", nombre: "Verde azulado", hex: "#4C6D73" },
+      ],
+    },
+    {
+      titulo: "Azul Reflex + Rojo 032C",
+      desc: "Produce morados. Más azul = morado frío. Más rojo = morado cálido.",
+      tonos: [
+        { prop: "70/30", nombre: "Morado azulado", hex: "#473986" },
+        { prop: "50/50", nombre: "Morado vibrante", hex: "#773872" },
+        { prop: "30/70", nombre: "Morado rojizo", hex: "#A7365E" },
+      ],
+    },
+    {
+      titulo: "Blanco C + Rojo 032C",
+      desc: "Rosas y rojos suaves. El blanco va primero.",
+      tonos: [
+        { prop: "70/30", nombre: "Rosa claro", hex: "#FAC1C5" },
+        { prop: "50/50", nombre: "Rosa medio", hex: "#F7999F" },
+        { prop: "30/70", nombre: "Rosa oscuro", hex: "#F37079" },
+      ],
+    },
+    {
+      titulo: "Blanco C + Naranja 172C",
+      desc: "Salmón y melocotón. El blanco va primero.",
+      tonos: [
+        { prop: "70/30", nombre: "Melocotón", hex: "#FDC7B9" },
+        { prop: "50/50", nombre: "Salmón claro", hex: "#FCA28A" },
+        { prop: "30/70", nombre: "Salmón intenso", hex: "#FB7D5B" },
+      ],
+    },
+    {
+      titulo: "Negro C + Azul Reflex",
+      desc: "Azules muy oscuros.",
+      tonos: [
+        { prop: "70/30", nombre: "Azul casi negro", hex: "#122443" },
+        { prop: "50/50", nombre: "Azul marino oscuro", hex: "#0D2B5F" },
+        { prop: "30/70", nombre: "Azul oscuro intenso", hex: "#07327B" },
+      ],
+    },
+  ];
 
   return (
     <div style={{ minHeight: "100vh", background: "#0d0f14" }}>
@@ -141,8 +202,9 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
       <div style={{ padding: 16, maxWidth: 480, margin: "0 auto" }}>
 
         {/* Lista de pedidos */}
-        {!pedidoSel && (
+        {!pedidoSel && vista !== "colores" && (
           <>
+            <button className="btn btn-ghost btn-sm btn-block" style={{ marginBottom: 12 }} onClick={() => setVista("colores")}>🎨 Carta de colores</button>
             <h2 style={{ color: "#4a9eff", fontSize: 13, margin: "12px 0 8px", textTransform: "uppercase", letterSpacing: ".08em" }}>▶ En proceso</h2>
             {pedidosEnProceso.length === 0
               ? <p style={{ color: "#555", fontSize: 13, marginBottom: 16 }}>Sin pedidos en proceso.</p>
@@ -196,6 +258,30 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                 ))}
               </>
             )}
+          </>
+        )}
+
+        {/* Carta de colores */}
+        {!pedidoSel && vista === "colores" && (
+          <>
+            <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setVista(null)}>← Volver</button>
+            <h2 style={{ color: "#c9922a", fontSize: 13, margin: "0 0 12px", textTransform: "uppercase", letterSpacing: ".08em" }}>🎨 Carta de colores — combinaciones</h2>
+            {combinaciones.map(c => (
+              <div key={c.titulo} style={card}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 4 }}>{c.titulo}</div>
+                <div style={{ fontSize: 12, color: "#aaa", marginBottom: 10 }}>{c.desc}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  {c.tonos.map(t => (
+                    <div key={t.prop} style={{ background: t.hex, borderRadius: 8, padding: "10px 6px", textAlign: "center" }}>
+                      <div style={{ display: "inline-block", background: "#fff", color: "#000", fontSize: 10, fontWeight: 700, borderRadius: 4, padding: "1px 6px", marginBottom: 6 }}>{t.prop}</div>
+                      <div style={{ color: textoSobre(t.hex), fontWeight: 700, fontSize: 12, marginBottom: 2 }}>{t.nombre}</div>
+                      <div style={{ color: textoSobre(t.hex), fontSize: 11, opacity: .8 }}>{t.hex}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <p style={{ fontSize: 11, color: "#666", marginTop: -4 }}>Los colores son aproximados. Siempre haz una prueba antes de producción.</p>
           </>
         )}
 
