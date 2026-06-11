@@ -29,10 +29,11 @@ export default function Clientes({ pedidos, ocultarMerma }) {
       frecuencia = Math.round(diffs.reduce((s, d) => s + d, 0) / diffs.length);
     }
     const cajasTotal = c.pedidos.reduce((s, p) => s + Number(p.cajas || 0), 0);
+    const cajasSolicita = c.pedidos.length > 0 ? (cajasTotal / c.pedidos.length).toFixed(1) : null;
     const pedConMerma = c.pedidos.filter(p => p.status === "terminado" && p.merma_pct !== null && p.merma_pct !== "");
     const mermaPromedio = pedConMerma.length > 0 ? (pedConMerma.reduce((s, p) => s + Number(p.merma_pct), 0) / pedConMerma.length).toFixed(1) : null;
     const color = diasDesdeUltimo === null ? "#666" : diasDesdeUltimo < 30 ? "#4be87a" : diasDesdeUltimo <= 60 ? "#ff9900" : "#ff4d4d";
-    return { ...c, cajasTotal, ultimaFecha, diasDesdeUltimo, frecuencia, mermaPromedio, color, sorted };
+    return { ...c, cajasTotal, cajasSolicita, ultimaFecha, diasDesdeUltimo, frecuencia, mermaPromedio, color, sorted };
   }).sort((a, b) => (a.diasDesdeUltimo ?? 9999) - (b.diasDesdeUltimo ?? 9999));
 
   const porTab = {
@@ -97,6 +98,7 @@ export default function Clientes({ pedidos, ocultarMerma }) {
             <div style={{ display: "flex", gap: 12, marginTop: 4, flexWrap: "wrap" }}>
               <span className="muted">📋 {c.pedidos.length} pedidos</span>
               <span className="muted">📦 {c.cajasTotal} cajas</span>
+              {c.cajasSolicita !== null && <span className="muted">📦 Cajas que solicita: {c.cajasSolicita}</span>}
               {c.frecuencia !== null && <span className="muted">🔄 Cada {c.frecuencia}d</span>}
               {!ocultarMerma && c.mermaPromedio !== null && <span className="muted" style={{ color: Number(c.mermaPromedio) > META_MERMA_PCT ? "#ff4d4d" : "#4be87a" }}>🗑 Merma: {c.mermaPromedio}%</span>}
             </div>
@@ -113,6 +115,7 @@ export default function Clientes({ pedidos, ocultarMerma }) {
             <div className="stat-grid" style={{ marginBottom: 12 }}>
               <div className="stat-card accent"><div className="stat-val">{seleccionado.pedidos.length}</div><div className="stat-lbl">Pedidos</div></div>
               <div className="stat-card blue"><div className="stat-val">{seleccionado.cajasTotal}</div><div className="stat-lbl">Cajas total</div></div>
+              {seleccionado.cajasSolicita !== null && <div className="stat-card blue"><div className="stat-val">{seleccionado.cajasSolicita}</div><div className="stat-lbl">Cajas que solicita</div></div>}
               {seleccionado.frecuencia !== null && <div className="stat-card orange"><div className="stat-val">{seleccionado.frecuencia}d</div><div className="stat-lbl">Frecuencia prom.</div></div>}
               {!ocultarMerma && seleccionado.mermaPromedio !== null && <div className={`stat-card ${Number(seleccionado.mermaPromedio) > META_MERMA_PCT ? "red" : "green"}`}><div className="stat-val">{seleccionado.mermaPromedio}%</div><div className="stat-lbl">Merma prom.</div></div>}
             </div>
