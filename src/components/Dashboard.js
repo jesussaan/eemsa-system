@@ -51,6 +51,11 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
     { comp: "Sistema eléctrico", lbl: "Eléct." }, { comp: "Otro", lbl: "Otro" },
   ].map(({ comp, lbl }) => ({ lbl, val: fallas.filter(f => f.comp === comp).reduce((s, f) => s + Number(f.min_paro || 0), 0) })).filter(d => d.val > 0).sort((a, b) => b.val - a.val);
 
+  const pedMes = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual));
+  const tintaMes = pedMes.reduce((s, p) => s + Number(p.tinta_kg || 0), 0);
+  const alcoholMes = pedMes.reduce((s, p) => s + Number(p.alcohol_litros || 0), 0);
+  const rollosMes = pedMes.reduce((s, p) => s + Number(p.rollos_usados || 0), 0);
+
   const generarPDF = () => {
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const W = 210, mg = 14;
@@ -303,6 +308,9 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
         <div className={`stat-card ${metaHoyCumplida ? "green" : "red"}`}><div className="stat-val">{cajasHoy}/{META_CAJAS}</div><div className="stat-lbl">Cajas hoy {metaHoyCumplida ? "✅" : "❌"}</div></div>
         <div className={`stat-card ${pctMeta >= 80 ? "green" : pctMeta >= 50 ? "orange" : "red"}`}><div className="stat-val">{pctMeta}%</div><div className="stat-lbl">Días con meta ({diasConMeta}/{diasDelMes.length})</div></div>
         {tiempoPromedio !== null && <div className="stat-card blue"><div className="stat-val">{tiempoPromedio}d</div><div className="stat-lbl">Días promedio por pedido ({pedConTiempo.length} ped.)</div></div>}
+        {rollosMes > 0 && <div className="stat-card accent"><div className="stat-val">{rollosMes}</div><div className="stat-lbl">Rollos usados (mes)</div></div>}
+        {tintaMes > 0 && <div className="stat-card blue"><div className="stat-val">{tintaMes.toFixed(2)} kg</div><div className="stat-lbl">Tinta total (mes)</div></div>}
+        {alcoholMes > 0 && <div className="stat-card orange"><div className="stat-val">{alcoholMes.toFixed(2)} L</div><div className="stat-lbl">Alcohol total (mes)</div></div>}
       </div>
       <div style={{ background: "#1a1d26", borderRadius: 10, padding: "12px 16px", marginTop: 12, marginBottom: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
@@ -366,23 +374,6 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
           </div>
         </>
       )}
-      {(() => {
-        const pedMes = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual));
-        const tinta = pedMes.reduce((s, p) => s + Number(p.tinta_kg || 0), 0);
-        const alcohol = pedMes.reduce((s, p) => s + Number(p.alcohol_litros || 0), 0);
-        const rollos = pedMes.reduce((s, p) => s + Number(p.rollos_usados || 0), 0);
-        if (!tinta && !alcohol && !rollos) return null;
-        return (
-          <>
-            <h3 className="sub-title">⚗️ Consumos del mes</h3>
-            <div className="stat-grid">
-              {rollos > 0 && <div className="stat-card accent"><div className="stat-val">{rollos}</div><div className="stat-lbl">Rollos usados</div></div>}
-              {tinta > 0 && <div className="stat-card blue"><div className="stat-val">{tinta.toFixed(2)} kg</div><div className="stat-lbl">Tinta total</div></div>}
-              {alcohol > 0 && <div className="stat-card orange"><div className="stat-val">{alcohol.toFixed(2)} L</div><div className="stat-lbl">Alcohol total</div></div>}
-            </div>
-          </>
-        );
-      })()}
     </div>
   );
 }
