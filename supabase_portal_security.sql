@@ -41,10 +41,10 @@ returns table (
   cajas numeric,
   piezas_prod numeric,
   status text,
-  fecha_solicitud date,
-  fecha_estimada date,
-  fecha_termino date,
-  fecha_original date,
+  fecha_solicitud text,
+  fecha_estimada text,
+  fecha_termino text,
+  fecha_original text,
   color text,
   tinta_tipo text
 )
