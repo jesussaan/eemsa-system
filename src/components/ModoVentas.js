@@ -2,7 +2,7 @@ import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { today, uid, siguienteNumPedido } from "../lib/utils";
 import { TIPOS } from "../lib/constants";
-import { sendWhatsApp } from "../utils/whatsapp";
+import { sendWhatsApp, mensajePedidoNuevo } from "../utils/whatsapp";
 import Clientes from "./Clientes";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -76,7 +76,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
     const guardado = data || nuevo;
     setPedidos(ps => [guardado, ...ps]);
     setForm({ ...FORM_INIT, num: siguienteNumPedido([guardado, ...pedidos]) });
-    sendWhatsApp(`🆕 Pedido #${guardado.num} ${guardado.cliente} - Entrega ${guardado.fecha_estimada || guardado.fecha_solicitud || "sin fecha"}`);
+    sendWhatsApp(mensajePedidoNuevo(guardado));
     showToast("✅ Pedido registrado correctamente");
     setTab("agenda");
     setSaving(false);

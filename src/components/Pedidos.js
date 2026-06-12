@@ -5,7 +5,7 @@ import ClicheImg from './ClicheImg';
 import { supabase } from '../lib/supabase';
 import { uid, today, diasHabilesRestantes, estadoPlazo, siguienteNumPedido } from '../lib/utils';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT } from '../lib/constants';
-import { sendWhatsApp } from '../utils/whatsapp';
+import { sendWhatsApp, mensajePedidoNuevo } from '../utils/whatsapp';
 
 export default function Pedidos({ pedidos, setPedidos }) {
   const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", rollos_totales: "", ancho: "", largo: "", color: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_estimada: "", fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "anotado" };
@@ -132,7 +132,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
     setPedidos(p => [nuevo, ...p]);
     setForm({ ...formInicial, num: siguienteNumPedido([nuevo, ...pedidos]) });
     setClicheImg(null); setClichePreview(null);
-    sendWhatsApp(`🆕 Pedido #${nuevo.num} ${nuevo.cliente} - Entrega ${nuevo.fecha_estimada || nuevo.fecha_solicitud || "sin fecha"}`);
+    sendWhatsApp(mensajePedidoNuevo(nuevo));
     showToast("✓ Pedido anotado ☁️");
     setLoading(false);
   };
