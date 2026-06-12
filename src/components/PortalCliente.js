@@ -88,19 +88,13 @@ export default function PortalCliente({ token }) {
 
   useEffect(() => {
     const cargar = async () => {
-      const { data: cli, error } = await supabase
-        .from("clientes")
-        .select("nombre, portal_token")
-        .eq("portal_token", token)
-        .maybeSingle();
+      const { data: clientes, error } = await supabase.rpc("portal_get_cliente", { p_token: token });
+      const cli = clientes?.[0];
 
       if (error || !cli) { setEstado("invalido"); return; }
       setCliente(cli);
 
-      const { data: peds } = await supabase
-        .from("pedidos")
-        .select("num, medida, cajas, piezas_prod, status, fecha_solicitud, fecha_estimada, fecha_termino, fecha_original, color, tinta_tipo")
-        .eq("cliente", cli.nombre);
+      const { data: peds } = await supabase.rpc("portal_get_pedidos", { p_token: token });
 
       setPedidos(peds || []);
       setEstado("ok");

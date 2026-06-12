@@ -5,16 +5,6 @@ import { supabase } from '../lib/supabase';
 
 const PORTAL_BASE_URL = "https://eemsa-system.vercel.app";
 
-const generarTokenPortal = (nombre) => {
-  const slug = (nombre || "")
-    .trim().toLowerCase()
-    .normalize("NFD").replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-  const rand = Math.random().toString(36).slice(2, 8);
-  return `${slug}-${rand}`;
-};
-
 export default function Clientes({ pedidos, ocultarMerma }) {
   const [clienteSel, setClienteSel] = useState(null);
   const [busqueda, setBusqueda] = useState("");
@@ -28,13 +18,8 @@ export default function Clientes({ pedidos, ocultarMerma }) {
   const copiarLinkPortal = async (nombre) => {
     setCopiando(nombre);
     try {
-      const { data: existente } = await supabase.from("clientes").select("portal_token").eq("nombre", nombre).maybeSingle();
-      let token = existente?.portal_token;
-      if (!token) {
-        token = generarTokenPortal(nombre);
-        const { error } = await supabase.from("clientes").upsert({ nombre, portal_token: token }, { onConflict: "nombre" });
-        if (error) { showToast("❌ Error: " + error.message); setCopiando(null); return; }
-      }
+      const { data: token, error } = await supabase.rpc("get_or_create_portal_token", { p_nombre: nombre });
+      if (error || !token) { showToast("❌ Error: " + (error?.message || "sin token")); setCopiando(null); return; }
       await navigator.clipboard.writeText(`${PORTAL_BASE_URL}/cliente/${token}`);
       showToast("🔗 Link del portal copiado");
     } catch (err) {
