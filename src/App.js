@@ -12,6 +12,7 @@ import ModoOperador from "./components/ModoOperador"
 import ModoVentas from "./components/ModoVentas";
 import ModoEmilio from "./components/ModoEmilio";
 import CalendarioEntregas from "./components/CalendarioEntregas";
+import PortalCliente from "./components/PortalCliente";
 
 const S = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
 const IcoDash = () => (<svg viewBox="0 0 24 24" {...S}><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>);
@@ -37,6 +38,12 @@ const TABS = [
 const PIN_SUPERVISOR = "2312";
 
 export default function App() {
+  const portalMatch = window.location.pathname.match(/^\/cliente\/([^/]+)\/?$/);
+  if (portalMatch) return <PortalCliente token={portalMatch[1]} />;
+  return <EemsaApp />;
+}
+
+function EemsaApp() {
   const [tab, setTab] = useState("dash");
   const [pedidos, setPedidos] = useState([]);
   const [fallas, setFallas] = useState([]);

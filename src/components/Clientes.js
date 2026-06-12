@@ -1,12 +1,47 @@
 import { useState } from "react";
 import { today } from '../lib/utils';
 import { STATUS_PED, META_MERMA_PCT } from '../lib/constants';
+import { supabase } from '../lib/supabase';
+
+const PORTAL_BASE_URL = "https://eemsa-system.vercel.app";
+
+const generarTokenPortal = (nombre) => {
+  const slug = (nombre || "")
+    .trim().toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `${slug}-${rand}`;
+};
 
 export default function Clientes({ pedidos, ocultarMerma }) {
   const [clienteSel, setClienteSel] = useState(null);
   const [busqueda, setBusqueda] = useState("");
   const [filtroTab, setFiltroTab] = useState("todos");
   const [orden, setOrden] = useState("recientes");
+  const [toast, setToast] = useState("");
+  const [copiando, setCopiando] = useState(null);
+
+  const showToast = msg => { setToast(msg); setTimeout(() => setToast(""), 2500); };
+
+  const copiarLinkPortal = async (nombre) => {
+    setCopiando(nombre);
+    try {
+      const { data: existente } = await supabase.from("clientes").select("portal_token").eq("nombre", nombre).maybeSingle();
+      let token = existente?.portal_token;
+      if (!token) {
+        token = generarTokenPortal(nombre);
+        const { error } = await supabase.from("clientes").upsert({ nombre, portal_token: token }, { onConflict: "nombre" });
+        if (error) { showToast("❌ Error: " + error.message); setCopiando(null); return; }
+      }
+      await navigator.clipboard.writeText(`${PORTAL_BASE_URL}/cliente/${token}`);
+      showToast("🔗 Link del portal copiado");
+    } catch (err) {
+      showToast("❌ No se pudo copiar el link");
+    }
+    setCopiando(null);
+  };
 
   const clientes = Object.values(pedidos.reduce((acc, p) => {
     const key = (p.cliente || "").trim();
@@ -102,6 +137,14 @@ export default function Clientes({ pedidos, ocultarMerma }) {
               {c.frecuencia !== null && <span className="muted">🔄 Cada {c.frecuencia}d</span>}
               {!ocultarMerma && c.mermaPromedio !== null && <span className="muted" style={{ color: Number(c.mermaPromedio) > META_MERMA_PCT ? "#ff4d4d" : "#4be87a" }}>🗑 Merma: {c.mermaPromedio}%</span>}
             </div>
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ marginTop: 8 }}
+              disabled={copiando === c.nombre}
+              onClick={(e) => { e.stopPropagation(); copiarLinkPortal(c.nombre); }}
+            >
+              {copiando === c.nombre ? "Copiando…" : "🔗 Copiar link del portal"}
+            </button>
           </div>
         ))}
       </div>
@@ -150,6 +193,7 @@ export default function Clientes({ pedidos, ocultarMerma }) {
           </div>
         </div>
       )}
+      {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }
