@@ -10,6 +10,7 @@ const STATUS_BADGE = {
 };
 
 const PASOS = ["Anotado", "Producción", "Listo"];
+const PASOS_COLOR = ["#e8894b", "#4b8fe8", "#4be87a"];
 
 const pasoDe = (status) => {
   if (status === "terminado") return 3;
@@ -23,12 +24,12 @@ const ProgresoPedido = ({ status }) => {
     <div style={{ marginTop: 10 }}>
       <div style={{ display: "flex", gap: 4 }}>
         {PASOS.map((_, i) => (
-          <div key={i} style={{ flex: 1, height: 5, borderRadius: 3, background: i < paso ? "#c9922a" : "#2a2d3a" }} />
+          <div key={i} style={{ flex: 1, height: 5, borderRadius: 3, background: i < paso ? PASOS_COLOR[i] : "#2a2d3a" }} />
         ))}
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
         {PASOS.map((p, i) => (
-          <span key={p} style={{ fontSize: 10, color: i < paso ? "#c9922a" : "#555", fontWeight: i < paso ? 700 : 400 }}>{p}</span>
+          <span key={p} style={{ fontSize: 10, color: i < paso ? PASOS_COLOR[i] : "#555", fontWeight: i < paso ? 700 : 400 }}>{p}</span>
         ))}
       </div>
     </div>
@@ -47,6 +48,7 @@ const PedidoCard = ({ p }) => {
         {p.medida && <span>📏 {p.medida}</span>}
         {p.cajas != null && <span>📦 {p.cajas} cajas</span>}
         {p.piezas_prod != null && p.piezas_prod !== "" && <span>🔢 {p.piezas_prod} piezas</span>}
+        {(p.color || p.tinta_tipo) && <span>🖌 Tinta: {p.color || p.tinta_tipo}</span>}
       </div>
       {p.fecha_estimada && (
         <div style={{ marginTop: 8, background: "#0d0f14", borderRadius: 8, padding: "8px 10px" }}>
@@ -97,7 +99,7 @@ export default function PortalCliente({ token }) {
 
       const { data: peds } = await supabase
         .from("pedidos")
-        .select("num, medida, cajas, piezas_prod, status, fecha_solicitud, fecha_estimada, fecha_termino, fecha_original")
+        .select("num, medida, cajas, piezas_prod, status, fecha_solicitud, fecha_estimada, fecha_termino, fecha_original, color, tinta_tipo")
         .eq("cliente", cli.nombre);
 
       setPedidos(peds || []);
