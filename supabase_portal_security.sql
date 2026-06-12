@@ -78,12 +78,16 @@ declare
 begin
   select portal_token into v_token from public.clientes where nombre = p_nombre;
 
-  if v_token is null then
-    v_token := lower(regexp_replace(p_nombre, '[^a-zA-Z0-9]+', '-', 'g')) || '-' || substr(md5(random()::text), 1, 6);
-    insert into public.clientes (nombre, portal_token)
-    values (p_nombre, v_token)
-    on conflict (nombre) do update set portal_token = coalesce(public.clientes.portal_token, excluded.portal_token)
-    returning portal_token into v_token;
+  if v_token is not null then
+    return v_token;
+  end if;
+
+  v_token := lower(regexp_replace(p_nombre, '[^a-zA-Z0-9]+', '-', 'g')) || '-' || substr(md5(random()::text), 1, 6);
+
+  if exists (select 1 from public.clientes where nombre = p_nombre) then
+    update public.clientes set portal_token = v_token where nombre = p_nombre;
+  else
+    insert into public.clientes (nombre, portal_token) values (p_nombre, v_token);
   end if;
 
   return v_token;
