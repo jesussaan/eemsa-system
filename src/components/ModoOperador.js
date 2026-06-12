@@ -3,7 +3,8 @@ import ClicheImg from './ClicheImg';
 import { supabase } from '../lib/supabase';
 import { today } from '../lib/utils';
 import { notificar } from '../lib/notificaciones';
-import { COMPS, SEV } from '../lib/constants';
+import { COMPS, SEV, UMBRAL_MERMA } from '../lib/constants';
+import { sendWhatsApp } from '../utils/whatsapp';
 
 export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, onSalir }) {
   const pedidosEnProceso = pedidos.filter(p => p.status === "proceso");
@@ -91,6 +92,9 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     if (error) { showToast("❌ Error al finalizar pedido"); setLoading(false); return; }
 
     setPedidos(ps => ps.map(p => p.id === pedidoSel.id ? { ...p, ...update } : p));
+    if (mermaPct != null && Number(mermaPct) > UMBRAL_MERMA) {
+      sendWhatsApp(`⚠️ Merma alta: ${mermaPct}% en pedido #${pedidoSel.num}`);
+    }
     notificar('pedido_finalizado', {
       num: pedidoSel.num, cliente: pedidoSel.cliente,
       medida: pedidoSel.medida, tipo: pedidoSel.tipo, cajas: pedidoSel.cajas,

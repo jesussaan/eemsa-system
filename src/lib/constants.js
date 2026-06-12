@@ -6,3 +6,4 @@ export const STATUS_PED = { pendiente: "Falta dar de alta", anotado: "Anotado", 
 export const SEV = { leve: "Leve", moderada: "Moderada", critica: "Crítica" };
 export const META_CAJAS = 12;
 export const META_MERMA_PCT = 3;
+export const UMBRAL_MERMA = 3;
