@@ -33,6 +33,16 @@ export const diasHabilesRestantes = (fechaSolicitud) => {
   return restantes - 1;
 };
 
+const DIAS_SEMANA = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const MESES_LARGO = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+export const fechaLegible = (fecha) => {
+  if (!fecha) return "";
+  const d = new Date(fecha + "T12:00:00");
+  const dia = DIAS_SEMANA[d.getDay()];
+  return `${dia.charAt(0).toUpperCase()}${dia.slice(1)} ${d.getDate()} de ${MESES_LARGO[d.getMonth()]}`;
+};
+
 export const estadoPlazo = (dias) => {
   if (dias === null) return null;
   if (dias < 0) return { txt: "VENCIDO", cls: "b-red", color: "#ff4d4d" };

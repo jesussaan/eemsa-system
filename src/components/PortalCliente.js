@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { fechaLegible } from "../lib/utils";
 
 const STATUS_BADGE = {
   anotado:   { lbl: "Anotado",    color: "#e8b84b" },
@@ -47,7 +48,17 @@ const PedidoCard = ({ p }) => {
         {p.cajas != null && <span>📦 {p.cajas} cajas</span>}
         {p.piezas_prod != null && p.piezas_prod !== "" && <span>🔢 {p.piezas_prod} piezas</span>}
       </div>
-      {p.fecha_estimada && <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>📅 Entrega estimada: {p.fecha_estimada}</div>}
+      {p.fecha_estimada && (
+        <div style={{ marginTop: 8, background: "#0d0f14", borderRadius: 8, padding: "8px 10px" }}>
+          <div style={{ fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 2 }}>📅 Entrega estimada</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#c9922a" }}>{fechaLegible(p.fecha_estimada)}</div>
+        </div>
+      )}
+      {p.fecha_original && p.fecha_original !== p.fecha_estimada && (
+        <div style={{ fontSize: 11, color: "#e8b84b", marginTop: 6 }}>
+          🔄 Fecha actualizada — nueva entrega estimada: {fechaLegible(p.fecha_estimada)}
+        </div>
+      )}
       <ProgresoPedido status={p.status} />
     </div>
   );
@@ -57,6 +68,21 @@ export default function PortalCliente({ token }) {
   const [estado, setEstado] = useState("cargando"); // cargando | ok | invalido
   const [cliente, setCliente] = useState(null);
   const [pedidos, setPedidos] = useState([]);
+
+  useEffect(() => {
+    const tituloPrevio = document.title;
+    document.title = "EEMSA - Portal de Clientes";
+    let iconPrevio = null;
+    let link = document.querySelector("link[rel~='icon']");
+    if (link) {
+      iconPrevio = link.getAttribute("href");
+      link.setAttribute("href", "/logo192.png");
+    }
+    return () => {
+      document.title = tituloPrevio;
+      if (link && iconPrevio) link.setAttribute("href", iconPrevio);
+    };
+  }, []);
 
   useEffect(() => {
     const cargar = async () => {
@@ -71,7 +97,7 @@ export default function PortalCliente({ token }) {
 
       const { data: peds } = await supabase
         .from("pedidos")
-        .select("num, medida, cajas, piezas_prod, status, fecha_solicitud, fecha_estimada, fecha_termino")
+        .select("num, medida, cajas, piezas_prod, status, fecha_solicitud, fecha_estimada, fecha_termino, fecha_original")
         .eq("cliente", cli.nombre);
 
       setPedidos(peds || []);
@@ -157,6 +183,11 @@ export default function PortalCliente({ token }) {
           </>
         )}
       </main>
+
+      <footer style={{ textAlign: "center", padding: "16px 16px 24px", color: "#444", fontSize: 11, borderTop: "1px solid #1e2130" }}>
+        EEMSA · Contacto: (871) 103-9578<br />
+        Este enlace es personal e intransferible.
+      </footer>
     </div>
   );
 }

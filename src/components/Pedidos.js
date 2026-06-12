@@ -146,6 +146,12 @@ export default function Pedidos({ pedidos, setPedidos }) {
     const mPct = modalPedido.piezas_prod && modalPedido.merma
       ? ((Number(modalPedido.merma) / Number(modalPedido.piezas_prod)) * 100).toFixed(2)
       : modalPedido.merma_pct || "";
+    const original = pedidos.find(x => x.id === modalPedido.id);
+    let fechaOriginal = modalPedido.fecha_original || null;
+    if (original?.fecha_estimada && modalPedido.fecha_estimada && original.fecha_estimada !== modalPedido.fecha_estimada && !fechaOriginal) {
+      fechaOriginal = original.fecha_estimada;
+    }
+    if (!modalPedido.fecha_estimada) fechaOriginal = null;
     const actualizado = {
       id: modalPedido.id, created: modalPedido.created,
       cliente: modalPedido.cliente, num: modalPedido.num,
@@ -156,6 +162,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
       color: modalPedido.color, maq: modalPedido.maq, op: modalPedido.op,
       fecha_solicitud: modalPedido.fecha_solicitud,
       fecha_estimada: modalPedido.fecha_estimada || null,
+      fecha_original: fechaOriginal,
       fecha_inicio: modalPedido.fecha_inicio || null,
       fecha_termino: modalPedido.fecha_termino || null,
       piezas_prod: n2(modalPedido.piezas_prod),

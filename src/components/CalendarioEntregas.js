@@ -42,9 +42,14 @@ export default function CalendarioEntregas({ pedidos, setPedidos }) {
   const asignarFecha = async (pedidoId, fecha) => {
     if (!fecha) return;
     setSaving(pedidoId);
-    const { error } = await supabase.from("pedidos").update({ fecha_estimada: fecha }).eq("id", pedidoId);
+    const pedido = pedidos.find(p => p.id === pedidoId);
+    const update = { fecha_estimada: fecha };
+    if (pedido?.fecha_estimada && pedido.fecha_estimada !== fecha && !pedido.fecha_original) {
+      update.fecha_original = pedido.fecha_estimada;
+    }
+    const { error } = await supabase.from("pedidos").update(update).eq("id", pedidoId);
     if (!error) {
-      setPedidos(ps => ps.map(p => p.id === pedidoId ? { ...p, fecha_estimada: fecha } : p));
+      setPedidos(ps => ps.map(p => p.id === pedidoId ? { ...p, ...update } : p));
       setFechaTemp(f => { const n = {...f}; delete n[pedidoId]; return n; });
     }
     setSaving(null);
@@ -58,9 +63,9 @@ export default function CalendarioEntregas({ pedidos, setPedidos }) {
 
   const quitarFecha = async (pedidoId) => {
     setSaving(pedidoId);
-    const { error } = await supabase.from("pedidos").update({ fecha_estimada: null }).eq("id", pedidoId);
+    const { error } = await supabase.from("pedidos").update({ fecha_estimada: null, fecha_original: null }).eq("id", pedidoId);
     if (!error) {
-      setPedidos(ps => ps.map(p => p.id === pedidoId ? { ...p, fecha_estimada: null } : p));
+      setPedidos(ps => ps.map(p => p.id === pedidoId ? { ...p, fecha_estimada: null, fecha_original: null } : p));
     }
     setSaving(null);
   };
