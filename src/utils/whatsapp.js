@@ -7,8 +7,7 @@ export const mensajePedidoNuevo = (p) => {
   if (p.ancho || p.largo) lineas.push(`📐 Medidas: ${p.ancho || "?"} x ${p.largo || "?"}`);
   const tinta = p.color || p.tinta_tipo;
   if (tinta) lineas.push(`🖌 Tinta/Color: ${tinta}`);
-  const entrega = p.fecha_estimada || p.fecha_solicitud;
-  if (entrega) lineas.push(`📅 Entrega: ${entrega}`);
+  if (p.fecha_solicitud) lineas.push(`📅 Fecha de solicitud: ${p.fecha_solicitud}`);
   if (p.notas) lineas.push(`📝 Notas: ${p.notas}`);
   return lineas.join("\n");
 };
