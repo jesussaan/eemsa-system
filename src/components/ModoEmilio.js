@@ -2,6 +2,7 @@ import { useState } from "react";
 import ClicheImg from './ClicheImg';
 import { supabase } from "../lib/supabase";
 import { today, diasHabiles } from "../lib/utils";
+import { sendWhatsApp } from "../utils/whatsapp";
 
 export default function ModoEmilio({ pedidos, setPedidos, onSalir }) {
   const [toast, setToast] = useState("");
@@ -18,6 +19,8 @@ export default function ModoEmilio({ pedidos, setPedidos, onSalir }) {
     const { error } = await supabase.from("pedidos").update(update).eq("id", id);
     if (error) { showToast("❌ Error: " + error.message); setLoading(null); return; }
     setPedidos(ps => ps.map(p => p.id === id ? { ...p, ...update } : p));
+    const p = pedidos.find(x => x.id === id);
+    if (p) sendWhatsApp(`✅ Pedido #${p.num} ${p.cliente} dado de alta por Emilio`);
     showToast("✓ Pedido dado de alta");
     setLoading(null);
   };

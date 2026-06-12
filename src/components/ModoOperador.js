@@ -92,6 +92,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     if (error) { showToast("❌ Error al finalizar pedido"); setLoading(false); return; }
 
     setPedidos(ps => ps.map(p => p.id === pedidoSel.id ? { ...p, ...update } : p));
+    sendWhatsApp(`📝 William anotó los datos del pedido #${pedidoSel.num} ${pedidoSel.cliente}`);
     if (mermaPct != null && Number(mermaPct) > UMBRAL_MERMA) {
       sendWhatsApp(`⚠️ Merma alta: ${mermaPct}% en pedido #${pedidoSel.num}`);
     }
