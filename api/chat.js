@@ -310,12 +310,18 @@ async function ejecutarHerramienta(name, input) {
   }
 }
 
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://eemsa-system.vercel.app';
+
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Chat-Secret');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  if (process.env.CHAT_API_SECRET && req.headers['x-chat-secret'] !== process.env.CHAT_API_SECRET) {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
 
   try {
     const { messages, image, mediaType, extractTicket } = req.body;

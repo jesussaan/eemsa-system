@@ -15,7 +15,10 @@ export default function AsistenteIA({ onRefrescar }) {
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(process.env.REACT_APP_CHAT_API_SECRET ? { "X-Chat-Secret": process.env.REACT_APP_CHAT_API_SECRET } : {})
+        },
         body: JSON.stringify({ messages: next.map(m => ({ role: m.role, content: m.content })) })
       });
       const data = await res.json();
