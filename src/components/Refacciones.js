@@ -17,7 +17,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
   const [busquedaCompras, setBusquedaCompras] = useState("");
   const [ajustandoId, setAjustandoId] = useState(null);
   const [cantidadAjuste, setCantidadAjuste] = useState("");
-  const [formQueja, setFormQueja] = useState({ proveedor: "", fecha: today(), lote: "", material: "", cantidad_afectada: "", factura_remision: "", detectado_por: "", accion_solicitada: "Reposición", descripcion: "" });
+  const [formQueja, setFormQueja] = useState({ proveedor: "", fecha: today(), lote: "", material: "", cantidad_afectada: "", factura_remision: "", detectado_por: "", accion_solicitada: "Reposición", descripcion: "", elaboro: "", autorizo: "" });
   const [imagenesQueja, setImagenesQueja] = useState([]);
   const [previewsQueja, setPreviewsQueja] = useState([]);
   const [guardandoQueja, setGuardandoQueja] = useState(false);
@@ -171,13 +171,17 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
       }
     }
 
-    if (y + 14 > PAGE_BOTTOM) { piePaginaQueja(doc, W, H); doc.addPage(); encabezado("Reporte de Queja — Materia Prima"); y = 36; }
+    if (y + 22 > PAGE_BOTTOM) { piePaginaQueja(doc, W, H); doc.addPage(); encabezado("Reporte de Queja — Materia Prima"); y = 36; }
     const sigY = y + 16;
     doc.setDrawColor(180, 180, 180);
     doc.line(mg, sigY, 92, sigY); doc.line(118, sigY, W - mg, sigY);
     doc.setFontSize(9); doc.setTextColor(100, 100, 100);
     doc.text("Elaboró", mg, sigY + 6);
     doc.text("Autorizó", 118, sigY + 6);
+    doc.setFontSize(10); doc.setTextColor(0, 0, 0); doc.setFont(undefined, "bold");
+    doc.text(queja.elaboro || "—", mg, sigY + 12);
+    doc.text(queja.autorizo || "—", 118, sigY + 12);
+    doc.setFont(undefined, "normal");
 
     piePaginaQueja(doc, W, H);
     return doc;
@@ -218,7 +222,8 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
         folio, fecha: formQueja.fecha, proveedor: formQueja.proveedor, lote: formQueja.lote, material: formQueja.material,
         cantidad_afectada: formQueja.cantidad_afectada, factura_remision: formQueja.factura_remision,
         detectado_por: formQueja.detectado_por, accion_solicitada: formQueja.accion_solicitada,
-        descripcion: formQueja.descripcion, imagenes, estatus: "Abierta",
+        descripcion: formQueja.descripcion, elaboro: formQueja.elaboro, autorizo: formQueja.autorizo,
+        imagenes, estatus: "Abierta",
       };
       const { data: inserted, error } = await supabase.from("quejas_mp").insert([nuevo]).select();
       if (error) throw error;
@@ -226,7 +231,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
       if (quejasCargadas) setQuejas(q => [guardada, ...q]);
       showToast(`✓ Queja ${folio} guardada`);
       await descargarQueja(guardada, imagenesQueja);
-      setFormQueja({ proveedor: "", fecha: today(), lote: "", material: "", cantidad_afectada: "", factura_remision: "", detectado_por: "", accion_solicitada: "Reposición", descripcion: "" });
+      setFormQueja({ proveedor: "", fecha: today(), lote: "", material: "", cantidad_afectada: "", factura_remision: "", detectado_por: "", accion_solicitada: "Reposición", descripcion: "", elaboro: "", autorizo: "" });
       setImagenesQueja([]); setPreviewsQueja([]);
     } catch (e) {
       showToast("❌ Error: " + e.message);
@@ -238,6 +243,15 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
     const { error } = await supabase.from("quejas_mp").update({ estatus }).eq("id", id);
     if (error) { showToast("❌ Error al actualizar estatus"); return; }
     setQuejas(q => q.map(x => x.id === id ? { ...x, estatus } : x));
+  };
+
+  const eliminarQueja = async (q) => {
+    if (!window.confirm(`¿Eliminar la queja ${q.folio}? Esta acción no se puede deshacer.`)) return;
+    const { error } = await supabase.from("quejas_mp").delete().eq("id", q.id);
+    if (error) { showToast("❌ Error al eliminar"); return; }
+    if (q.imagenes && q.imagenes.length) await supabase.storage.from("quejas").remove(q.imagenes);
+    setQuejas(qs => qs.filter(x => x.id !== q.id));
+    showToast(`✓ Queja ${q.folio} eliminada`);
   };
 
   const quejasFiltradas = quejas.filter(q => !filtroProveedorQuejas || String(q.proveedor || "").toLowerCase().includes(filtroProveedorQuejas.toLowerCase()));
@@ -491,6 +505,8 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
                     </div>
                   )}
                 </div>
+                <div className="field"><label>Elaboró</label><input value={formQueja.elaboro} onChange={e => updQ("elaboro", e.target.value)} placeholder="Nombre de quien elabora" /></div>
+                <div className="field"><label>Autorizó</label><input value={formQueja.autorizo} onChange={e => updQ("autorizo", e.target.value)} placeholder="Nombre de quien autoriza" /></div>
               </div>
               <button className="btn btn-primary btn-block" onClick={guardarQueja} disabled={guardandoQueja}>{guardandoQueja ? "Guardando…" : "💾 Guardar y generar PDF"}</button>
             </div>
@@ -505,7 +521,10 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
                     <div key={q.id} className="list-item">
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <div><strong>{q.folio}</strong><span className="badge b-accent">{q.proveedor}</span></div>
-                        <button className="btn btn-ghost btn-sm" onClick={() => descargarQueja(q)} disabled={descargandoQuejaId === q.folio}>{descargandoQuejaId === q.folio ? "…" : "📄 PDF"}</button>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button className="btn btn-ghost btn-sm" onClick={() => descargarQueja(q)} disabled={descargandoQuejaId === q.folio}>{descargandoQuejaId === q.folio ? "…" : "📄 PDF"}</button>
+                          <button className="btn btn-danger btn-sm" onClick={() => eliminarQueja(q)}>✕</button>
+                        </div>
                       </div>
                       <div className="muted">{q.fecha} · {q.material || "—"}</div>
                       <div style={{ marginTop: 8 }}>
