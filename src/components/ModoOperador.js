@@ -271,7 +271,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                     <span>📦 {p.cajas} cajas</span>
                     {p.rollos_totales && <span>🧻 {p.rollos_totales} piezas/rollos</span>}
                     <span>🎨 {p.tipo}</span>
-                    {p.color && <ColorChip color={p.color} />}
+                    {(p.color || p.tinta_tipo) && <ColorChip color={p.color || p.tinta_tipo} />}
                     <span style={{ color: "#555" }}>#Ped {p.num}</span>
                   </div>
                 </div>
@@ -301,7 +301,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13 }}>
                         <span style={{ color: "#c9922a", fontWeight: 700 }}>📏 {p.medida}</span>
                         <span style={{ color: "#aaa" }}>🎨 {p.tipo}</span>
-                        {p.color && <ColorChip color={p.color} />}
+                        {(p.color || p.tinta_tipo) && <ColorChip color={p.color || p.tinta_tipo} />}
                         <span style={{ color: "#aaa" }}>📦 {p.cajas} cajas</span>
                         {p.rollos_caja && <span style={{ color: "#aaa" }}>🧻 {p.rollos_caja} rollos/caja</span>}
                         {p.rollos_totales && <span style={{ color: "#aaa" }}>🧮 {p.rollos_totales} piezas/rollos</span>}
@@ -352,7 +352,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                 {pedidoSel.rollos_totales && <div style={miniCard}><div style={miniLbl}>Piezas / rollos totales</div><div style={{ color: "#4be87a", fontWeight: 700, fontSize: 18 }}>{pedidoSel.rollos_totales}</div></div>}
                 <div style={miniCard}><div style={miniLbl}>Tipo</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{pedidoSel.tipo}</div></div>
                 <div style={miniCard}><div style={miniLbl}>Máquina</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{pedidoSel.maq}</div></div>
-                {pedidoSel.color && <div style={miniCard}><div style={miniLbl}>Tinta / Color</div><div style={{ marginTop: 4 }}><ColorChip color={pedidoSel.color} /></div></div>}
+                {(pedidoSel.color || pedidoSel.tinta_tipo) && <div style={miniCard}><div style={miniLbl}>Tinta / Color</div><div style={{ marginTop: 4 }}><ColorChip color={pedidoSel.color || pedidoSel.tinta_tipo} /></div></div>}
               </div>
             </div>
             {pedidoSel.cliche_url && (
