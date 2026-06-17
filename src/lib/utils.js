@@ -56,8 +56,5 @@ export const alertaEntrega = (fechaEstimada, status) => {
   const ent = new Date(fechaEstimada + "T12:00:00");
   const diff = Math.round((ent - hoy) / 86400000);
   if (diff < 0) return { txt: `⛔ Vencido hace ${Math.abs(diff)}d`, color: "#ff4d4d", bg: "rgba(255,77,77,0.15)", borde: "#ff4d4d" };
-  if (diff === 0) return { txt: "🔴 Entrega HOY", color: "#ff4d4d", bg: "rgba(255,77,77,0.15)", borde: "#ff4d4d" };
-  if (diff === 1) return { txt: "🟡 Entrega mañana", color: "#FFD700", bg: "rgba(255,215,0,0.1)", borde: "#FFD700" };
-  if (diff <= 3) return { txt: `🟡 Entrega en ${diff}d`, color: "#FFD700", bg: "rgba(255,215,0,0.1)", borde: "#FFD700" };
   return null;
 };
