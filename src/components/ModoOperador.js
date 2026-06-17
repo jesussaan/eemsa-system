@@ -137,6 +137,38 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
   const miniCard = { background: "#0d0f14", borderRadius: 8, padding: "8px 12px" };
   const miniLbl = { fontSize: 10, color: "#666", marginBottom: 2, textTransform: "uppercase", letterSpacing: ".05em" };
 
+  const COLOR_MAP = {
+    blanco: "#FFFFFF", blanca: "#FFFFFF",
+    negro: "#222222", negra: "#222222",
+    rojo: "#E63946", roja: "#E63946",
+    azul: "#4A90E2",
+    verde: "#3DAA5C",
+    amarillo: "#FFD700", amarilla: "#FFD700",
+    naranja: "#FF8C00",
+    morado: "#9B59B6", morada: "#9B59B6",
+    rosa: "#FF69B4",
+    café: "#795548", cafe: "#795548",
+    canela: "#C19A6B",
+    gris: "#9E9E9E", gris_claro: "#D3D3D3",
+    transparente: null,
+  };
+  const chipColor = (color) => {
+    if (!color) return null;
+    const key = color.toLowerCase().trim().replace(/\s+/g, "_");
+    for (const [k, v] of Object.entries(COLOR_MAP)) { if (key.includes(k)) return v; }
+    return "#c9922a";
+  };
+  const ColorChip = ({ color }) => {
+    if (!color) return null;
+    const bg = chipColor(color);
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#0d0f14", borderRadius: 20, padding: "3px 10px 3px 6px", border: "1px solid #2a2d3a" }}>
+        <span style={{ width: 14, height: 14, borderRadius: "50%", background: bg || "transparent", border: bg ? (bg === "#FFFFFF" ? "1.5px solid #aaa" : "none") : "2px dashed #aaa", display: "inline-block", flexShrink: 0 }} />
+        <span style={{ fontSize: 13, color: "#e0e0e0", fontWeight: 600 }}>{color}</span>
+      </span>
+    );
+  };
+
   const combinaciones = [
     {
       titulo: "Amarillo + Rojo 032C",
@@ -235,11 +267,11 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                 <div key={p.id} onClick={() => seleccionarPedido(p)} style={{ ...card, borderLeft: "4px solid #4a9eff", cursor: "pointer" }}>
                   <div style={{ fontSize: 19, fontWeight: 700, color: "#fff", marginBottom: 4 }}>{p.cliente}</div>
                   <div style={{ color: "#c9922a", fontSize: 16, fontWeight: 700, marginBottom: 6 }}>📏 {p.medida}</div>
-                  <div style={{ display: "flex", gap: 12, fontSize: 13, color: "#aaa", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: 8, fontSize: 13, color: "#aaa", flexWrap: "wrap", alignItems: "center" }}>
                     <span>📦 {p.cajas} cajas</span>
                     {p.rollos_totales && <span>🧻 {p.rollos_totales} piezas/rollos</span>}
                     <span>🎨 {p.tipo}</span>
-                    {p.color && <span>🖌 {p.color}</span>}
+                    {p.color && <ColorChip color={p.color} />}
                     <span style={{ color: "#555" }}>#Ped {p.num}</span>
                   </div>
                 </div>
@@ -269,7 +301,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13 }}>
                         <span style={{ color: "#c9922a", fontWeight: 700 }}>📏 {p.medida}</span>
                         <span style={{ color: "#aaa" }}>🎨 {p.tipo}</span>
-                        {p.color && <span style={{ color: "#aaa" }}>🖌 {p.color}</span>}
+                        {p.color && <ColorChip color={p.color} />}
                         <span style={{ color: "#aaa" }}>📦 {p.cajas} cajas</span>
                         {p.rollos_caja && <span style={{ color: "#aaa" }}>🧻 {p.rollos_caja} rollos/caja</span>}
                         {p.rollos_totales && <span style={{ color: "#aaa" }}>🧮 {p.rollos_totales} piezas/rollos</span>}
@@ -320,7 +352,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                 {pedidoSel.rollos_totales && <div style={miniCard}><div style={miniLbl}>Piezas / rollos totales</div><div style={{ color: "#4be87a", fontWeight: 700, fontSize: 18 }}>{pedidoSel.rollos_totales}</div></div>}
                 <div style={miniCard}><div style={miniLbl}>Tipo</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{pedidoSel.tipo}</div></div>
                 <div style={miniCard}><div style={miniLbl}>Máquina</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{pedidoSel.maq}</div></div>
-                {pedidoSel.color && <div style={miniCard}><div style={miniLbl}>Tinta / Color</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{pedidoSel.color}</div></div>}
+                {pedidoSel.color && <div style={miniCard}><div style={miniLbl}>Tinta / Color</div><div style={{ marginTop: 4 }}><ColorChip color={pedidoSel.color} /></div></div>}
               </div>
             </div>
             {pedidoSel.cliche_url && (
