@@ -3,7 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { useState, useRef } from "react";
 import ClicheImg from './ClicheImg';
 import { supabase } from '../lib/supabase';
-import { uid, today, diasHabilesRestantes, estadoPlazo, siguienteNumPedido } from '../lib/utils';
+import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido } from '../lib/utils';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT } from '../lib/constants';
 import { sendWhatsApp, mensajePedidoNuevo } from '../utils/whatsapp';
 
@@ -274,10 +274,11 @@ export default function Pedidos({ pedidos, setPedidos }) {
           {pedidosFiltrados.map(p => {
             const mermaOk = p.merma_pct !== "" && p.merma_pct !== undefined ? Number(p.merma_pct) <= META_MERMA_PCT : null;
             const badge = p.status !== "terminado" ? estadoPlazo(p.diasRest) : null;
+            const alerta = alertaEntrega(p.fecha_estimada, p.status);
             return (
-              <div key={p.id} className="list-item" style={{ borderLeft: `3px solid ${p.status === "terminado" ? "#4be87a" : p.status === "proceso" ? "#4a9eff" : "#ff9900"}` }}>
+              <div key={p.id} className="list-item" style={{ borderLeft: `3px solid ${alerta ? alerta.borde : p.status === "terminado" ? "#4be87a" : p.status === "proceso" ? "#4a9eff" : "#ff9900"}`, background: alerta ? alerta.bg : undefined }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6, flexWrap: "wrap" }}>
-                  <div><strong>{p.num}</strong> — {p.cliente}<span className={`badge ${colorStatus(p.status)}`}>{STATUS_PED[p.status] || p.status}</span>{badge && <span className={`badge ${badge.cls}`}>{badge.txt}</span>}</div>
+                  <div><strong>{p.num}</strong> — {p.cliente}<span className={`badge ${colorStatus(p.status)}`}>{STATUS_PED[p.status] || p.status}</span>{badge && <span className={`badge ${badge.cls}`}>{badge.txt}</span>}{alerta && <span style={{ fontSize: 12, fontWeight: 700, color: alerta.color, marginLeft: 4 }}>{alerta.txt}</span>}</div>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button className="btn btn-ghost btn-sm" title="Nota de entrega PDF" onClick={() => generarNotaEntrega(p)}>📄</button>
                     <button className="btn btn-ghost btn-sm" title="Clonar pedido" onClick={() => clonarPedido(p)}>🔁</button>

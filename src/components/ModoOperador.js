@@ -1,7 +1,7 @@
 import { useState } from "react";
 import ClicheImg from './ClicheImg';
 import { supabase } from '../lib/supabase';
-import { today } from '../lib/utils';
+import { today, alertaEntrega } from '../lib/utils';
 import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV, UMBRAL_MERMA } from '../lib/constants';
 import { sendWhatsApp } from '../utils/whatsapp';
@@ -263,9 +263,14 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
             <h2 style={{ color: "#4a9eff", fontSize: 13, margin: "12px 0 8px", textTransform: "uppercase", letterSpacing: ".08em" }}>▶ En proceso</h2>
             {pedidosEnProceso.length === 0
               ? <p style={{ color: "#555", fontSize: 13, marginBottom: 16 }}>Sin pedidos en proceso.</p>
-              : pedidosEnProceso.map(p => (
-                <div key={p.id} onClick={() => seleccionarPedido(p)} style={{ ...card, borderLeft: "4px solid #4a9eff", cursor: "pointer" }}>
-                  <div style={{ fontSize: 19, fontWeight: 700, color: "#fff", marginBottom: 4 }}>{p.cliente}</div>
+              : pedidosEnProceso.map(p => {
+                const al = alertaEntrega(p.fecha_estimada, p.status);
+                return (
+                <div key={p.id} onClick={() => seleccionarPedido(p)} style={{ ...card, borderLeft: `4px solid ${al ? al.borde : "#4a9eff"}`, background: al ? al.bg : card.background, cursor: "pointer" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div style={{ fontSize: 19, fontWeight: 700, color: "#fff", marginBottom: 4 }}>{p.cliente}</div>
+                    {al && <span style={{ fontSize: 12, fontWeight: 700, color: al.color, whiteSpace: "nowrap" }}>{al.txt}</span>}
+                  </div>
                   <div style={{ color: "#c9922a", fontSize: 16, fontWeight: 700, marginBottom: 6 }}>📏 {p.medida}</div>
                   <div style={{ display: "flex", gap: 8, fontSize: 13, color: "#aaa", flexWrap: "wrap", alignItems: "center" }}>
                     <span>📦 {p.cajas} cajas</span>
@@ -275,14 +280,17 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                     <span style={{ color: "#555" }}>#Ped {p.num}</span>
                   </div>
                 </div>
-              ))
+                );
+              })}
             }
 
             {pedidosAnotados.length > 0 && (
               <>
                 <h2 style={{ color: "#ff9900", fontSize: 13, margin: "16px 0 8px", textTransform: "uppercase", letterSpacing: ".08em" }}>📋 Próximos anotados — orden de salida</h2>
-                {pedidosAnotados.map((p, i) => (
-                  <div key={p.id} onClick={() => seleccionarPedido(p)} style={{ ...card, borderLeft: "4px solid #ff9900", cursor: "pointer", display: "flex", gap: 10, alignItems: "stretch" }}>
+                {pedidosAnotados.map((p, i) => {
+                  const al = alertaEntrega(p.fecha_estimada, p.status);
+                  return (
+                  <div key={p.id} onClick={() => seleccionarPedido(p)} style={{ ...card, borderLeft: `4px solid ${al ? al.borde : "#ff9900"}`, background: al ? al.bg : card.background, cursor: "pointer", display: "flex", gap: 10, alignItems: "stretch" }}>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
                       <div style={{ color: "#ff9900", fontWeight: 800, fontSize: 16, marginBottom: 2 }}>{i + 1}</div>
                       <button
@@ -297,7 +305,10 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                       >▼</button>
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: "#e0e0e0", marginBottom: 4 }}>{p.cliente}</div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: "#e0e0e0" }}>{p.cliente}</div>
+                        {al && <span style={{ fontSize: 11, fontWeight: 700, color: al.color, whiteSpace: "nowrap", marginLeft: 6 }}>{al.txt}</span>}
+                      </div>
                       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13 }}>
                         <span style={{ color: "#c9922a", fontWeight: 700 }}>📏 {p.medida}</span>
                         <span style={{ color: "#aaa" }}>🎨 {p.tipo}</span>
@@ -310,7 +321,8 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                       {p.cliche_url && <div style={{ fontSize: 11, color: "#ff9900", marginTop: 4 }}>📷 Ver diseño →</div>}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </>
             )}
           </>
