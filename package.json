@@ -16,7 +16,8 @@
     "recharts": "^3.9.0",
     "resend": "^6.12.4",
     "web-push": "^3.6.7",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "xlsx": "^0.18.5"
   },
   "scripts": {
     "start": "react-scripts start",

@@ -6,6 +6,7 @@ import BarChart from './BarChart';
 import { today, fmt, diasHabilesRestantes, estadoPlazo } from '../lib/utils';
 import { META_CAJAS, META_MERMA_PCT } from '../lib/constants';
 import { notificar } from '../lib/notificaciones';
+import { exportarExcel } from '../lib/exportExcel';
 
 const PIE_COLORS = ['#e84b4b','#e8894b','#e8b84b','#4be87a','#4b8fe8','#9b59b6','#ff69b4','#4be8e8'];
 const ChartTip = ({ active, payload }) => {
@@ -317,7 +318,10 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
       {/* ── Encabezado ── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
         <h2 className="sec-title" style={{ marginBottom: 0 }}>Dashboard</h2>
-        <button className="btn btn-ghost btn-sm" onClick={generarPDF}>📄 PDF</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => exportarExcel({ pedidos, fallas, prodDiaria, proveedores })}>📊 Excel</button>
+          <button className="btn btn-ghost btn-sm" onClick={generarPDF}>📄 PDF</button>
+        </div>
       </div>
 
       {/* ── KPIs principales (4 tarjetas) ── */}
