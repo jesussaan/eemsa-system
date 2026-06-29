@@ -78,6 +78,27 @@ function EemsaApp() {
     cargar();
   }, []);
 
+  // Realtime: actualiza el estado local cuando otro usuario cambia datos en Supabase
+  useEffect(() => {
+    const setters = {
+      pedidos:     { set: setPedidos },
+      fallas:      { set: setFallas },
+      refacciones: { set: setRefs },
+      proveedores: { set: setProveedores },
+      prod_diaria: { set: setProdDiaria },
+    };
+    const canales = Object.entries(setters).map(([tabla, { set }]) =>
+      supabase.channel(`rt_${tabla}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: tabla }, ({ eventType, new: nuevo, old: viejo }) => {
+          if (eventType === "INSERT") set(prev => prev.some(r => r.id === nuevo.id) ? prev : [nuevo, ...prev]);
+          if (eventType === "UPDATE") set(prev => prev.map(r => r.id === nuevo.id ? nuevo : r));
+          if (eventType === "DELETE") set(prev => prev.filter(r => r.id !== viejo.id));
+        })
+        .subscribe()
+    );
+    return () => canales.forEach(c => supabase.removeChannel(c));
+  }, []);
+
   const handlePinDigit = (d) => {
     const next = pinInput + d;
     setPinError(false);
