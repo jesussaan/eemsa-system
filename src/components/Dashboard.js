@@ -1,10 +1,22 @@
 import { useEffect } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart as ReBarChart, Bar, XAxis, YAxis } from 'recharts';
 import BarChart from './BarChart';
 import { today, fmt, diasHabilesRestantes, estadoPlazo } from '../lib/utils';
 import { META_CAJAS, META_MERMA_PCT } from '../lib/constants';
 import { notificar } from '../lib/notificaciones';
+
+const PIE_COLORS = ['#e84b4b','#e8894b','#e8b84b','#4be87a','#4b8fe8','#9b59b6','#ff69b4','#4be8e8'];
+const ChartTip = ({ active, payload }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{ background: '#181b24', border: '1px solid #2d3249', borderRadius: 8, padding: '7px 12px', fontSize: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
+      <div style={{ color: '#9aa0bc', marginBottom: 2 }}>{payload[0].name}</div>
+      <div style={{ color: payload[0].fill || '#e8ecf4', fontWeight: 700, fontSize: 14 }}>{payload[0].value}</div>
+    </div>
+  );
+};
 
 export default function Dashboard({ pedidos, fallas, refacciones, proveedores, prodDiaria }) {
   useEffect(() => {
@@ -50,6 +62,11 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
     { comp: "Sistema de corte", lbl: "Corte" }, { comp: "Banda transportadora", lbl: "Banda" },
     { comp: "Sistema eléctrico", lbl: "Eléct." }, { comp: "Otro", lbl: "Otro" },
   ].map(({ comp, lbl }) => ({ lbl, val: fallas.filter(f => f.comp === comp).reduce((s, f) => s + Number(f.min_paro || 0), 0) })).filter(d => d.val > 0).sort((a, b) => b.val - a.val);
+
+  const topClientes = Object.entries(
+    pedidos.filter(p => p.status === "terminado")
+      .reduce((acc, p) => { const k = p.cliente || "Sin nombre"; acc[k] = (acc[k] || 0) + Number(p.cajas || 0); return acc; }, {})
+  ).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([lbl, val]) => ({ lbl: lbl.slice(0, 14), val }));
 
   const pedMes = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual));
   const tintaMes = pedMes.reduce((s, p) => s + Number(p.tinta_kg || 0), 0);
@@ -368,9 +385,35 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
       {fallasPorComp.length > 0 && (
         <>
           <h3 className="sub-title">🔩 Minutos de paro por componente</h3>
-          <div style={{ background: "#1a1d26", borderRadius: 10, padding: "12px 16px" }}>
-            <span style={{ fontSize: 11, color: "#aaa" }}>Total minutos detenido por componente</span>
-            <BarChart data={fallasPorComp} />
+          <div style={{ background: "#1a1d26", borderRadius: 10, padding: "12px 16px", marginBottom: 12 }}>
+            <span style={{ fontSize: 11, color: "#9aa0bc" }}>Total minutos detenido por componente</span>
+            <ResponsiveContainer width="100%" height={210}>
+              <PieChart>
+                <Pie data={fallasPorComp.map(d => ({ name: d.lbl, value: d.val }))} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={52} outerRadius={82} paddingAngle={3}>
+                  {fallasPorComp.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                </Pie>
+                <Tooltip content={<ChartTip />} />
+                <Legend wrapperStyle={{ fontSize: 11, color: '#9aa0bc', paddingTop: 8 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </>
+      )}
+      {topClientes.length > 0 && (
+        <>
+          <h3 className="sub-title">🏆 Top clientes por cajas</h3>
+          <div style={{ background: "#1a1d26", borderRadius: 10, padding: "12px 16px", marginBottom: 12 }}>
+            <span style={{ fontSize: 11, color: "#9aa0bc" }}>Cajas terminadas por cliente (todos los años)</span>
+            <ResponsiveContainer width="100%" height={topClientes.length * 44 + 16}>
+              <ReBarChart data={topClientes} layout="vertical" margin={{ top: 8, right: 36, bottom: 0, left: 0 }}>
+                <XAxis type="number" hide />
+                <YAxis type="category" dataKey="lbl" tick={{ fill: '#9aa0bc', fontSize: 11 }} axisLine={false} tickLine={false} width={100} />
+                <Tooltip formatter={v => [`${v} cajas`]} contentStyle={{ background: '#181b24', border: '1px solid #2d3249', borderRadius: 8, fontSize: 12 }} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                <Bar dataKey="val" radius={[0, 4, 4, 0]} label={{ position: 'right', fill: '#545a78', fontSize: 11 }}>
+                  {topClientes.map((_, i) => <Cell key={i} fill={['#4b8fe8','#4be87a','#e8b84b','#e8894b','#e84b4b'][i]} />)}
+                </Bar>
+              </ReBarChart>
+            </ResponsiveContainer>
           </div>
         </>
       )}

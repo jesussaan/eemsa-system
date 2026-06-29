@@ -1,23 +1,31 @@
-export default function BarChart({ data, meta, lowerIsBetter = false }) {
-  const max = Math.max(...data.map(d => d.val), meta || 0, 1);
-  const BAR_H = 70;
+import { ResponsiveContainer, BarChart as RBar, Bar, XAxis, YAxis, Tooltip, ReferenceLine, Cell } from 'recharts';
+
+const Tip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
   return (
-    <div style={{ paddingBottom: 14 }}>
-      <div style={{ position: 'relative', height: BAR_H, display: 'flex', alignItems: 'flex-end', gap: 2 }}>
-        {meta > 0 && <div style={{ position: 'absolute', left: 0, right: 0, bottom: Math.round((meta / max) * BAR_H), borderTop: '1px dashed #ff4d4d', pointerEvents: 'none', zIndex: 1 }} />}
-        {data.map((d, i) => {
-          const h = d.val > 0 ? Math.max(2, Math.round((d.val / max) * BAR_H)) : 2;
-          const ok = !meta || (lowerIsBetter ? d.val <= meta : d.val >= meta);
-          return (
-            <div key={i} title={`${d.lbl}: ${d.val}`} style={{ flex: 1, height: h, background: d.val ? (ok ? '#4be87a' : '#ff4d4d') : '#1e2132', borderRadius: '2px 2px 0 0' }} />
-          );
-        })}
-      </div>
-      <div style={{ display: 'flex', gap: 2, marginTop: 2 }}>
-        {data.map((d, i) => (
-          <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 8, color: '#666' }}>{d.lbl}</div>
-        ))}
-      </div>
+    <div style={{ background: '#181b24', border: '1px solid #2d3249', borderRadius: 8, padding: '7px 12px', fontSize: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
+      <div style={{ color: '#9aa0bc', marginBottom: 2 }}>{label}</div>
+      <div style={{ color: '#e8ecf4', fontWeight: 700, fontSize: 14 }}>{payload[0].value}</div>
     </div>
+  );
+};
+
+export default function BarChart({ data, meta, lowerIsBetter = false }) {
+  if (!data?.length) return null;
+  return (
+    <ResponsiveContainer width="100%" height={120}>
+      <RBar data={data} barCategoryGap="18%" margin={{ top: 6, right: 4, bottom: 0, left: 0 }}>
+        <XAxis dataKey="lbl" tick={{ fill: '#545a78', fontSize: 9 }} axisLine={false} tickLine={false} />
+        <YAxis hide domain={[0, 'auto']} />
+        <Tooltip content={<Tip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+        {meta > 0 && <ReferenceLine y={meta} stroke="rgba(255,77,77,0.55)" strokeDasharray="4 3" />}
+        <Bar dataKey="val" radius={[3, 3, 0, 0]}>
+          {data.map((d, i) => {
+            const ok = !meta || (lowerIsBetter ? d.val <= meta : d.val >= meta);
+            return <Cell key={i} fill={d.val ? (ok ? '#4be87a' : '#ff4d4d') : '#1e2132'} />;
+          })}
+        </Bar>
+      </RBar>
+    </ResponsiveContainer>
   );
 }
