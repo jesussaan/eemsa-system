@@ -13,7 +13,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
   const [modalPedido, setModalPedido] = useState(null);
-  const [filtro, setFiltro] = useState("todos");
+  const [filtro, setFiltro] = useState("activos");
   const [clicheImg, setClicheImg] = useState(null);
   const [clichePreview, setClichePreview] = useState(null);
   const [modalClicheImg, setModalClicheImg] = useState(null);
@@ -202,7 +202,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
 
   const pedidosPendientes = pedidos.filter(p => p.status === "pendiente").filter(p => !busqueda || [p.cliente, p.num, p.tipo, p.medida].some(v => String(v || "").toLowerCase().includes(busqueda.toLowerCase())));
   const pedidosFiltrados = pedidos
-    .filter(p => filtro === "pendiente" ? p.status === "pendiente" : (p.status !== "pendiente" && (filtro === "todos" ? true : p.status === filtro)))
+    .filter(p => filtro === "pendiente" ? p.status === "pendiente" : (p.status !== "pendiente" && (filtro === "todos" ? true : filtro === "activos" ? ["anotado", "proceso"].includes(p.status) : p.status === filtro)))
     .filter(p => !busqueda || [p.cliente, p.num, p.tipo, p.medida, p.color, p.color_cinta].some(v => String(v || "").toLowerCase().includes(busqueda.toLowerCase())))
     .map(p => ({ ...p, diasRest: p.status !== "terminado" ? diasHabilesRestantes(p.fecha_solicitud) : null }))
     .sort((a, b) => { if (a.status === "terminado" && b.status !== "terminado") return 1; if (b.status === "terminado" && a.status !== "terminado") return -1; return (a.diasRest ?? 999) - (b.diasRest ?? 999); });
@@ -263,7 +263,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
       </div>
       <button className="btn btn-primary btn-block" onClick={save} disabled={loading}>{loading ? "Guardando…" : "📝 Anotar pedido"}</button>
       <div style={{ display: "flex", gap: 8, margin: "16px 0 8px", flexWrap: "wrap" }}>
-        {[["todos", "Todos"], ["anotado", "Anotados"], ["proceso", "En proceso"], ["terminado", "Terminados"], ["pendiente", "Falta alta"]].map(([k, v]) => (
+        {[["activos", "🟡 Activos"], ["todos", "Todos"], ["anotado", "Anotados"], ["proceso", "En proceso"], ["terminado", "✅ Terminados"], ["pendiente", "Falta alta"]].map(([k, v]) => (
           <button key={k} className={`btn btn-sm ${filtro === k ? "btn-primary" : "btn-ghost"}`} onClick={() => setFiltro(k)}>{v}</button>
         ))}
       </div>
