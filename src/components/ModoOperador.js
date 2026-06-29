@@ -2,6 +2,7 @@ import { useState } from "react";
 import ClicheImg from './ClicheImg';
 import { supabase } from '../lib/supabase';
 import { today, alertaEntrega } from '../lib/utils';
+import { sendPush } from '../lib/push';
 import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV, UMBRAL_MERMA } from '../lib/constants';
 import { sendWhatsApp } from '../utils/whatsapp';
@@ -93,6 +94,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
 
     setPedidos(ps => ps.map(p => p.id === pedidoSel.id ? { ...p, ...update } : p));
     sendWhatsApp(`📝 William anotó los datos del pedido #${pedidoSel.num} ${pedidoSel.cliente}`);
+    sendPush('✅ Pedido terminado', `#${pedidoSel.num} ${pedidoSel.cliente} — finalizado por William`);
     if (mermaPct != null && Number(mermaPct) > UMBRAL_MERMA) {
       sendWhatsApp(`⚠️ Merma alta: ${mermaPct}% en pedido #${pedidoSel.num}`);
     }

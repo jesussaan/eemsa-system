@@ -13,6 +13,7 @@ import ModoVentas from "./components/ModoVentas";
 import ModoEmilio from "./components/ModoEmilio";
 import CalendarioEntregas from "./components/CalendarioEntregas";
 import PortalCliente from "./components/PortalCliente";
+import NotifBell from "./components/NotifBell";
 
 const S = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
 const IcoDash = () => (<svg viewBox="0 0 24 24" {...S}><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>);
@@ -197,7 +198,10 @@ function EemsaApp() {
           <div className="header-title">EEMSA System</div>
           <div className="header-sub">Control SIAT L36 · Asesoría · Calidad · Innovación</div>
         </div>
-        <button onClick={() => setModo(null)} style={{ marginLeft: "auto", fontSize: 11, color: "#aaa", background: "transparent", border: "none", cursor: "pointer", padding: "4px 8px" }}>← Salir</button>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          <NotifBell />
+          <button onClick={() => setModo(null)} style={{ fontSize: 11, color: "#aaa", background: "transparent", border: "none", cursor: "pointer", padding: "4px 8px" }}>← Salir</button>
+        </div>
       </header>
       <main className="main">
         {tab === "dash" && <Dashboard pedidos={pedidos} fallas={fallas} refacciones={refs} proveedores={proveedores} prodDiaria={prodDiaria} />}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from '../lib/supabase';
 import { uid, today } from '../lib/utils';
+import { sendPush } from '../lib/push';
 import { MAQUINAS, OPERADORES, COMPS, SEV } from '../lib/constants';
 
 export default function Fallas({ fallas, setFallas }) {
@@ -19,6 +20,7 @@ export default function Fallas({ fallas, setFallas }) {
     const { error } = await supabase.from("fallas").insert([nuevo]);
     if (error) { showToast("❌ Error al guardar"); setLoading(false); return; }
     setFallas(f => [nuevo, ...f]);
+    if (nuevo.sev === 'critica') sendPush('⚠️ Falla crítica reportada', `${nuevo.comp} — ${nuevo.min_paro} min de paro`);
     setForm(f => ({ ...f, min_paro: "", descripcion: "", accion: "", status: "abierta" }));
     showToast("✓ Falla guardada en la nube ☁️");
     setLoading(false);
