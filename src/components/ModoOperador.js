@@ -1,4 +1,5 @@
 import { useState } from "react";
+import CalculadoraProduccion from './CalculadoraProduccion';
 import ClicheImg from './ClicheImg';
 import { supabase } from '../lib/supabase';
 import { today, alertaEntrega } from '../lib/utils';
@@ -20,6 +21,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
   const [formFalla, setFormFalla] = useState({ comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" });
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showCalc, setShowCalc] = useState(false);
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
   const compsSugeridos = [...new Set([...COMPS, ...fallas.map(f => f.comp).filter(Boolean)])];
 
@@ -253,7 +255,10 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
           <div style={{ color: "#c9922a", fontWeight: 700, fontSize: 16, fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: ".05em" }}>EEMSA · Modo Operador</div>
           <div style={{ color: "#4be87a", fontSize: 11 }}>👷 William</div>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={onSalir}>Salir</button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowCalc(true)}>🧮</button>
+          <button className="btn btn-ghost btn-sm" onClick={onSalir}>Salir</button>
+        </div>
       </header>
 
       <div style={{ padding: 16, maxWidth: 480, margin: "0 auto" }}>
@@ -471,6 +476,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
         )}
       </div>
       {toast && <div className="toast">{toast}</div>}
+      {showCalc && <CalculadoraProduccion pedidos={pedidos} onClose={() => setShowCalc(false)} />}
     </div>
   );
 }

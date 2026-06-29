@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useState, useRef } from "react";
 import ClicheImg from './ClicheImg';
+import CalculadoraProduccion from './CalculadoraProduccion';
 import { supabase } from '../lib/supabase';
 import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido } from '../lib/utils';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT } from '../lib/constants';
@@ -19,6 +20,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
   const [modalClicheImg, setModalClicheImg] = useState(null);
   const [modalClichePreview, setModalClichePreview] = useState(null);
   const [busqueda, setBusqueda] = useState("");
+  const [showCalc, setShowCalc] = useState(false);
   const formRef = useRef(null);
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
   const upd = (k, v) => setForm(f => {
@@ -242,7 +244,10 @@ export default function Pedidos({ pedidos, setPedidos }) {
           </div>
         </div>
       )}
-      <h3 className="sub-title" ref={formRef}>➕ Anotar pedido</h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3 className="sub-title" ref={formRef} style={{ margin: 0 }}>➕ Anotar pedido</h3>
+        <button className="btn btn-ghost btn-sm" onClick={() => setShowCalc(true)}>🧮 Calculadora</button>
+      </div>
       <div className="form-grid">
         <div className="field"><label>Cliente *</label><input value={form.cliente} onChange={e => upd("cliente", e.target.value)} placeholder="MAFENSA, ARIAT…" /></div>
         <div className="field"><label>No. Pedido * <span style={{ color: "#666", fontWeight: 400 }}>(sugerido)</span></label><input value={form.num} onChange={e => upd("num", e.target.value)} placeholder="84, 85…" /></div>
@@ -355,7 +360,8 @@ export default function Pedidos({ pedidos, setPedidos }) {
           </div>
         </div>
       )}
-{toast && <div className="toast">{toast}</div>}
+      {showCalc && <CalculadoraProduccion pedidos={pedidos} onClose={() => setShowCalc(false)} />}
+      {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }
