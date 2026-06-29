@@ -9,6 +9,7 @@ import Fallas from "./components/Fallas";
 import Clientes from "./components/Clientes";
 import AsistenteIA from "./components/AsistenteIA";
 import ModoOperador from "./components/ModoOperador"
+import ModoTV from "./components/ModoTV"
 import ModoVentas from "./components/ModoVentas";
 import ModoEmilio from "./components/ModoEmilio";
 import CalendarioEntregas from "./components/CalendarioEntregas";
@@ -138,6 +139,9 @@ function EemsaApp() {
         <button className="mode-btn mode-btn-sup" onClick={() => { setShowPinModal(true); setPinInput(""); setPinError(false); }}>
           <span>🔒</span> Modo Supervisor
         </button>
+        <button className="mode-btn mode-btn-tv" onClick={() => setModo("tv")}>
+          <span>📺</span> Modo TV
+        </button>
       </div>
 
       {showPinModal && (
@@ -185,6 +189,14 @@ function EemsaApp() {
   if (modo === "emilio") return (
     <ModoEmilio
       pedidos={pedidos} setPedidos={setPedidos}
+      onSalir={() => setModo(null)}
+    />
+  );
+
+  if (modo === "tv") return (
+    <ModoTV
+      pedidos={pedidos}
+      fallas={fallas}
       onSalir={() => setModo(null)}
     />
   );
