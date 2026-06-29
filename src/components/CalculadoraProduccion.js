@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 
 // ── Constantes de máquina ──────────────────────────────────────────
 const MP_ANCHO    = 6;        // pulgadas — ancho rollo materia prima
@@ -31,12 +31,8 @@ export default function CalculadoraProduccion({ pedidos, onClose }) {
   const [portaliche, setPortaliche] = useState('30.9');
   const [diseno,     setDiseno]     = useState('normal');
 
-  // Ratio histórico de solvente/alcohol por pieza producida
-  const ratioAlcohol = useMemo(() => {
-    const term = pedidos.filter(p => p.status === 'terminado' && Number(p.piezas_prod) > 0 && p.alcohol_litros);
-    if (!term.length) return null;
-    return term.reduce((s, p) => s + Number(p.alcohol_litros) / Number(p.piezas_prod), 0) / term.length;
-  }, [pedidos]);
+  // Solvente: mitad de la tinta (dilución) + 0.600 kg fijo (lavado)
+  const calcSolvente = (tintaKgVal) => (tintaKgVal * 0.5) + 0.600;
 
   // ── Valores numéricos ──────────────────────────────────────────
   const anchoN      = parseFloat(ancho)     || 0;
@@ -68,10 +64,10 @@ export default function CalculadoraProduccion({ pedidos, onClose }) {
   const tintaCm3        = impresiones * inkPerImpresion;                       // cm³ total
   const tintaKg         = (tintaCm3 * INK_DENSITY * TRANSFER) / 1000;         // kg
 
-  // ── Solvente (histórico) ─────────────────────────────────────
-  const alcoholL = ratioAlcohol ? ratioAlcohol * piezasTotal : null;
-
   const listo = anchoN > 0 && largoN > 0 && cajasN > 0 && rollosCajaN > 0;
+
+  // ── Solvente: dilución (tinta × 0.5) + lavado fijo (0.600 kg) ──
+  const solventeKg = listo ? calcSolvente(tintaKg) : null;
 
   // ── UI helpers ───────────────────────────────────────────────
   const Row = ({ label, value, color = '#fff', sub }) => (
@@ -189,19 +185,17 @@ export default function CalculadoraProduccion({ pedidos, onClose }) {
               </div>
 
               {/* Solvente */}
-              {alcoholL !== null ? (
+              {solventeKg !== null && (
                 <div style={{ background: 'rgba(75,143,232,0.06)', border: '1px solid rgba(75,143,232,0.15)', borderRadius: 10, padding: '12px 14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <div style={{ color: '#4b8fe8', fontWeight: 700, fontSize: 14 }}>🧴 Solvente estimado</div>
-                      <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 2 }}>basado en promedio histórico</div>
+                      <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 2 }}>
+                        dilución: {(tintaKg * 0.5).toFixed(3)} kg + lavado: 0.600 kg
+                      </div>
                     </div>
-                    <span style={{ color: '#4b8fe8', fontWeight: 900, fontSize: 26 }}>{alcoholL.toFixed(3)} L</span>
+                    <span style={{ color: '#4b8fe8', fontWeight: 900, fontSize: 26 }}>{solventeKg.toFixed(3)} kg</span>
                   </div>
-                </div>
-              ) : (
-                <div style={{ fontSize: 11, color: '#3a3f5a', textAlign: 'center', padding: '8px 0' }}>
-                  Sin historial de solvente — registra consumo en pedidos terminados
                 </div>
               )}
             </div>
