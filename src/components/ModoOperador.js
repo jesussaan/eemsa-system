@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ClicheImg from './ClicheImg';
 import { supabase } from '../lib/supabase';
 import { today, alertaEntrega } from '../lib/utils';
@@ -7,7 +7,7 @@ import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV, UMBRAL_MERMA } from '../lib/constants';
 import { sendWhatsApp } from '../utils/whatsapp';
 
-export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, onSalir }) {
+export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, onSalir, autoSelectId }) {
   const pedidosEnProceso = pedidos.filter(p => p.status === "proceso");
   const pedidosAnotados = pedidos
     .filter(p => p.status === "anotado")
@@ -38,6 +38,13 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     setFotoPreview(null);
     setFormFalla({ comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" });
   };
+
+  useEffect(() => {
+    if (!autoSelectId || pedidoSel) return;
+    const target = pedidos.find(p => String(p.id) === String(autoSelectId));
+    if (target) seleccionarPedido(target);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSelectId, pedidos]);
 
   const moverPedido = async (id, dir) => {
     const idx = pedidosAnotados.findIndex(p => p.id === id);

@@ -52,7 +52,10 @@ function EemsaApp() {
   const [proveedores, setProveedores] = useState([]);
   const [prodDiaria, setProdDiaria] = useState([]);
   const [cargando, setCargando] = useState(true);
-  const [modo, setModo] = useState(null); // null | "operador" | "supervisor"
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlModo = urlParams.get('modo');
+  const urlPedidoId = urlParams.get('pedido') || null;
+  const [modo, setModo] = useState(urlModo === 'operador' ? 'operador' : null); // null | "operador" | "supervisor"
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
@@ -172,6 +175,7 @@ function EemsaApp() {
       pedidos={pedidos} setPedidos={setPedidos}
       fallas={fallas} setFallas={setFallas}
       onSalir={() => setModo(null)}
+      autoSelectId={urlPedidoId}
     />
   );
 

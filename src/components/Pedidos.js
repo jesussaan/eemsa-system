@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useState, useRef } from "react";
 import ClicheImg from './ClicheImg';
+import QRModal from './QRModal';
 import { supabase } from '../lib/supabase';
 import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido } from '../lib/utils';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT } from '../lib/constants';
@@ -19,6 +20,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
   const [modalClicheImg, setModalClicheImg] = useState(null);
   const [modalClichePreview, setModalClichePreview] = useState(null);
   const [busqueda, setBusqueda] = useState("");
+  const [modalQR, setModalQR] = useState(null);
   const formRef = useRef(null);
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
   const upd = (k, v) => setForm(f => {
@@ -282,6 +284,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
                   <div style={{ display: "flex", gap: 6 }}>
                     <button className="btn btn-ghost btn-sm" title="Nota de entrega PDF" onClick={() => generarNotaEntrega(p)}>📄</button>
                     <button className="btn btn-ghost btn-sm" title="Clonar pedido" onClick={() => clonarPedido(p)}>🔁</button>
+                    <button className="btn btn-ghost btn-sm" title="Código QR" onClick={() => setModalQR(p)}>📱</button>
                     <button className="btn btn-ghost btn-sm" onClick={() => abrirModal(p)}>✏️</button>
                     <button className="btn btn-danger btn-sm" onClick={() => del(p.id)}>✕</button>
                   </div>
@@ -355,6 +358,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
           </div>
         </div>
       )}
+      {modalQR && <QRModal pedido={modalQR} onClose={() => setModalQR(null)} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
   );
