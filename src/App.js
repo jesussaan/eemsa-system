@@ -114,66 +114,50 @@ function EemsaApp() {
   };
 
   if (cargando) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", flexDirection: "column", gap: 16, background: "#0d0f14", color: "#e8b84b" }}>
-      <div style={{ fontSize: 40 }}>⚙️</div>
-      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, letterSpacing: ".1em" }}>CARGANDO EEMSA SYSTEM…</div>
+    <div className="loading-screen">
+      <div className="loading-icon">⚙️</div>
+      <div className="loading-text">CARGANDO EEMSA SYSTEM…</div>
     </div>
   );
 
   if (!modo) return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0d0f14", gap: 0, padding: 24 }}>
-      <img src="/logo192.png" alt="EEMSA" style={{ width: 180, marginBottom: 32 }} />
-      <div style={{ fontSize: 12, color: "#555", marginBottom: 40 }}>Control SIAT L36 · Calidad · Innovación</div>
-      <button
-        onClick={() => setModo("operador")}
-        style={{ width: 260, padding: "18px 0", borderRadius: 14, border: "2px solid #4a9eff", background: "#0d1a33", color: "#4a9eff", fontSize: 18, fontWeight: 700, cursor: "pointer", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-        👷 Modo Operador
-      </button>
-      <button
-        onClick={() => setModo("ventas")}
-        style={{ width: 260, padding: "18px 0", borderRadius: 14, border: "2px solid #4be87a", background: "#0d1a14", color: "#4be87a", fontSize: 18, fontWeight: 700, cursor: "pointer", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-        🛒 Módulo Ventas
-      </button>
-      <button
-        onClick={() => setModo("emilio")}
-        style={{ width: 260, padding: "18px 0", borderRadius: 14, border: "2px solid #ff4d4d", background: "#1a0d0d", color: "#ff4d4d", fontSize: 18, fontWeight: 700, cursor: "pointer", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-        🔔 Modo Emilio
-      </button>
-      <button
-        onClick={() => { setShowPinModal(true); setPinInput(""); setPinError(false); }}
-        style={{ width: 260, padding: "18px 0", borderRadius: 14, border: "2px solid #c9922a", background: "#1a1200", color: "#c9922a", fontSize: 18, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-        🔒 Modo Supervisor
-      </button>
+    <div className="mode-screen">
+      <img src="/logo192.png" alt="EEMSA" className="mode-logo" />
+      <div className="mode-tagline">Control SIAT L36 · Calidad · Innovación</div>
+      <div className="mode-buttons">
+        <button className="mode-btn mode-btn-op" onClick={() => setModo("operador")}>
+          <span>👷</span> Modo Operador
+        </button>
+        <button className="mode-btn mode-btn-ven" onClick={() => setModo("ventas")}>
+          <span>🛒</span> Módulo Ventas
+        </button>
+        <button className="mode-btn mode-btn-emi" onClick={() => setModo("emilio")}>
+          <span>🔔</span> Modo Emilio
+        </button>
+        <button className="mode-btn mode-btn-sup" onClick={() => { setShowPinModal(true); setPinInput(""); setPinError(false); }}>
+          <span>🔒</span> Modo Supervisor
+        </button>
+      </div>
 
       {showPinModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}>
-          <div style={{ background: "#14171f", borderRadius: 16, padding: 28, width: 280, textAlign: "center" }}>
-            <div style={{ color: "#c9922a", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>🔒 PIN Supervisor</div>
-            <div style={{ display: "flex", justifyContent: "center", gap: 10, margin: "16px 0" }}>
+        <div className="pin-overlay">
+          <div className="pin-dialog">
+            <div className="pin-title">🔒 PIN Supervisor</div>
+            <div className="pin-dots">
               {[0,1,2,3].map(i => (
-                <div key={i} style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${pinInput.length > i ? "#c9922a" : "#2a2d3a"}`, background: pinInput.length > i ? "#c9922a" : "transparent" }} />
+                <div key={i} className={`pin-dot${pinInput.length > i ? " filled" : ""}`} />
               ))}
             </div>
-            {pinError && <div style={{ color: "#ff4d4d", fontSize: 12, marginBottom: 8 }}>PIN incorrecto</div>}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 12 }}>
+            {pinError && <div className="pin-error">PIN incorrecto</div>}
+            <div className="pin-grid">
               {[1,2,3,4,5,6,7,8,9].map(n => (
-                <button key={n} onClick={() => handlePinDigit(String(n))}
-                  style={{ padding: "14px 0", borderRadius: 10, border: "1px solid #2a2d3a", background: "#1a1d26", color: "#e0e0e0", fontSize: 20, fontWeight: 700, cursor: "pointer" }}>
-                  {n}
-                </button>
+                <button key={n} className="pin-key" onClick={() => handlePinDigit(String(n))}>{n}</button>
               ))}
               <div />
-              <button onClick={() => handlePinDigit("0")}
-                style={{ padding: "14px 0", borderRadius: 10, border: "1px solid #2a2d3a", background: "#1a1d26", color: "#e0e0e0", fontSize: 20, fontWeight: 700, cursor: "pointer" }}>
-                0
-              </button>
-              <button onClick={() => { setPinInput(p => p.slice(0, -1)); setPinError(false); }}
-                style={{ padding: "14px 0", borderRadius: 10, border: "1px solid #2a2d3a", background: "#1a1d26", color: "#aaa", fontSize: 16, cursor: "pointer" }}>
-                ⌫
-              </button>
+              <button className="pin-key" onClick={() => handlePinDigit("0")}>0</button>
+              <button className="pin-key" onClick={() => { setPinInput(p => p.slice(0, -1)); setPinError(false); }}>⌫</button>
             </div>
-            <button onClick={() => { setShowPinModal(false); setPinInput(""); setPinError(false); }}
-              style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #2a2d3a", background: "transparent", color: "#666", cursor: "pointer" }}>
+            <button className="pin-cancel" onClick={() => { setShowPinModal(false); setPinInput(""); setPinError(false); }}>
               Cancelar
             </button>
           </div>
