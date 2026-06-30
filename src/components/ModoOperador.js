@@ -48,6 +48,10 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     const update = { status: "proceso", fecha_inicio: pedidoSel.fecha_inicio || today() };
     const { error } = await supabase.from("pedidos").update(update).eq("id", pedidoSel.id);
     if (error) { showToast("❌ Error al iniciar pedido"); setLoading(false); return; }
+    // Guarda timestamp exacto para el cronómetro en Modo TV (requiere columna inicio_ts TEXT en Supabase)
+    const ts = new Date().toISOString();
+    supabase.from("pedidos").update({ inicio_ts: ts }).eq("id", pedidoSel.id);
+    update.inicio_ts = ts;
     setPedidos(ps => ps.map(p => p.id === pedidoSel.id ? { ...p, ...update } : p));
     setPedidoSel(p => ({ ...p, ...update }));
     showToast("▶ Pedido en proceso");

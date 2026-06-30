@@ -8,11 +8,11 @@ export default function ModoTV({ pedidos, fallas, onSalir }) {
     return () => clearInterval(t);
   }, []);
 
-  const enProceso   = pedidos.filter(p => p.status === 'proceso');
-  const anotados    = pedidos.filter(p => p.status === 'anotado');
-  const terminados  = pedidos.filter(p => p.status === 'terminado');
-  const fallasAbiertas  = fallas.filter(f => f.status === 'abierta');
-  const fallasCriticas  = fallasAbiertas.filter(f => f.sev === 'critica');
+  const enProceso      = pedidos.filter(p => p.status === 'proceso');
+  const anotados       = pedidos.filter(p => p.status === 'anotado');
+  const terminados     = pedidos.filter(p => p.status === 'terminado');
+  const fallasAbiertas = fallas.filter(f => f.status === 'abierta');
+  const fallasCriticas = fallasAbiertas.filter(f => f.sev === 'critica');
 
   const hoy = new Date();
   const proximos = pedidos
@@ -22,6 +22,32 @@ export default function ModoTV({ pedidos, fallas, onSalir }) {
     .sort((a, b) => a.dias - b.dias)
     .slice(0, 5);
 
+  // Siguiente pedido en cola (el primero por orden de salida)
+  const siguienteEnCola = [...anotados]
+    .sort((a, b) => (a.orden ?? 9999) - (b.orden ?? 9999) || (a.fecha_solicitud || '').localeCompare(b.fecha_solicitud || ''))
+    [0] || null;
+
+  // Cronómetro en vivo: usa inicio_ts (ISO) si existe, si no muestra días desde fecha_inicio
+  const calcElapsed = (p) => {
+    if (p.inicio_ts) {
+      const ms = hora - new Date(p.inicio_ts);
+      if (ms < 0) return '0s';
+      const totalS = Math.floor(ms / 1000);
+      const d = Math.floor(totalS / 86400);
+      const h = Math.floor((totalS % 86400) / 3600);
+      const m = Math.floor((totalS % 3600) / 60);
+      const s = totalS % 60;
+      if (d > 0) return `${d}d ${h}h ${String(m).padStart(2, '0')}m`;
+      if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+      return `${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+    }
+    if (p.fecha_inicio) {
+      const dias = Math.max(0, Math.round((hora - new Date(p.fecha_inicio + 'T12:00:00')) / 86400000));
+      return dias === 0 ? 'Hoy' : `${dias} día${dias !== 1 ? 's' : ''}`;
+    }
+    return null;
+  };
+
   const timeStr = hora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const dateStr = hora.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -29,10 +55,9 @@ export default function ModoTV({ pedidos, fallas, onSalir }) {
   const diasTxt   = d => d < 0 ? `${Math.abs(d)}d VENCIDO` : d === 0 ? '¡HOY!' : `${d} días`;
   const sevColor  = s => s === 'critica' ? '#ff4d4d' : s === 'moderada' ? '#ff9900' : '#9aa0bc';
 
-  const S = { // shared styles
+  const S = {
     panel:  { background: '#0e1018', borderRadius: 12, padding: 28, display: 'flex', flexDirection: 'column' },
     label:  { fontSize: 12, fontWeight: 800, letterSpacing: 3, marginBottom: 16 },
-    divider:{ borderBottom: '1px solid #13161e', marginBottom: 0 },
   };
 
   return (
@@ -59,26 +84,63 @@ export default function ModoTV({ pedidos, fallas, onSalir }) {
       {/* ── MAIN GRID ── */}
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 6, padding: 6, overflow: 'hidden', minHeight: 0 }}>
 
-        {/* LEFT — En proceso */}
-        <div style={{ ...S.panel, justifyContent: enProceso.length === 0 ? 'center' : 'flex-start', alignItems: enProceso.length === 0 ? 'center' : 'flex-start' }}>
+        {/* LEFT — En proceso + Siguiente en cola */}
+        <div style={{ ...S.panel, gap: 0 }}>
+
+          {/* EN PROCESO */}
           <div style={{ ...S.label, color: '#4b8fe8' }}>🏭 EN PROCESO AHORA</div>
 
           {enProceso.length === 0 ? (
-            <div style={{ textAlign: 'center', color: '#2a2d3a' }}>
+            <div style={{ textAlign: 'center', color: '#2a2d3a', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ fontSize: 64 }}>💤</div>
               <div style={{ fontSize: 22, marginTop: 12 }}>Sin pedidos en proceso</div>
             </div>
-          ) : enProceso.map((p, i) => (
-            <div key={p.id} style={{ marginBottom: i < enProceso.length - 1 ? 28 : 0, paddingBottom: i < enProceso.length - 1 ? 28 : 0, borderBottom: i < enProceso.length - 1 ? '1px solid #1a1d26' : 'none', width: '100%' }}>
-              <div style={{ fontSize: enProceso.length === 1 ? 80 : 56, fontWeight: 900, color: '#4be87a', lineHeight: 1 }}>#{p.num}</div>
-              <div style={{ fontSize: enProceso.length === 1 ? 36 : 26, fontWeight: 700, color: '#fff', marginTop: 6 }}>{p.cliente}</div>
-              <div style={{ fontSize: enProceso.length === 1 ? 22 : 17, color: '#9aa0bc', marginTop: 6 }}>
-                {p.medida} &nbsp;·&nbsp; {p.cajas} cajas &nbsp;·&nbsp; {p.maq}
-              </div>
-              {p.op && <div style={{ fontSize: 16, color: '#545a78', marginTop: 6 }}>Operador: {p.op}</div>}
-              {p.fecha_inicio && <div style={{ fontSize: 15, color: '#3a3f5a', marginTop: 4 }}>Inicio: {p.fecha_inicio}</div>}
+          ) : (
+            <div style={{ flex: 1 }}>
+              {enProceso.map((p, i) => {
+                const elapsed = calcElapsed(p);
+                return (
+                  <div key={p.id} style={{ marginBottom: i < enProceso.length - 1 ? 24 : 0, paddingBottom: i < enProceso.length - 1 ? 24 : 0, borderBottom: i < enProceso.length - 1 ? '1px solid #1a1d26' : 'none' }}>
+                    <div style={{ fontSize: enProceso.length === 1 ? 80 : 56, fontWeight: 900, color: '#4be87a', lineHeight: 1 }}>#{p.num}</div>
+                    <div style={{ fontSize: enProceso.length === 1 ? 36 : 26, fontWeight: 700, color: '#fff', marginTop: 6 }}>{p.cliente}</div>
+                    <div style={{ fontSize: enProceso.length === 1 ? 22 : 17, color: '#9aa0bc', marginTop: 6 }}>
+                      {p.medida} &nbsp;·&nbsp; {p.cajas} cajas &nbsp;·&nbsp; {p.maq}
+                    </div>
+                    {p.op && <div style={{ fontSize: 16, color: '#545a78', marginTop: 4 }}>Operador: {p.op}</div>}
+
+                    {/* ⏱ Cronómetro en vivo */}
+                    {elapsed && (
+                      <div style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 10, background: 'rgba(75,232,122,0.08)', border: '1px solid rgba(75,232,122,0.2)', borderRadius: 10, padding: '8px 18px' }}>
+                        <span style={{ fontSize: 15, color: '#4be87a' }}>⏱</span>
+                        <span style={{ fontSize: enProceso.length === 1 ? 32 : 24, fontWeight: 900, color: '#4be87a', fontVariantNumeric: 'tabular-nums', letterSpacing: 1 }}>{elapsed}</span>
+                        <span style={{ fontSize: 13, color: '#3a7a4a' }}>en producción</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          ))}
+          )}
+
+          {/* SIGUIENTE EN COLA */}
+          {siguienteEnCola && (
+            <div style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid #1a1d26' }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, color: '#ff9900', marginBottom: 10 }}>📋 SIGUIENTE EN COLA</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ fontSize: 38, fontWeight: 900, color: '#ff9900', lineHeight: 1 }}>#{siguienteEnCola.num}</div>
+                <div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e0e0e0' }}>{siguienteEnCola.cliente}</div>
+                  <div style={{ fontSize: 16, color: '#545a78', marginTop: 2 }}>
+                    {siguienteEnCola.medida} &nbsp;·&nbsp; {siguienteEnCola.cajas} cajas
+                    {siguienteEnCola.tipo && <span> &nbsp;·&nbsp; {siguienteEnCola.tipo}</span>}
+                  </div>
+                  {(siguienteEnCola.color || siguienteEnCola.tinta_tipo) && (
+                    <div style={{ fontSize: 14, color: '#c9922a', marginTop: 2 }}>🎨 {siguienteEnCola.color || siguienteEnCola.tinta_tipo}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* RIGHT — Vencimientos + Fallas */}
@@ -134,12 +196,12 @@ export default function ModoTV({ pedidos, fallas, onSalir }) {
       </div>
 
       {/* ── BOTTOM BAR ── */}
-      <div style={{ background: '#0b0d15', borderTop: '1px solid #13161e', padding: '12px 32px', display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0 }}>
+      <div style={{ background: '#0b0d15', borderTop: '1px solid #13161e', padding: '12px 32px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
         {[
-          { val: anotados.length,       lbl: 'EN COLA',        color: '#e8b84b' },
-          { val: enProceso.length,      lbl: 'EN PROCESO',     color: '#4b8fe8' },
-          { val: terminados.length,     lbl: 'TERMINADOS',     color: '#4be87a' },
-          { val: fallasAbiertas.length, lbl: 'FALLAS ABIERTAS',color: fallasAbiertas.length > 0 ? '#ff4d4d' : '#4be87a' },
+          { val: anotados.length,       lbl: 'EN COLA',         color: '#e8b84b' },
+          { val: enProceso.length,       lbl: 'EN PROCESO',      color: '#4b8fe8' },
+          { val: terminados.length,      lbl: 'TERMINADOS',      color: '#4be87a' },
+          { val: fallasAbiertas.length,  lbl: 'FALLAS ABIERTAS', color: fallasAbiertas.length > 0 ? '#ff4d4d' : '#4be87a' },
         ].map((s, i) => (
           <div key={i} style={{ flex: 1, textAlign: 'center', borderRight: i < 3 ? '1px solid #1a1d26' : 'none' }}>
             <div style={{ fontSize: 42, fontWeight: 900, color: s.color, lineHeight: 1 }}>{s.val}</div>
