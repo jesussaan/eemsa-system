@@ -17,6 +17,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
   const [loading, setLoading] = useState(false);
   const [busquedaInv, setBusquedaInv] = useState("");
   const [busquedaCompras, setBusquedaCompras] = useState("");
+  const [modalCompra, setModalCompra] = useState(null);
   const [ajustandoId, setAjustandoId] = useState(null);
   const [cantidadAjuste, setCantidadAjuste] = useState("");
   const [formQueja, setFormQueja] = useState({ proveedor: "", fecha: today(), lote: "", material: "", cantidad_afectada: "", factura_remision: "", detectado_por: "", accion_solicitada: "Reposición", descripcion: "", elaboro: "", autorizo: "" });
@@ -320,6 +321,24 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
   };
   const delCompra = async id => { if (!window.confirm("¿Eliminar?")) return; await supabase.from("proveedores").delete().eq("id", id); setProveedores(p => p.filter(x => x.id !== id)); };
 
+  const guardarCompra = async () => {
+    if (!modalCompra) return;
+    const actualizado = {
+      nombre:     modalCompra.nombre,
+      telefono:   modalCompra.telefono || null,
+      direccion:  modalCompra.direccion || null,
+      monto:      modalCompra.monto,
+      fecha:      modalCompra.fecha,
+      que_compro: modalCompra.que_compro || null,
+      categoria:  modalCompra.categoria || null,
+    };
+    const { error } = await supabase.from("proveedores").update(actualizado).eq("id", modalCompra.id);
+    if (error) { showToast("❌ Error: " + error.message); return; }
+    setProveedores(ps => ps.map(p => p.id === modalCompra.id ? { ...p, ...actualizado } : p));
+    setModalCompra(null);
+    showToast("✓ Compra actualizada");
+  };
+
   const totalCompras = proveedores.reduce((s, p) => s + Number(p.monto || 0), 0);
   const totalRefs = refs.reduce((s, r) => s + (Number(r.costo || 0) * Number(r.stock || 1)), 0);
   const stockBajo = refs.filter(r => { const min = r.stock_min ?? 1; return min > 0 && Number(r.stock || 0) <= min; }).length;
@@ -390,7 +409,10 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
                         </span>
                       )}
                     </div>
-                    <button className="btn btn-danger btn-sm" onClick={() => delCompra(p.id)}>✕</button>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setModalCompra({ ...p })}>✏️</button>
+                      <button className="btn btn-danger btn-sm" onClick={() => delCompra(p.id)}>✕</button>
+                    </div>
                   </div>
                   <div className="muted">{p.fecha} · {p.telefono}</div>
                   {p.direccion && <div className="muted">📍 {p.direccion}</div>}
@@ -570,6 +592,31 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
               )}
             </div>
           )}
+        </div>
+      )}
+      {modalCompra && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div style={{ background: "#14171f", borderRadius: "16px 16px 0 0", padding: 20, width: "100%", maxWidth: 600, maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, color: "#c9922a" }}>✏️ Editar compra</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setModalCompra(null)}>✕</button>
+            </div>
+            <div className="form-grid">
+              <div className="field"><label>Proveedor</label><input value={modalCompra.nombre || ""} onChange={e => setModalCompra(m => ({ ...m, nombre: e.target.value }))} /></div>
+              <div className="field"><label>Categoría</label>
+                <select value={modalCompra.categoria || ""} onChange={e => setModalCompra(m => ({ ...m, categoria: e.target.value }))}>
+                  <option value="">— Sin categoría —</option>
+                  {CATEGORIAS.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="field"><label>Monto ($MXN)</label><input type="number" value={modalCompra.monto || ""} onChange={e => setModalCompra(m => ({ ...m, monto: e.target.value }))} /></div>
+              <div className="field"><label>Fecha</label><input type="date" value={modalCompra.fecha || ""} onChange={e => setModalCompra(m => ({ ...m, fecha: e.target.value }))} /></div>
+              <div className="field"><label>Teléfono</label><input value={modalCompra.telefono || ""} onChange={e => setModalCompra(m => ({ ...m, telefono: e.target.value }))} /></div>
+              <div className="field full"><label>Dirección</label><input value={modalCompra.direccion || ""} onChange={e => setModalCompra(m => ({ ...m, direccion: e.target.value }))} /></div>
+              <div className="field full"><label>Qué se compró</label><input value={modalCompra.que_compro || ""} onChange={e => setModalCompra(m => ({ ...m, que_compro: e.target.value }))} /></div>
+            </div>
+            <button className="btn btn-primary btn-block" onClick={guardarCompra}>💾 Guardar cambios</button>
+          </div>
         </div>
       )}
       {toast && <div className="toast">{toast}</div>}
