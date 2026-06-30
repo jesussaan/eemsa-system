@@ -282,7 +282,6 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                 </div>
                 );
               })}
-            }
 
             {pedidosAnotados.length > 0 && (
               <>

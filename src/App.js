@@ -37,7 +37,7 @@ const TABS = [
   { id: "ia",   Icon: IcoIA,   lbl: "IA" },
 ];
 
-const PIN_SUPERVISOR = "2312";
+const PIN_SUPERVISOR = process.env.REACT_APP_PIN_SUPERVISOR || "2312";
 
 export default function App() {
   const portalMatch = window.location.pathname.match(/^\/cliente\/([^/]+)\/?$/);
