@@ -39,6 +39,7 @@ const TABS = [
 ];
 
 const PIN_SUPERVISOR = process.env.REACT_APP_PIN_SUPERVISOR || "2312";
+const PIN_COTIZADOR  = process.env.REACT_APP_PIN_COTIZADOR  || "2312";
 
 export default function App() {
   const portalMatch = window.location.pathname.match(/^\/cliente\/([^/]+)\/?$/);
@@ -58,6 +59,7 @@ function EemsaApp() {
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
+  const [pinTarget, setPinTarget] = useState("supervisor");
 
   const cargarTablas = async (tablas) => {
     const mapa = {
@@ -106,8 +108,9 @@ function EemsaApp() {
     const next = pinInput + d;
     setPinError(false);
     if (next.length < 4) { setPinInput(next); return; }
-    if (next === PIN_SUPERVISOR) {
-      setModo("supervisor");
+    const pinCorrecto = pinTarget === "cotizador" ? PIN_COTIZADOR : PIN_SUPERVISOR;
+    if (next === pinCorrecto) {
+      setModo(pinTarget);
       setShowPinModal(false);
       setPinInput("");
     } else {
@@ -115,6 +118,8 @@ function EemsaApp() {
       setPinInput("");
     }
   };
+
+  const abrirPin = (target) => { setPinTarget(target); setShowPinModal(true); setPinInput(""); setPinError(false); };
 
   if (cargando) return (
     <div className="loading-screen">
@@ -137,13 +142,13 @@ function EemsaApp() {
         <button className="mode-btn mode-btn-emi" onClick={() => setModo("emilio")}>
           <span>🔔</span> Modo Emilio
         </button>
-        <button className="mode-btn mode-btn-sup" onClick={() => { setShowPinModal(true); setPinInput(""); setPinError(false); }}>
+        <button className="mode-btn mode-btn-sup" onClick={() => abrirPin("supervisor")}>
           <span>🔒</span> Modo Supervisor
         </button>
         <button className="mode-btn mode-btn-tv" onClick={() => setModo("tv")}>
           <span>📺</span> Modo TV
         </button>
-        <button className="mode-btn mode-btn-cot" onClick={() => setModo("cotizador")}>
+        <button className="mode-btn mode-btn-cot" onClick={() => abrirPin("cotizador")}>
           <span>💰</span> Cotizador
         </button>
       </div>
@@ -151,7 +156,7 @@ function EemsaApp() {
       {showPinModal && (
         <div className="pin-overlay">
           <div className="pin-dialog">
-            <div className="pin-title">🔒 PIN Supervisor</div>
+            <div className="pin-title">{pinTarget === "cotizador" ? "💰 PIN Cotizador" : "🔒 PIN Supervisor"}</div>
             <div className="pin-dots">
               {[0,1,2,3].map(i => (
                 <div key={i} className={`pin-dot${pinInput.length > i ? " filled" : ""}`} />
