@@ -10,6 +10,8 @@ export default function Fallas({ fallas, setFallas }) {
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("abiertas");
+  const [filtroMaq, setFiltroMaq] = useState("todas");
+  const [filtroSev, setFiltroSev] = useState("todas");
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2200); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -57,18 +59,57 @@ export default function Fallas({ fallas, setFallas }) {
       </div>
       <button className="btn btn-primary btn-block" onClick={save} disabled={loading}>{loading ? "Guardando…" : "+ Registrar falla"}</button>
       <h3 className="sub-title" style={{ marginTop: 20 }}>Historial</h3>
-      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+
+      {/* Filtro estado */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
         {[["abiertas", "🔴 Abiertas"], ["cerradas", "🟢 Cerradas"], ["todas", "Todas"]].map(([k, lbl]) => (
           <button key={k} className={`btn btn-sm ${filtroStatus === k ? "btn-primary" : "btn-ghost"}`} onClick={() => setFiltroStatus(k)}>{lbl}</button>
         ))}
       </div>
-      <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar por máquina, componente, descripción…" style={{ width: "100%", marginBottom: 8, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "8px 12px", color: "#e0e0e0", fontSize: 13 }} />
-      {fallas.length === 0 ? <p className="empty">Sin fallas. ¡Buena señal! 🟢</p> : (
+
+      {/* Filtro severidad */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+        {[["todas", "Todas"], ["leve", "🟢 Leve"], ["moderada", "🟡 Moderada"], ["critica", "🔴 Crítica"]].map(([k, lbl]) => (
+          <button key={k} onClick={() => setFiltroSev(k)} style={{ padding: "4px 12px", borderRadius: 20, border: `1.5px solid ${filtroSev === k ? "#c9922a" : "#2a2d3a"}`, background: filtroSev === k ? "#c9922a22" : "transparent", color: filtroSev === k ? "#c9922a" : "#666", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+
+      {/* Filtro máquina */}
+      <div style={{ marginBottom: 8 }}>
+        <select value={filtroMaq} onChange={e => setFiltroMaq(e.target.value)} style={{ background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "7px 12px", color: filtroMaq === "todas" ? "#666" : "#e0e0e0", fontSize: 13, width: "100%" }}>
+          <option value="todas">🔧 Todas las máquinas</option>
+          {MAQUINAS.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+      </div>
+
+      <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar por componente, descripción…" style={{ width: "100%", marginBottom: 10, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "8px 12px", color: "#e0e0e0", fontSize: 13 }} />
+
+      {(() => {
+        const fallasFiltradas = fallas.filter(f => {
+          const matchStatus = filtroStatus === "todas" || (filtroStatus === "abiertas" ? f.status === "abierta" : f.status === "cerrada");
+          const matchBusqueda = !busqueda || [f.maq, f.comp, f.descripcion, f.op].some(v => String(v || "").toLowerCase().includes(busqueda.toLowerCase()));
+          const matchMaq = filtroMaq === "todas" || f.maq === filtroMaq;
+          const matchSev = filtroSev === "todas" || f.sev === filtroSev;
+          return matchStatus && matchBusqueda && matchMaq && matchSev;
+        });
+        return (
+          <>
+            {fallasFiltradas.length === 0 && <p className="empty">{fallas.length === 0 ? "Sin fallas. ¡Buena señal! 🟢" : "Sin resultados con estos filtros."}</p>}
+            {fallasFiltradas.length > 0 && <div style={{ fontSize: 11, color: "#555", marginBottom: 8 }}>{fallasFiltradas.length} falla{fallasFiltradas.length !== 1 ? "s" : ""}</div>}
+          </>
+        );
+      })()}
+
+      {fallas.length === 0 ? null : (
         <div className="list">
           {fallas.filter(f => {
             const matchStatus = filtroStatus === "todas" || (filtroStatus === "abiertas" ? f.status === "abierta" : f.status === "cerrada");
-            const matchBusqueda = !busqueda || [f.maq, f.comp, f.descripcion, f.op, f.sev].some(v => String(v || "").toLowerCase().includes(busqueda.toLowerCase()));
-            return matchStatus && matchBusqueda;
+            const matchBusqueda = !busqueda || [f.maq, f.comp, f.descripcion, f.op].some(v => String(v || "").toLowerCase().includes(busqueda.toLowerCase()));
+            const matchMaq = filtroMaq === "todas" || f.maq === filtroMaq;
+            const matchSev = filtroSev === "todas" || f.sev === filtroSev;
+            return matchStatus && matchBusqueda && matchMaq && matchSev;
           }).map(f => (
             <div key={f.id} className="list-item">
               <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
@@ -86,6 +127,7 @@ export default function Fallas({ fallas, setFallas }) {
         </div>
       )}
       {toast && <div className="toast">{toast}</div>}
+
     </div>
   );
 }

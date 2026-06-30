@@ -4,6 +4,7 @@ import autoTable from 'jspdf-autotable';
 import { supabase } from '../lib/supabase';
 import { uid, today, fmt } from '../lib/utils';
 import { MAQUINAS } from '../lib/constants';
+import { sendWhatsApp } from '../utils/whatsapp';
 
 export default function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
   const [subTab, setSubTab] = useState("compras");
@@ -312,6 +313,10 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
     setRefs(refs => refs.map(x => x.id === r.id ? { ...x, stock: nuevoStock } : x));
     setAjustandoId(null); setCantidadAjuste("");
     showToast(`✓ Stock: ${nuevoStock} unidades`);
+    const min = r.stock_min ?? 1;
+    if (min > 0 && nuevoStock <= min) {
+      sendWhatsApp(`⚠️ Stock bajo: ${r.nombre} — quedan ${nuevoStock} unidades (mín: ${min})`);
+    }
   };
   const usarRef = async (r) => {
     const nuevoStock = Number(r.stock) - 1;
@@ -320,6 +325,10 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
     if (error) { showToast("❌ Error al actualizar"); return; }
     setRefs(refs => refs.map(x => x.id === r.id ? { ...x, stock: nuevoStock } : x));
     showToast(`✓ Stock actualizado: ${nuevoStock} restantes`);
+    const min = r.stock_min ?? 1;
+    if (min > 0 && nuevoStock <= min) {
+      sendWhatsApp(`⚠️ Stock bajo: ${r.nombre} — quedan ${nuevoStock} unidades (mín: ${min})`);
+    }
   };
   const delCompra = async id => { if (!window.confirm("¿Eliminar?")) return; await supabase.from("proveedores").delete().eq("id", id); setProveedores(p => p.filter(x => x.id !== id)); };
 

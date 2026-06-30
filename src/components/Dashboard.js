@@ -54,6 +54,18 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
   const pctMeta = diasDelMes.length > 0 ? Math.round((diasConMeta / diasDelMes.length) * 100) : 0;
   const pedidosUrgentes = pedidos.filter(p => p.status !== "terminado" && p.fecha_solicitud).map(p => ({ ...p, diasRest: diasHabilesRestantes(p.fecha_solicitud) })).sort((a, b) => a.diasRest - b.diasRest).slice(0, 5);
   const ultimas14 = [...Array(14)].map((_, i) => { const d = new Date(today() + "T12:00:00"); d.setDate(d.getDate() - 13 + i); const fecha = d.toISOString().slice(0, 10); const val = prodDiaria.filter(r => r.fecha === fecha).reduce((s, r) => s + Number(r.cajas_dia || 0), 0); return { lbl: fecha.slice(8), val }; });
+  const ultimas8sem = [...Array(8)].map((_, i) => {
+    const base = new Date(today() + "T12:00:00");
+    const diasAtras = (7 - i) * 7;
+    const fin = new Date(base); fin.setDate(fin.getDate() - diasAtras);
+    const ini = new Date(fin); ini.setDate(ini.getDate() - 6);
+    const val = prodDiaria.filter(r => {
+      const f = r.fecha || "";
+      return f >= ini.toISOString().slice(0, 10) && f <= fin.toISOString().slice(0, 10);
+    }).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
+    const mes = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][fin.getMonth()];
+    return { lbl: `${mes} ${fin.getDate()}`, val };
+  });
   const pedidosMerma = pedidos.filter(p => p.status === "terminado" && p.merma_pct !== null && p.merma_pct !== "").slice(-10).map(p => ({ lbl: String(p.cliente).slice(0, 6), val: Number(p.merma_pct) }));
   const pedConTiempo = pedidos.filter(p => p.status === "terminado" && p.fecha_inicio && p.fecha_termino);
   const tiempoPromedio = pedConTiempo.length > 0 ? Math.round(pedConTiempo.reduce((s, p) => s + (new Date(p.fecha_termino + "T12:00:00") - new Date(p.fecha_inicio + "T12:00:00")) / 86400000 + 1, 0) / pedConTiempo.length) : null;
@@ -351,6 +363,16 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
         </div>
         <BarChart data={ultimas14} meta={META_CAJAS} />
       </div>
+
+      {ultimas8sem.some(s => s.val > 0) && (
+        <div style={chartCard}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <span style={{ fontSize: 12, color: "#9aa0bc", fontWeight: 600 }}>Cajas por semana — últimas 8 semanas</span>
+            <span style={{ fontSize: 10, color: "#545a78" }}>meta {META_CAJAS * 5}/sem</span>
+          </div>
+          <BarChart data={ultimas8sem} meta={META_CAJAS * 5} />
+        </div>
+      )}
 
       {/* ── Sección Pedidos ── */}
       <h3 className="sub-title">📋 Pedidos</h3>
