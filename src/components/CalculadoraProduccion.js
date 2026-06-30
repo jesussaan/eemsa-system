@@ -31,10 +31,11 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const [diseno,     setDiseno]     = useState('normal');
 
   // Campos reales — solo visibles en flujo de finalizar
-  const [piezasProd, setPiezasProd] = useState('');
-  const [mermaReal,  setMermaReal]  = useState('');
-  const [notasFin,   setNotasFin]   = useState('');
-  const [stickyback, setStickyback] = useState(null);
+  const [piezasProd,   setPiezasProd]   = useState('');
+  const [mermaReal,    setMermaReal]    = useState('');
+  const [notasFin,     setNotasFin]     = useState('');
+  const [stickyback,   setStickyback]   = useState(null);
+  const [verDesglose,  setVerDesglose]  = useState(false);
 
   const calcSolvente = (tintaKgVal) => (tintaKgVal * 0.5) + 0.600;
 
@@ -188,59 +189,61 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
         </>)}
       </div>
 
-      {/* ── FÓRMULAS / RESULTADOS (siempre abajo) ── */}
+      {/* ── RESULTADOS ── */}
       {listo ? (
-        <div style={{ marginTop: 18, background: '#0e1018', borderRadius: 12, padding: '14px 16px', border: '1px solid #1e2132' }}>
-          <div style={{ fontSize: 11, color: '#545a78', fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>DESGLOSE</div>
-          <div style={{ fontSize: 12, color: '#545a78', lineHeight: 2.1, marginBottom: 10 }}>
-            <span style={{ color: '#3a3f5a' }}>Largo real: </span>
-            <span style={{ color: '#9aa0bc' }}>{largoN}m − 4m = <strong style={{ color: '#c9c9c9' }}>{largoReal}m</strong></span><br />
-            <span style={{ color: '#3a3f5a' }}>Pistas: </span>
-            <span style={{ color: '#9aa0bc' }}>{MP_ANCHO}" ÷ {anchoN}" = <strong style={{ color: '#c9c9c9' }}>{pistas}</strong></span><br />
-            <span style={{ color: '#3a3f5a' }}>Rollos por pista: </span>
-            <span style={{ color: '#9aa0bc' }}>{MP_LARGO}m ÷ {largoReal}m = <strong style={{ color: '#c9c9c9' }}>{rollosPista}</strong></span><br />
-            <span style={{ color: '#3a3f5a' }}>Rendimiento/rollo MP: </span>
-            <span style={{ color: '#9aa0bc' }}>{pistas} × {rollosPista} = <strong style={{ color: '#c9c9c9' }}>{rendimiento} piezas</strong></span><br />
-            <span style={{ color: '#3a3f5a' }}>Área cliché: </span>
-            <span style={{ color: '#9aa0bc' }}>{CLICHE_W} × {clicheLargo} = <strong style={{ color: '#c9c9c9' }}>{clicheArea.toFixed(2)} cm²</strong></span><br />
-            <span style={{ color: '#3a3f5a' }}>Cobertura: </span>
-            <span style={{ color: '#9aa0bc' }}><strong style={{ color: '#c9c9c9' }}>{Math.round(cobertura * 100)}%</strong> ({disenoObj?.label})</span>
+        <div style={{ marginTop: 18 }}>
+          {/* 3 números grandes */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
+            <div style={{ background: 'rgba(75,142,232,0.12)', border: '1px solid rgba(75,142,232,0.3)', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
+              <div style={{ fontSize: 10, color: '#4b8fe8', fontWeight: 700, letterSpacing: '.05em', marginBottom: 4 }}>ROLLOS MP</div>
+              <div style={{ fontSize: 36, fontWeight: 900, color: '#4b8fe8', lineHeight: 1 }}>{rollosMP}</div>
+              <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 3 }}>exacto {rollosExacto.toFixed(1)}</div>
+            </div>
+            <div style={{ background: 'rgba(201,146,42,0.1)', border: '1px solid rgba(201,146,42,0.25)', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
+              <div style={{ fontSize: 10, color: '#c9922a', fontWeight: 700, letterSpacing: '.05em', marginBottom: 4 }}>TINTA</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: '#c9922a', lineHeight: 1 }}>{tintaKg.toFixed(2)}</div>
+              <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 3 }}>kg</div>
+            </div>
+            <div style={{ background: 'rgba(75,143,232,0.07)', border: '1px solid rgba(75,143,232,0.18)', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
+              <div style={{ fontSize: 10, color: '#4b8fe8', fontWeight: 700, letterSpacing: '.05em', marginBottom: 4 }}>SOLVENTE</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: '#4b8fe8', lineHeight: 1 }}>{solventeKg.toFixed(2)}</div>
+              <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 3 }}>kg</div>
+            </div>
           </div>
-          <div style={{ borderTop: '1px solid #1e2132', paddingTop: 12 }}>
-            <div style={{ fontSize: 11, color: '#545a78', fontWeight: 700, letterSpacing: 1, marginBottom: 8 }}>ESTIMADOS</div>
-            <Row label="Piezas buenas"    value={piezasBuenas.toLocaleString()} />
-            {mermaN > 0 && <Row label="+ Merma esperada" value={`+${mermaN}`} color="#ff9900" />}
-            <Row label="Total a producir" value={`${piezasTotal.toLocaleString()} piezas`} color="#e8b84b" />
-            <div style={{ background: 'rgba(75,142,232,0.1)', border: '1px solid rgba(75,142,232,0.25)', borderRadius: 10, padding: '12px 14px', margin: '10px 0' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ color: '#4b8fe8', fontWeight: 700, fontSize: 14 }}>🎯 Rollos de MP</div>
-                  <div style={{ fontSize: 11, color: '#3a3f5a', marginTop: 2 }}>exacto: {rollosExacto.toFixed(2)}</div>
-                </div>
-                <span style={{ color: '#4b8fe8', fontWeight: 900, fontSize: 30 }}>{rollosMP}</span>
+
+          {/* Toggle desglose */}
+          <button
+            type="button"
+            onClick={() => setVerDesglose(v => !v)}
+            style={{ width: '100%', background: 'transparent', border: '1px solid #1e2132', borderRadius: 8, color: '#545a78', fontSize: 12, padding: '7px 0', cursor: 'pointer', marginBottom: verDesglose ? 8 : 0 }}
+          >
+            {verDesglose ? '▲ Ocultar desglose' : '▼ Ver desglose de fórmulas'}
+          </button>
+
+          {verDesglose && (
+            <div style={{ background: '#0e1018', borderRadius: 12, padding: '14px 16px', border: '1px solid #1e2132' }}>
+              <div style={{ fontSize: 12, color: '#545a78', lineHeight: 2.1, marginBottom: 10 }}>
+                <span style={{ color: '#3a3f5a' }}>Largo real: </span>
+                <span style={{ color: '#9aa0bc' }}>{largoN}m − 4m = <strong style={{ color: '#c9c9c9' }}>{largoReal}m</strong></span><br />
+                <span style={{ color: '#3a3f5a' }}>Pistas: </span>
+                <span style={{ color: '#9aa0bc' }}>{MP_ANCHO}" ÷ {anchoN}" = <strong style={{ color: '#c9c9c9' }}>{pistas}</strong></span><br />
+                <span style={{ color: '#3a3f5a' }}>Rollos por pista: </span>
+                <span style={{ color: '#9aa0bc' }}>{MP_LARGO}m ÷ {largoReal}m = <strong style={{ color: '#c9c9c9' }}>{rollosPista}</strong></span><br />
+                <span style={{ color: '#3a3f5a' }}>Rendimiento/rollo MP: </span>
+                <span style={{ color: '#9aa0bc' }}>{pistas} × {rollosPista} = <strong style={{ color: '#c9c9c9' }}>{rendimiento} piezas</strong></span><br />
+                <span style={{ color: '#3a3f5a' }}>Área cliché: </span>
+                <span style={{ color: '#9aa0bc' }}>{CLICHE_W} × {clicheLargo} = <strong style={{ color: '#c9c9c9' }}>{clicheArea.toFixed(2)} cm²</strong></span><br />
+                <span style={{ color: '#3a3f5a' }}>Cobertura: </span>
+                <span style={{ color: '#9aa0bc' }}><strong style={{ color: '#c9c9c9' }}>{Math.round(cobertura * 100)}%</strong> ({disenoObj?.label})</span>
+              </div>
+              <div style={{ borderTop: '1px solid #1e2132', paddingTop: 10 }}>
+                <Row label="Piezas buenas"    value={piezasBuenas.toLocaleString()} />
+                {mermaN > 0 && <Row label="+ Merma esperada" value={`+${mermaN}`} color="#ff9900" />}
+                <Row label="Total a producir" value={`${piezasTotal.toLocaleString()} piezas`} color="#e8b84b" />
+                <Row label="Tinta (detalle)"  value={`${impresiones.toFixed(0)} imp · ${tintaCm3.toFixed(1)} cm³`} color="#545a78" />
               </div>
             </div>
-            <div style={{ background: 'rgba(201,146,42,0.08)', border: '1px solid rgba(201,146,42,0.2)', borderRadius: 10, padding: '12px 14px', marginBottom: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ color: '#c9922a', fontWeight: 700, fontSize: 14 }}>🎨 Tinta estimada</div>
-                  <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 2 }}>{impresiones.toFixed(0)} impresiones · {tintaCm3.toFixed(1)} cm³ · 50% transferencia</div>
-                </div>
-                <span style={{ color: '#c9922a', fontWeight: 900, fontSize: 26 }}>{tintaKg.toFixed(3)} kg</span>
-              </div>
-            </div>
-            {solventeKg !== null && (
-              <div style={{ background: 'rgba(75,143,232,0.06)', border: '1px solid rgba(75,143,232,0.15)', borderRadius: 10, padding: '12px 14px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ color: '#4b8fe8', fontWeight: 700, fontSize: 14 }}>🧴 Solvente estimado</div>
-                    <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 2 }}>dilución: {(tintaKg * 0.5).toFixed(3)} kg + lavado: 0.600 kg</div>
-                  </div>
-                  <span style={{ color: '#4b8fe8', fontWeight: 900, fontSize: 26 }}>{solventeKg.toFixed(3)} kg</span>
-                </div>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       ) : (
         <div style={{ textAlign: 'center', color: '#3a3f5a', fontSize: 13, marginTop: 20, padding: 16 }}>
