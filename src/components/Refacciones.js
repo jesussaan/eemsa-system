@@ -10,7 +10,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
   const [form, setForm] = useState({ nombre: "", costo: "", maq: "SIAT L36 #1", proveedor: "", fecha: today(), notas: "", stock: "1", stock_min: "1" });
   const [formProv, setFormProv] = useState({ nombre: "", telefono: "", direccion: "", monto: "", fecha: today(), que_compro: "", categoria: "" });
   const CATEGORIAS = ["Neumática", "Eléctrica", "Electrónica", "Mecánica"];
-  const CATEGORIA_COLOR = { "Neumática": "#4b8fe8", "Eléctrica": "#e8b84b", "Electrónica": "#9b59b6", "Mecánica": "#c9922a" };
+  const CATEGORIA_COLOR = { "Neumática": "#4b8fe8", "Eléctrica": "#e8b84b", "Electrónica": "#9b59b6", "Mecánica": "#27ae60" };
   const [imagen, setImagen] = useState(null);
   const [preview, setPreview] = useState(null);
   const [toast, setToast] = useState("");
