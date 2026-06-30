@@ -116,7 +116,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
         )}
       </div>
 
-      {/* Inputs de producción */}
+      {/* ── UN SOLO FORMULARIO ── */}
       <div className="form-grid">
         <div className="field">
           <label>Ancho del producto (")</label>
@@ -150,10 +150,46 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
           <label>Merma esperada (piezas) — opcional</label>
           <input type="number" value={merma} onChange={e => setMerma(e.target.value)} placeholder="0" />
         </div>
+
+        {/* Campos de datos reales — solo en flujo de finalizar */}
+        {onConfirmar && (<>
+          <div className="field full" style={{ borderTop: '1px solid #1e2132', paddingTop: 14, marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: '#4be87a', fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>DATOS REALES DE LA CORRIDA</div>
+          </div>
+          <div className="field">
+            <label>Piezas producidas (real)</label>
+            <input type="number" placeholder="1800" value={piezasProd} onChange={e => setPiezasProd(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Merma real (piezas)</label>
+            <input type="number" placeholder="0" value={mermaReal} onChange={e => setMermaReal(e.target.value)} />
+          </div>
+          {mermaPct !== null && (
+            <div className="field">
+              <label>% Merma real</label>
+              <input readOnly value={mermaPct + "%"} style={{ background: "#1a2744", color: Number(mermaPct) > 3 ? "#ff4d4d" : "#4be87a" }} />
+            </div>
+          )}
+          <div className="field">
+            <label>Stickybacks usados</label>
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              {[1, 2].map(n => (
+                <button key={n} type="button" onClick={() => setStickyback(stickyback === n ? null : n)}
+                  style={{ flex: 1, padding: "12px 0", borderRadius: 8, border: "2px solid", borderColor: stickyback === n ? "#c9922a" : "#2a2d3a", background: stickyback === n ? "#c9922a22" : "transparent", color: stickyback === n ? "#c9922a" : "#555", fontWeight: 900, fontSize: 22, cursor: "pointer", transition: "all .15s" }}>
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="field full">
+            <label>Observaciones</label>
+            <textarea placeholder="Notas del pedido…" value={notasFin} onChange={e => setNotasFin(e.target.value)} />
+          </div>
+        </>)}
       </div>
 
-      {/* Resultados calculados */}
-      {listo && (
+      {/* ── FÓRMULAS / RESULTADOS (siempre abajo) ── */}
+      {listo ? (
         <div style={{ marginTop: 18, background: '#0e1018', borderRadius: 12, padding: '14px 16px', border: '1px solid #1e2132' }}>
           <div style={{ fontSize: 11, color: '#545a78', fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>DESGLOSE</div>
           <div style={{ fontSize: 12, color: '#545a78', lineHeight: 2.1, marginBottom: 10 }}>
@@ -170,15 +206,11 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             <span style={{ color: '#3a3f5a' }}>Cobertura: </span>
             <span style={{ color: '#9aa0bc' }}><strong style={{ color: '#c9c9c9' }}>{Math.round(cobertura * 100)}%</strong> ({disenoObj?.label})</span>
           </div>
-
           <div style={{ borderTop: '1px solid #1e2132', paddingTop: 12 }}>
             <div style={{ fontSize: 11, color: '#545a78', fontWeight: 700, letterSpacing: 1, marginBottom: 8 }}>ESTIMADOS</div>
-
             <Row label="Piezas buenas"    value={piezasBuenas.toLocaleString()} />
             {mermaN > 0 && <Row label="+ Merma esperada" value={`+${mermaN}`} color="#ff9900" />}
             <Row label="Total a producir" value={`${piezasTotal.toLocaleString()} piezas`} color="#e8b84b" />
-
-            {/* Rollos MP */}
             <div style={{ background: 'rgba(75,142,232,0.1)', border: '1px solid rgba(75,142,232,0.25)', borderRadius: 10, padding: '12px 14px', margin: '10px 0' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
@@ -188,29 +220,21 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
                 <span style={{ color: '#4b8fe8', fontWeight: 900, fontSize: 30 }}>{rollosMP}</span>
               </div>
             </div>
-
-            {/* Tinta */}
             <div style={{ background: 'rgba(201,146,42,0.08)', border: '1px solid rgba(201,146,42,0.2)', borderRadius: 10, padding: '12px 14px', marginBottom: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ color: '#c9922a', fontWeight: 700, fontSize: 14 }}>🎨 Tinta estimada</div>
-                  <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 2 }}>
-                    {impresiones.toFixed(0)} impresiones · {tintaCm3.toFixed(1)} cm³ · 50% transferencia
-                  </div>
+                  <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 2 }}>{impresiones.toFixed(0)} impresiones · {tintaCm3.toFixed(1)} cm³ · 50% transferencia</div>
                 </div>
                 <span style={{ color: '#c9922a', fontWeight: 900, fontSize: 26 }}>{tintaKg.toFixed(3)} kg</span>
               </div>
             </div>
-
-            {/* Solvente */}
             {solventeKg !== null && (
               <div style={{ background: 'rgba(75,143,232,0.06)', border: '1px solid rgba(75,143,232,0.15)', borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <div style={{ color: '#4b8fe8', fontWeight: 700, fontSize: 14 }}>🧴 Solvente estimado</div>
-                    <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 2 }}>
-                      dilución: {(tintaKg * 0.5).toFixed(3)} kg + lavado: 0.600 kg
-                    </div>
+                    <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 2 }}>dilución: {(tintaKg * 0.5).toFixed(3)} kg + lavado: 0.600 kg</div>
                   </div>
                   <span style={{ color: '#4b8fe8', fontWeight: 900, fontSize: 26 }}>{solventeKg.toFixed(3)} kg</span>
                 </div>
@@ -218,90 +242,27 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             )}
           </div>
         </div>
-      )}
-
-      {!listo && !onConfirmar && (
+      ) : (
         <div style={{ textAlign: 'center', color: '#3a3f5a', fontSize: 13, marginTop: 20, padding: 16 }}>
           Llena ancho, largo, cajas y rollos/caja para ver el cálculo
         </div>
       )}
 
-      {/* ── Sección de datos reales + confirmar (solo flujo finalizar) ── */}
+      {/* Botón confirmar */}
       {onConfirmar && (
-        <div style={{ marginTop: 20, background: '#0e1018', borderRadius: 12, padding: '14px 16px', border: '1px solid #1c3a2a' }}>
-          <div style={{ fontSize: 11, color: '#4be87a', fontWeight: 700, letterSpacing: 1, marginBottom: 12 }}>
-            DATOS REALES DE LA CORRIDA
-          </div>
-          <div className="form-grid">
-            <div className="field">
-              <label>Piezas producidas (real)</label>
-              <input type="number" placeholder="1800" value={piezasProd} onChange={e => setPiezasProd(e.target.value)} />
-            </div>
-            <div className="field">
-              <label>Merma real (piezas)</label>
-              <input type="number" placeholder="0" value={mermaReal} onChange={e => setMermaReal(e.target.value)} />
-            </div>
-            {mermaPct !== null && (
-              <div className="field">
-                <label>% Merma real</label>
-                <input
-                  readOnly
-                  value={mermaPct + "%"}
-                  style={{ background: "#1a2744", color: Number(mermaPct) > 3 ? "#ff4d4d" : "#4be87a" }}
-                />
-              </div>
-            )}
-            <div className="field">
-              <label>Stickybacks usados</label>
-              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                {[1, 2].map(n => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setStickyback(stickyback === n ? null : n)}
-                    style={{
-                      flex: 1, padding: "12px 0", borderRadius: 8, border: "2px solid",
-                      borderColor: stickyback === n ? "#c9922a" : "#2a2d3a",
-                      background:  stickyback === n ? "#c9922a22" : "transparent",
-                      color:       stickyback === n ? "#c9922a" : "#555",
-                      fontWeight: 900, fontSize: 22, cursor: "pointer", transition: "all .15s",
-                    }}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="field full">
-              <label>Observaciones</label>
-              <textarea placeholder="Notas del pedido…" value={notasFin} onChange={e => setNotasFin(e.target.value)} />
-            </div>
-          </div>
-
-          {!listo && (
-            <div style={{ fontSize: 12, color: '#ff9900', textAlign: 'center', padding: '8px 0 4px' }}>
-              ⚠ Completa ancho, largo, cajas y rollos/caja arriba para calcular
-            </div>
-          )}
-
-          <button
-            className="btn btn-primary btn-block"
-            disabled={!listo}
-            style={{ padding: '14px 0', fontSize: 15, marginTop: 10, opacity: listo ? 1 : 0.4 }}
-            onClick={() => onConfirmar({
-              rollosMP,
-              tintaKg,
-              solventeKg,
-              piezasProd: piezasProd !== "" ? Number(piezasProd) : null,
-              mermaReal:  mermaReal  !== "" ? Number(mermaReal)  : null,
-              mermaPct:   mermaPct,
-              notas:      notasFin || null,
-              stickyback: stickyback,
-            })}
-          >
-            ✅ Confirmar y enviar a Emilio
-          </button>
-        </div>
+        <button
+          className="btn btn-primary btn-block"
+          disabled={!listo}
+          style={{ padding: '14px 0', fontSize: 15, marginTop: 16, opacity: listo ? 1 : 0.4 }}
+          onClick={() => onConfirmar({
+            rollosMP, tintaKg, solventeKg,
+            piezasProd: piezasProd !== "" ? Number(piezasProd) : null,
+            mermaReal:  mermaReal  !== "" ? Number(mermaReal)  : null,
+            mermaPct, notas: notasFin || null, stickyback,
+          })}
+        >
+          ✅ Confirmar y enviar a Emilio
+        </button>
       )}
     </div>
   );
