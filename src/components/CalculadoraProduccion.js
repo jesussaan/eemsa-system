@@ -33,7 +33,6 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   // Campos reales — solo visibles en flujo de finalizar
   const [piezasProd,   setPiezasProd]   = useState('');
   const [mermaReal,    setMermaReal]    = useState('');
-  const [notasFin,     setNotasFin]     = useState('');
   const [stickyback,   setStickyback]   = useState(null);
   const [verDesglose,  setVerDesglose]  = useState(false);
 
