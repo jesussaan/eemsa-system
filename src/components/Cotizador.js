@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { calcularCosto, TINTA_OPCIONES } from '../lib/costos';
+import { useState, useEffect } from 'react';
+import { calcularCosto, TINTA_OPCIONES, COSTOS } from '../lib/costos';
+import { supabase } from '../lib/supabase';
 
 const MP_ANCHO    = 6;
 const MP_LARGO    = 914;
@@ -22,6 +23,32 @@ const DISENOS = [
   { key: 'relleno', label: 'Relleno completo + logo', cob: 0.825 },
 ];
 
+const CAMPOS_COSTO = [
+  { key: 'mp_rollo',          label: 'MP por rollo',          grupo: 'Materias primas',  prefix: '$' },
+  { key: 'caja',              label: 'Caja',                  grupo: 'Materias primas',  prefix: '$' },
+  { key: 'centro_2',          label: 'Centro 2"',             grupo: 'Materias primas',  prefix: '$' },
+  { key: 'centro_3',          label: 'Centro 3"',             grupo: 'Materias primas',  prefix: '$' },
+  { key: 'stickyback',        label: 'Stickyback',            grupo: 'Materias primas',  prefix: '$' },
+  { key: 'solvente_litro',    label: 'Solvente (litro)',      grupo: 'Solvente',         prefix: '$' },
+  { key: 'tinta_naranja',     label: 'Tinta naranja (kg)',    grupo: 'Tintas',           prefix: '$' },
+  { key: 'tinta_azul',        label: 'Tinta azul (kg)',       grupo: 'Tintas',           prefix: '$' },
+  { key: 'tinta_rojo',        label: 'Tinta rojo (kg)',       grupo: 'Tintas',           prefix: '$' },
+  { key: 'tinta_negro',       label: 'Tinta negro (kg)',      grupo: 'Tintas',           prefix: '$' },
+  { key: 'mano_obra_dia',     label: 'Mano de obra (día)',    grupo: 'Costos fijos/día', prefix: '$' },
+  { key: 'mantenimiento_dia', label: 'Mantenimiento (día)',   grupo: 'Costos fijos/día', prefix: '$' },
+  { key: 'luz_dia',           label: 'Luz (día)',             grupo: 'Costos fijos/día', prefix: '$' },
+];
+
+const DEFAULTS = {
+  mp_rollo: COSTOS.mp_rollo, caja: COSTOS.caja, centro_2: COSTOS.centro_2,
+  centro_3: COSTOS.centro_3, stickyback: COSTOS.stickyback,
+  solvente_litro: COSTOS.solvente_litro,
+  tinta_naranja: COSTOS.tinta.naranja, tinta_azul: COSTOS.tinta.azul,
+  tinta_rojo: COSTOS.tinta.rojo, tinta_negro: COSTOS.tinta.negro,
+  mano_obra_dia: COSTOS.mano_obra_dia, mantenimiento_dia: COSTOS.mantenimiento_dia,
+  luz_dia: COSTOS.luz_dia,
+};
+
 export default function Cotizador({ onSalir }) {
   const [ancho,      setAncho]      = useState('2');
   const [largo,      setLargo]      = useState('100');
@@ -36,6 +63,43 @@ export default function Cotizador({ onSalir }) {
   const [diasProd,   setDiasProd]   = useState(0.5);
   const [margen,     setMargen]     = useState(30);
 
+  // Costos dinámicos
+  const [costosDB,    setCostosDB]    = useState(null);
+  const [editCostos,  setEditCostos]  = useState(false);
+  const [editVals,    setEditVals]    = useState({});
+  const [guardando,   setGuardando]   = useState(false);
+  const [savedMsg,    setSavedMsg]    = useState(false);
+
+  useEffect(() => {
+    supabase.from('costos').select('*').then(({ data }) => {
+      if (!data?.length) return;
+      const obj = {};
+      data.forEach(r => { obj[r.key] = Number(r.valor); });
+      setCostosDB(obj);
+      setEditVals(obj);
+    });
+  }, []);
+
+  const abrirEditor = () => {
+    setEditVals(costosDB ? { ...costosDB } : { ...DEFAULTS });
+    setEditCostos(true);
+  };
+
+  const guardarCostos = async () => {
+    setGuardando(true);
+    await Promise.all(
+      Object.entries(editVals).map(([key, valor]) =>
+        supabase.from('costos').upsert({ key, valor: Number(valor) }, { onConflict: 'key' })
+      )
+    );
+    setCostosDB({ ...editVals });
+    setGuardando(false);
+    setEditCostos(false);
+    setSavedMsg(true);
+    setTimeout(() => setSavedMsg(false), 2500);
+  };
+
+  // Cálculos
   const anchoN      = parseFloat(ancho)    || 0;
   const largoN      = parseFloat(largo)    || 0;
   const cajasN      = parseInt(cajas)      || 0;
@@ -58,7 +122,7 @@ export default function Cotizador({ onSalir }) {
   const largoRealCm     = largoReal * 100;
   const impresiones     = piezasTotal > 0 && clicheLargo > 0
     ? (piezasTotal * largoRealCm) / (clicheLargo * PISTAS) : 0;
-  const tintaKg  = (impresiones * inkPerImpresion * INK_DENSITY * TRANSFER) / 1000;
+  const tintaKg    = (impresiones * inkPerImpresion * INK_DENSITY * TRANSFER) / 1000;
   const solventeKg = cajasN > 0 ? (tintaKg * 0.5) + 0.600 : 0;
 
   const listo = anchoN > 0 && largoN > 0 && cajasN > 0 && rollosCajaN > 0;
@@ -66,23 +130,82 @@ export default function Cotizador({ onSalir }) {
   const costo = listo ? calcularCosto({
     rollosMP, tintaKg, solventeKg,
     cajas: cajasN, piezasBuenas,
-    sticky: stickyback,
+    sticky: stickyback || 0,
     diasProd, colorKey, tipoCentro,
+    costosDB,
   }) : null;
   const precioPieza = costo ? costo.porPieza * (1 + margen / 100) : 0;
 
   const fmt2 = n => n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // Agrupar campos para el editor
+  const grupos = [...new Set(CAMPOS_COSTO.map(c => c.grupo))];
 
   return (
     <div style={{ minHeight: '100vh', background: '#0d0f14', padding: '0 0 40px' }}>
       {/* Header */}
       <div style={{ background: '#12151f', borderBottom: '1px solid #1e2132', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 10 }}>
         <button onClick={onSalir} style={{ background: 'transparent', border: 'none', color: '#545a78', fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}>←</button>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 20, color: '#4be87a' }}>💰 Cotizador de Precio</div>
           <div style={{ fontSize: 11, color: '#545a78' }}>Costo por pieza y precio de venta</div>
         </div>
+        <button onClick={abrirEditor}
+          style={{ background: 'transparent', border: '1px solid #2a2d3a', borderRadius: 8, color: '#9aa0bc', fontSize: 12, padding: '6px 12px', cursor: 'pointer' }}>
+          ⚙️ Costos
+        </button>
       </div>
+
+      {savedMsg && (
+        <div style={{ background: '#0d2a0d', border: '1px solid #1a4a1a', color: '#4be87a', fontSize: 13, fontWeight: 700, textAlign: 'center', padding: '10px 0' }}>
+          ✓ Costos actualizados
+        </div>
+      )}
+
+      {/* ── Editor de costos ── */}
+      {editCostos && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.85)', zIndex: 200, overflowY: 'auto', padding: '20px 16px 40px' }}>
+          <div style={{ maxWidth: 460, margin: '0 auto', background: '#181b24', borderRadius: 16, border: '1px solid #22263a', padding: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div style={{ fontWeight: 700, fontSize: 16, color: '#e0e0e0' }}>⚙️ Actualizar costos</div>
+              <button onClick={() => setEditCostos(false)} style={{ background: 'transparent', border: 'none', color: '#545a78', fontSize: 22, cursor: 'pointer' }}>✕</button>
+            </div>
+
+            {grupos.map(grupo => (
+              <div key={grupo} style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 10, color: '#c9922a', fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>{grupo.toUpperCase()}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {CAMPOS_COSTO.filter(c => c.grupo === grupo).map(campo => (
+                    <div key={campo.key}>
+                      <div style={{ fontSize: 10, color: '#545a78', marginBottom: 3 }}>{campo.label}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', background: '#0d0f14', border: '1px solid #2a2d3a', borderRadius: 6, overflow: 'hidden' }}>
+                        <span style={{ padding: '0 8px', color: '#545a78', fontSize: 12 }}>$</span>
+                        <input
+                          type="number" step="0.01" min="0"
+                          value={editVals[campo.key] ?? DEFAULTS[campo.key]}
+                          onChange={e => setEditVals(v => ({ ...v, [campo.key]: e.target.value }))}
+                          style={{ flex: 1, background: 'transparent', border: 'none', color: '#e0e0e0', fontSize: 13, padding: '7px 8px 7px 0', outline: 'none' }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 8 }}>
+              <button onClick={() => setEditCostos(false)}
+                style={{ padding: '12px 0', borderRadius: 10, border: '1px solid #2a2d3a', background: 'transparent', color: '#9aa0bc', fontSize: 14, cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <button onClick={guardarCostos} disabled={guardando}
+                style={{ padding: '12px 0', borderRadius: 10, border: 'none', background: guardando ? '#2a2d3a' : '#4be87a', color: '#000', fontSize: 14, fontWeight: 800, cursor: guardando ? 'default' : 'pointer' }}>
+                {guardando ? 'Guardando…' : '💾 Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ padding: '20px 16px', maxWidth: 480, margin: '0 auto' }}>
 
@@ -128,7 +251,7 @@ export default function Cotizador({ onSalir }) {
               <div style={{ fontSize: 10, color: '#545a78', marginBottom: 5 }}>Stickybacks</div>
               <div style={{ display: 'flex', gap: 4 }}>
                 {[1, 2].map(n => (
-                  <button key={n} type="button" onClick={() => setStickyback(n)}
+                  <button key={n} type="button" onClick={() => setStickyback(stickyback === n ? null : n)}
                     style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: `1.5px solid ${stickyback === n ? '#c9922a' : '#2a2d3a'}`, background: stickyback === n ? '#c9922a22' : 'transparent', color: stickyback === n ? '#c9922a' : '#555', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                     {n}
                   </button>
@@ -146,10 +269,10 @@ export default function Cotizador({ onSalir }) {
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 10, color: '#545a78', marginBottom: 6 }}>Color de tinta</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {[...TINTA_OPCIONES, { key: '', label: 'Otro', color: '#9aa0bc', precio: null }].map(t => (
+              {[...TINTA_OPCIONES, { key: '', label: 'Otro', color: '#9aa0bc' }].map(t => (
                 <button key={t.key} type="button" onClick={() => setColorKey(t.key)}
                   style={{ padding: '5px 12px', borderRadius: 20, border: `1.5px solid ${colorKey === t.key ? t.color : '#2a2d3a'}`, background: colorKey === t.key ? t.color + '22' : 'transparent', color: colorKey === t.key ? t.color : '#555', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>
-                  {t.label}{t.precio ? ` $${t.precio}` : ''}
+                  {t.label}
                 </button>
               ))}
             </div>
@@ -158,23 +281,14 @@ export default function Cotizador({ onSalir }) {
           {/* % Ganancia */}
           <div>
             <div style={{ fontSize: 10, color: '#545a78', marginBottom: 5 }}>% Ganancia</div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              {[10, 20, 30, 40, 50].map(v => (
-                <button key={v} type="button" onClick={() => setMargen(v)}
-                  style={{ padding: '5px 10px', borderRadius: 8, border: `1.5px solid ${margen === v ? '#4be87a' : '#2a2d3a'}`, background: margen === v ? '#4be87a22' : 'transparent', color: margen === v ? '#4be87a' : '#555', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
-                  {v}%
-                </button>
-              ))}
-              <input type="number" min="0" max="500" value={margen} onChange={e => setMargen(Number(e.target.value) || 0)}
-                style={{ width: 64, background: '#1a1d26', border: '1px solid #2a2d3a', borderRadius: 6, padding: '5px 8px', color: '#e0e0e0', fontSize: 13 }} />
-            </div>
+            <input type="number" min="0" value={margen} onChange={e => setMargen(Number(e.target.value) || 0)}
+              style={{ width: '100%', background: '#1a1d26', border: '1px solid #2a2d3a', borderRadius: 6, padding: '6px 8px', color: '#e0e0e0', fontSize: 13 }} />
           </div>
         </div>
 
         {/* Resultados */}
         {listo && costo ? (
           <>
-            {/* MP / Tinta / Solvente */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 }}>
               <div style={{ background: 'rgba(75,143,232,0.1)', border: '1px solid rgba(75,143,232,0.25)', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
                 <div style={{ fontSize: 10, color: '#4b8fe8', fontWeight: 700, marginBottom: 4 }}>ROLLOS MP</div>
@@ -193,17 +307,16 @@ export default function Cotizador({ onSalir }) {
               </div>
             </div>
 
-            {/* Desglose de costos */}
             <div style={{ background: '#181b24', borderRadius: 14, padding: '16px', border: '1px solid #22263a', marginBottom: 14 }}>
               <div style={{ fontSize: 11, color: '#9aa0bc', fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>DESGLOSE DE COSTOS</div>
               {[
                 [`MP (${rollosMP} rollos)`,                          costo.mp],
                 [`Tinta (${tintaKg.toFixed(3)} kg)`,                costo.tinta],
-                [`Solvente (${solventeKg.toFixed(3)} kg)`,           costo.solvente],
+                [`Solvente (${solventeKg.toFixed(3)} kg)`,          costo.solvente],
                 [`Cajas (${cajasN})`,                                costo.cajas],
                 [`Centros ${tipoCentro}" (${piezasBuenas} pzas)`,   costo.centros],
-                stickyback > 0 ? [`Stickyback ×${stickyback}`,      costo.stickyback] : null,
-                [`Fijo (${diasProd} día${diasProd !== 1 ? 's' : ''}: mano obra + mant. + luz)`, costo.fijo],
+                stickyback ? [`Stickyback ×${stickyback}`,          costo.stickyback] : null,
+                [`Fijo (${diasProd} día${diasProd !== 1 ? 's' : ''})`, costo.fijo],
               ].filter(Boolean).map(([lbl, val]) => (
                 <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #13161e', fontSize: 13 }}>
                   <span style={{ color: '#545a78' }}>{lbl}</span>
@@ -216,7 +329,6 @@ export default function Cotizador({ onSalir }) {
               </div>
             </div>
 
-            {/* Resultado costo / precio */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div style={{ background: '#0a0c10', borderRadius: 14, padding: '18px 12px', textAlign: 'center', border: '1px solid #1e2132' }}>
                 <div style={{ fontSize: 11, color: '#545a78', fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>COSTO / PIEZA</div>

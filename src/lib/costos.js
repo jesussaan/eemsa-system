@@ -1,52 +1,62 @@
-// Costos de producción EEMSA — actualiza aquí cuando cambien precios
-
+// Valores por defecto — se sobreescriben con lo que venga de Supabase
 export const COSTOS = {
-  mp_rollo:         412.38,  // por rollo de MP (canela/transparente/blanca)
-  caja:               9.95,  // por caja
-  centro_2:           1.07,  // por pieza — centro 2"
-  centro_3:           1.61,  // por pieza — centro 3" (1.07 × 1.5)
-  stickyback:       112.00,  // por stickyback
-  solvente_litro:    53.50,  // por litro
+  mp_rollo:          412.38,
+  caja:                9.95,
+  centro_2:            1.07,
+  centro_3:            1.61,
+  stickyback:        112.00,
+  solvente_litro:     53.50,
   tinta: {
-    naranja:         176.80, // por kg
-    azul:            265.00,
-    rojo:            180.00,
-    negro:           185.70,
+    naranja:          176.80,
+    azul:             265.00,
+    rojo:             180.00,
+    negro:            185.70,
   },
-  mano_obra_dia:    340.00,  // William por día
-  mantenimiento_dia: 80.00,  // mantenimiento impresora por día
-  luz_dia:          160.00,  // luz impresora por día
+  mano_obra_dia:     340.00,
+  mantenimiento_dia:  80.00,
+  luz_dia:           160.00,
 };
 
 export const TINTA_OPCIONES = [
-  { key: 'naranja', label: 'Naranja', color: '#ff8c00', precio: COSTOS.tinta.naranja },
-  { key: 'azul',    label: 'Azul',    color: '#4b8fe8', precio: COSTOS.tinta.azul },
-  { key: 'rojo',    label: 'Rojo',    color: '#e84b4b', precio: COSTOS.tinta.rojo },
-  { key: 'negro',   label: 'Negro',   color: '#aaaaaa', precio: COSTOS.tinta.negro },
+  { key: 'naranja', label: 'Naranja', color: '#ff8c00' },
+  { key: 'azul',    label: 'Azul',    color: '#4b8fe8' },
+  { key: 'rojo',    label: 'Rojo',    color: '#e84b4b' },
+  { key: 'negro',   label: 'Negro',   color: '#aaaaaa' },
 ];
 
-const TINTA_PROMEDIO = Object.values(COSTOS.tinta).reduce((s, v) => s + v, 0) / Object.values(COSTOS.tinta).length;
-const SOLVENTE_KG    = COSTOS.solvente_litro / 0.79; // densidad ~0.79 kg/L
+export const calcularCosto = ({ rollosMP=0, tintaKg=0, solventeKg=0, cajas=0, piezasBuenas=0, sticky=0, diasProd=1, colorKey='', tipoCentro='2', costosDB=null }) => {
+  const pMP    = costosDB?.mp_rollo          ?? COSTOS.mp_rollo;
+  const pCaja  = costosDB?.caja              ?? COSTOS.caja;
+  const pC2    = costosDB?.centro_2          ?? COSTOS.centro_2;
+  const pC3    = costosDB?.centro_3          ?? COSTOS.centro_3;
+  const pStick = costosDB?.stickyback        ?? COSTOS.stickyback;
+  const pSolv  = (costosDB?.solvente_litro   ?? COSTOS.solvente_litro) / 0.79;
+  const pMO    = costosDB?.mano_obra_dia     ?? COSTOS.mano_obra_dia;
+  const pMant  = costosDB?.mantenimiento_dia ?? COSTOS.mantenimiento_dia;
+  const pLuz   = costosDB?.luz_dia           ?? COSTOS.luz_dia;
 
-export const costoTintaKg = (colorKey = '') => {
+  const tintaPrecios = {
+    naranja: costosDB?.tinta_naranja ?? COSTOS.tinta.naranja,
+    azul:    costosDB?.tinta_azul    ?? COSTOS.tinta.azul,
+    rojo:    costosDB?.tinta_rojo    ?? COSTOS.tinta.rojo,
+    negro:   costosDB?.tinta_negro   ?? COSTOS.tinta.negro,
+  };
+  const avgTinta = Object.values(tintaPrecios).reduce((s, v) => s + v, 0) / 4;
   const c = (colorKey || '').toLowerCase();
-  if (c.includes('naranja') || c.includes('orange')) return COSTOS.tinta.naranja;
-  if (c.includes('azul')    || c.includes('blue'))   return COSTOS.tinta.azul;
-  if (c.includes('rojo')    || c.includes('roja') || c.includes('red')) return COSTOS.tinta.rojo;
-  if (c.includes('negro')   || c.includes('negra')|| c.includes('black')) return COSTOS.tinta.negro;
-  return TINTA_PROMEDIO;
-};
+  const pTinta = c.includes('naranja') || c.includes('orange') ? tintaPrecios.naranja
+               : c.includes('azul')    || c.includes('blue')   ? tintaPrecios.azul
+               : c.includes('rojo')    || c.includes('roja')   || c.includes('red')   ? tintaPrecios.rojo
+               : c.includes('negro')   || c.includes('negra')  || c.includes('black') ? tintaPrecios.negro
+               : avgTinta;
 
-export const calcularCosto = ({ rollosMP = 0, tintaKg = 0, solventeKg = 0, cajas = 0, piezasBuenas = 0, sticky = 0, diasProd = 1, colorKey = '', tipoCentro = '2' }) => {
-  const pTinta   = costoTintaKg(colorKey);
-  const mp       = rollosMP     * COSTOS.mp_rollo;
-  const tinta    = tintaKg      * pTinta;
-  const solvente = solventeKg   * SOLVENTE_KG;
-  const cajasC   = cajas        * COSTOS.caja;
-  const centros  = piezasBuenas * (tipoCentro === '3' ? COSTOS.centro_3 : COSTOS.centro_2);
-  const stickyC  = sticky       * COSTOS.stickyback;
-  const fijo     = diasProd     * (COSTOS.mano_obra_dia + COSTOS.mantenimiento_dia + COSTOS.luz_dia);
-  const total    = mp + tinta + solvente + cajasC + centros + stickyC + fijo;
-  const porPieza = piezasBuenas > 0 ? total / piezasBuenas : 0;
-  return { mp, tinta, solvente, cajas: cajasC, centros, stickyback: stickyC, fijo, total, porPieza };
+  const mp         = rollosMP     * pMP;
+  const tinta      = tintaKg      * pTinta;
+  const solvente   = solventeKg   * pSolv;
+  const cajasC     = cajas        * pCaja;
+  const centros    = piezasBuenas * (tipoCentro === '3' ? pC3 : pC2);
+  const stickyback = (sticky || 0) * pStick;
+  const fijo       = diasProd     * (pMO + pMant + pLuz);
+  const total      = mp + tinta + solvente + cajasC + centros + stickyback + fijo;
+  const porPieza   = piezasBuenas > 0 ? total / piezasBuenas : 0;
+  return { mp, tinta, solvente, cajas: cajasC, centros, stickyback, fijo, total, porPieza };
 };
