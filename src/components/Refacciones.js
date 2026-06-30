@@ -8,7 +8,9 @@ import { MAQUINAS } from '../lib/constants';
 export default function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
   const [subTab, setSubTab] = useState("compras");
   const [form, setForm] = useState({ nombre: "", costo: "", maq: "SIAT L36 #1", proveedor: "", fecha: today(), notas: "", stock: "1", stock_min: "1" });
-  const [formProv, setFormProv] = useState({ nombre: "", telefono: "", direccion: "", monto: "", fecha: today(), que_compro: "" });
+  const [formProv, setFormProv] = useState({ nombre: "", telefono: "", direccion: "", monto: "", fecha: today(), que_compro: "", categoria: "" });
+  const CATEGORIAS = ["Neumática", "Eléctrica", "Electrónica", "Mecánica"];
+  const CATEGORIA_COLOR = { "Neumática": "#4b8fe8", "Eléctrica": "#e8b84b", "Electrónica": "#9b59b6", "Mecánica": "#c9922a" };
   const [imagen, setImagen] = useState(null);
   const [preview, setPreview] = useState(null);
   const [toast, setToast] = useState("");
@@ -274,11 +276,11 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
     setLoading(true);
     let imagen_url = "";
     if (imagen) { const { data } = await supabase.storage.from("refacciones").upload(`tickets/${uid()}_${imagen.name}`, imagen); if (data) { const { data: url } = supabase.storage.from("refacciones").getPublicUrl(data.path); imagen_url = url.publicUrl; } }
-    const nuevo = { id: uid(), created: today(), nombre: formProv.nombre, telefono: formProv.telefono, direccion: formProv.direccion, monto: formProv.monto, fecha: formProv.fecha, que_compro: formProv.que_compro, imagen_url };
+    const nuevo = { id: uid(), created: today(), nombre: formProv.nombre, telefono: formProv.telefono, direccion: formProv.direccion, monto: formProv.monto, fecha: formProv.fecha, que_compro: formProv.que_compro, categoria: formProv.categoria || null, imagen_url };
     const { error } = await supabase.from("proveedores").insert([nuevo]);
     if (error) { showToast("❌ Error: " + error.message); setLoading(false); return; }
     setProveedores(p => [nuevo, ...p]);
-    setFormProv({ nombre: "", telefono: "", direccion: "", monto: "", fecha: today(), que_compro: "" });
+    setFormProv({ nombre: "", telefono: "", direccion: "", monto: "", fecha: today(), que_compro: "", categoria: "" });
     setImagen(null); setPreview(null);
     showToast("✓ Compra guardada ☁️");
     setLoading(false);
@@ -325,9 +327,10 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
   const comprasFiltradas = proveedores.filter(p => !busquedaCompras || [p.nombre, p.que_compro].some(v => String(v || "").toLowerCase().includes(busquedaCompras.toLowerCase())));
   const listaProveedores = Object.values(proveedores.reduce((acc, p) => {
     const key = (p.nombre || "").trim().toLowerCase();
-    if (!acc[key]) acc[key] = { nombre: p.nombre, telefono: "", direccion: "", compras: [] };
+    if (!acc[key]) acc[key] = { nombre: p.nombre, telefono: "", direccion: "", categoria: "", compras: [] };
     if (p.telefono) acc[key].telefono = p.telefono;
     if (p.direccion) acc[key].direccion = p.direccion;
+    if (p.categoria) acc[key].categoria = p.categoria;
     acc[key].compras.push({ fecha: p.fecha, que_compro: p.que_compro, monto: p.monto, id: p.id });
     return acc;
   }, {})).map(p => ({ ...p, total: p.compras.reduce((s, c) => s + Number(c.monto || 0), 0) })).sort((a, b) => b.total - a.total);
@@ -363,6 +366,12 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
             <div className="field"><label>Fecha</label><input type="date" value={formProv.fecha} onChange={e => updP("fecha", e.target.value)} /></div>
             <div className="field full"><label>Dirección</label><input value={formProv.direccion} onChange={e => updP("direccion", e.target.value)} placeholder="Calle, colonia, ciudad" /></div>
             <div className="field full"><label>Qué se compró</label><input value={formProv.que_compro} onChange={e => updP("que_compro", e.target.value)} placeholder="Rodillo anilox, correa…" /></div>
+            <div className="field"><label>Categoría</label>
+              <select value={formProv.categoria} onChange={e => updP("categoria", e.target.value)}>
+                <option value="">— Sin categoría —</option>
+                {CATEGORIAS.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
           </div>
           <button className="btn btn-primary btn-block" onClick={saveCompra} disabled={loading}>{loading ? "Guardando…" : "+ Registrar compra"}</button>
           <h3 className="sub-title" style={{ marginTop: 20 }}>Historial de compras</h3>
@@ -372,7 +381,15 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
               {comprasFiltradas.map(p => (
                 <div key={p.id} className="list-item">
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <div><strong>{p.nombre}</strong><span className="badge b-accent">${fmt(p.monto)}</span></div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <strong>{p.nombre}</strong>
+                      <span className="badge b-accent">${fmt(p.monto)}</span>
+                      {p.categoria && (
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 8px", borderRadius: 20, background: (CATEGORIA_COLOR[p.categoria] || "#555") + "22", color: CATEGORIA_COLOR[p.categoria] || "#aaa", border: `1px solid ${CATEGORIA_COLOR[p.categoria] || "#555"}` }}>
+                          {p.categoria}
+                        </span>
+                      )}
+                    </div>
                     <button className="btn btn-danger btn-sm" onClick={() => delCompra(p.id)}>✕</button>
                   </div>
                   <div className="muted">{p.fecha} · {p.telefono}</div>
@@ -392,7 +409,14 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
               {listaProveedores.map(p => (
                 <div key={p.nombre} className="list-item">
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <strong style={{ fontSize: 15 }}>{p.nombre}</strong>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <strong style={{ fontSize: 15 }}>{p.nombre}</strong>
+                      {p.categoria && (
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20, background: (CATEGORIA_COLOR[p.categoria] || "#555") + "22", color: CATEGORIA_COLOR[p.categoria] || "#aaa", border: `1px solid ${CATEGORIA_COLOR[p.categoria] || "#555"}` }}>
+                          {p.categoria}
+                        </span>
+                      )}
+                    </div>
                     <span className="badge b-accent">Total: ${fmt(p.total)}</span>
                   </div>
                   {p.telefono && <div className="muted">📞 {p.telefono}</div>}
