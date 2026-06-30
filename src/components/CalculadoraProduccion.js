@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { calcularCosto, TINTA_OPCIONES } from '../lib/costos';
 
 const MP_ANCHO    = 6;
 const MP_LARGO    = 914;
@@ -37,18 +36,6 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const [stickyback, setStickyback] = useState(null);
   const [verDesglose, setVerDesglose] = useState(false);
 
-  // Cotizador
-  const colorInicial = (pedidoInicial?.tinta_tipo || pedidoInicial?.color || '').toLowerCase();
-  const tintoInicial = TINTA_OPCIONES.find(t => colorInicial.includes(t.key))?.key || '';
-  const [colorKey,   setColorKey]   = useState(tintoInicial);
-  const [tipoCentro, setTipoCentro] = useState('2');
-  const [margen,     setMargen]     = useState(30);
-  const diasDefault = (() => {
-    if (!pedidoInicial?.inicio_ts) return 1;
-    return Math.max(1, Math.ceil((Date.now() - new Date(pedidoInicial.inicio_ts).getTime()) / 86400000));
-  })();
-  const [diasProd, setDiasProd] = useState(diasDefault);
-
   // Cálculos producción
   const anchoN      = parseFloat(ancho)    || 0;
   const largoN      = parseFloat(largo)    || 0;
@@ -81,15 +68,6 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
 
   const mermaPct = piezasProd && mermaReal && Number(piezasProd) > 0
     ? ((Number(mermaReal) / Number(piezasProd)) * 100).toFixed(2) : null;
-
-  // Costo
-  const costo = listo ? calcularCosto({
-    rollosMP, tintaKg, solventeKg,
-    cajas: cajasN, piezasBuenas,
-    sticky: stickyback || 0,
-    diasProd, colorKey, tipoCentro,
-  }) : null;
-  const precioPieza = costo ? costo.porPieza * (1 + margen / 100) : 0;
 
   const fmt2 = n => n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -189,82 +167,6 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             </div>
           )}
 
-          {/* Cotizador */}
-          <div style={{ background: '#0d1a0d', borderRadius: 12, padding: '14px 16px', border: '1px solid #1a3a1a' }}>
-            <div style={{ fontSize: 11, color: '#4be87a', fontWeight: 700, letterSpacing: 1, marginBottom: 12 }}>💰 COTIZADOR</div>
-
-            {/* Config row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
-              <div>
-                <div style={{ fontSize: 10, color: '#545a78', marginBottom: 4 }}>Centro</div>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {[['2', '2"'], ['3', '3"']].map(([k, lbl]) => (
-                    <button key={k} type="button" onClick={() => setTipoCentro(k)}
-                      style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: `1.5px solid ${tipoCentro === k ? '#4be87a' : '#2a2d3a'}`, background: tipoCentro === k ? '#4be87a22' : 'transparent', color: tipoCentro === k ? '#4be87a' : '#555', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
-                      {lbl}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: 10, color: '#545a78', marginBottom: 4 }}>Días prod.</div>
-                <input type="number" min="1" value={diasProd} onChange={e => setDiasProd(Math.max(1, Number(e.target.value) || 1))}
-                  style={{ width: '100%', background: '#1a1d26', border: '1px solid #2a2d3a', borderRadius: 6, padding: '5px 8px', color: '#e0e0e0', fontSize: 13 }} />
-              </div>
-              <div>
-                <div style={{ fontSize: 10, color: '#545a78', marginBottom: 4 }}>% Ganancia</div>
-                <input type="number" min="0" max="200" value={margen} onChange={e => setMargen(Number(e.target.value) || 0)}
-                  style={{ width: '100%', background: '#1a1d26', border: '1px solid #2a2d3a', borderRadius: 6, padding: '5px 8px', color: '#e0e0e0', fontSize: 13 }} />
-              </div>
-            </div>
-
-            {/* Selector tinta */}
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 10, color: '#545a78', marginBottom: 6 }}>Color de tinta</div>
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {[...TINTA_OPCIONES, { key: '', label: 'Otro', color: '#9aa0bc', precio: null }].map(t => (
-                  <button key={t.key} type="button" onClick={() => setColorKey(t.key)}
-                    style={{ padding: '4px 12px', borderRadius: 20, border: `1.5px solid ${colorKey === t.key ? t.color : '#2a2d3a'}`, background: colorKey === t.key ? t.color + '22' : 'transparent', color: colorKey === t.key ? t.color : '#555', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>
-                    {t.label}{t.precio ? ` $${t.precio}` : ''}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Desglose de costos */}
-            <div style={{ marginBottom: 10 }}>
-              {[
-                [`MP (${rollosMP} rollos)`,                          costo.mp],
-                [`Tinta (${tintaKg.toFixed(3)} kg)`,                costo.tinta],
-                [`Solvente (${solventeKg.toFixed(3)} kg)`,           costo.solvente],
-                [`Cajas (${cajasN})`,                                costo.cajas],
-                [`Centros ${tipoCentro}" (${piezasBuenas} pzas)`,   costo.centros],
-                stickyback ? [`Stickyback ×${stickyback}`,          costo.stickyback] : null,
-                [`Fijo (${diasProd} día${diasProd !== 1 ? 's' : ''})`, costo.fijo],
-              ].filter(Boolean).map(([lbl, val]) => (
-                <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #0f1a0f', fontSize: 12 }}>
-                  <span style={{ color: '#545a78' }}>{lbl}</span>
-                  <span style={{ color: '#9aa0bc' }}>${fmt2(val)}</span>
-                </div>
-              ))}
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 0', fontSize: 13, fontWeight: 700 }}>
-                <span style={{ color: '#e0e0e0' }}>Total corrida</span>
-                <span style={{ color: '#e0e0e0' }}>${fmt2(costo.total)}</span>
-              </div>
-            </div>
-
-            {/* Resultado final */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div style={{ background: '#0a0c10', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: 10, color: '#545a78', marginBottom: 4 }}>COSTO / PIEZA</div>
-                <div style={{ fontSize: 22, fontWeight: 900, color: '#e0e0e0' }}>${costo.porPieza.toFixed(4)}</div>
-              </div>
-              <div style={{ background: '#07140a', borderRadius: 10, padding: '10px 12px', textAlign: 'center', border: '1px solid #1a3a1a' }}>
-                <div style={{ fontSize: 10, color: '#4be87a', marginBottom: 4 }}>PRECIO +{margen}%</div>
-                <div style={{ fontSize: 22, fontWeight: 900, color: '#4be87a' }}>${precioPieza.toFixed(4)}</div>
-              </div>
-            </div>
-          </div>
         </div>
       ) : (
         <div style={{ textAlign: 'center', color: '#3a3f5a', fontSize: 13, marginTop: 20, padding: 16 }}>
@@ -283,9 +185,6 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             piezasProd:  piezasProd !== "" ? Number(piezasProd) : null,
             mermaReal:   mermaReal  !== "" ? Number(mermaReal)  : null,
             mermaPct, stickyback,
-            costoPieza:  costo ? costo.porPieza : null,
-            precioPieza: costo ? precioPieza    : null,
-            margenPct:   margen,
           })}
         >
           ✅ Confirmar y enviar a Emilio

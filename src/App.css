@@ -276,6 +276,8 @@ textarea { resize: vertical; min-height: 68px; }
 .mode-btn-sup:hover { background: rgba(201,146,42,0.08); box-shadow: 0 6px 22px rgba(201,146,42,0.22); }
 .mode-btn-tv { border-color: rgba(75,142,232,0.35); color: #4b8fe8; box-shadow: 0 2px 12px rgba(75,142,232,0.12); }
 .mode-btn-tv:hover { background: rgba(75,142,232,0.08); box-shadow: 0 6px 22px rgba(75,142,232,0.22); }
+.mode-btn-cot { border-color: rgba(75,232,122,0.35); color: #4be87a; box-shadow: 0 2px 12px rgba(75,232,122,0.12); }
+.mode-btn-cot:hover { background: rgba(75,232,122,0.08); box-shadow: 0 6px 22px rgba(75,232,122,0.22); }
 
 .pin-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.75);

@@ -12,6 +12,7 @@ import ModoOperador from "./components/ModoOperador"
 import ModoTV from "./components/ModoTV"
 import ModoVentas from "./components/ModoVentas";
 import ModoEmilio from "./components/ModoEmilio";
+import Cotizador from "./components/Cotizador";
 import CalendarioEntregas from "./components/CalendarioEntregas";
 import PortalCliente from "./components/PortalCliente";
 import NotifBell from "./components/NotifBell";
@@ -142,6 +143,9 @@ function EemsaApp() {
         <button className="mode-btn mode-btn-tv" onClick={() => setModo("tv")}>
           <span>📺</span> Modo TV
         </button>
+        <button className="mode-btn mode-btn-cot" onClick={() => setModo("cotizador")}>
+          <span>💰</span> Cotizador
+        </button>
       </div>
 
       {showPinModal && (
@@ -191,6 +195,10 @@ function EemsaApp() {
       pedidos={pedidos} setPedidos={setPedidos}
       onSalir={() => setModo(null)}
     />
+  );
+
+  if (modo === "cotizador") return (
+    <Cotizador onSalir={() => setModo(null)} />
   );
 
   if (modo === "tv") return (
