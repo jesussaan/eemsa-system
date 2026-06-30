@@ -32,7 +32,7 @@ export default function Cotizador({ onSalir }) {
   const [diseno,     setDiseno]     = useState('normal');
   const [colorKey,   setColorKey]   = useState('naranja');
   const [tipoCentro, setTipoCentro] = useState('2');
-  const [stickyback, setStickyback] = useState(0);
+  const [stickyback, setStickyback] = useState(null);
   const [diasProd,   setDiasProd]   = useState(0.5);
   const [margen,     setMargen]     = useState(30);
 
@@ -127,7 +127,7 @@ export default function Cotizador({ onSalir }) {
             <div>
               <div style={{ fontSize: 10, color: '#545a78', marginBottom: 5 }}>Stickybacks</div>
               <div style={{ display: 'flex', gap: 4 }}>
-                {[0, 1, 2].map(n => (
+                {[1, 2].map(n => (
                   <button key={n} type="button" onClick={() => setStickyback(n)}
                     style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: `1.5px solid ${stickyback === n ? '#c9922a' : '#2a2d3a'}`, background: stickyback === n ? '#c9922a22' : 'transparent', color: stickyback === n ? '#c9922a' : '#555', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                     {n}
