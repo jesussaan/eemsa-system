@@ -18,6 +18,8 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
   const [busquedaInv, setBusquedaInv] = useState("");
   const [busquedaCompras, setBusquedaCompras] = useState("");
   const [modalCompra, setModalCompra] = useState(null);
+  const [filtroCategoria, setFiltroCategoria] = useState("Todos");
+  const [busquedaProv, setBusquedaProv] = useState("");
   const [ajustandoId, setAjustandoId] = useState(null);
   const [cantidadAjuste, setCantidadAjuste] = useState("");
   const [formQueja, setFormQueja] = useState({ proveedor: "", fecha: today(), lote: "", material: "", cantidad_afectada: "", factura_remision: "", detectado_por: "", accion_solicitada: "Reposición", descripcion: "", elaboro: "", autorizo: "" });
@@ -423,41 +425,120 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
           )}
         </div>
       )}
-      {subTab === "proveedores" && (
-        <div>
-          <h3 className="sub-title">Proveedores ({listaProveedores.length})</h3>
-          {listaProveedores.length === 0 ? <p className="empty">Sin compras registradas.</p> : (
-            <div className="list">
-              {listaProveedores.map(p => (
-                <div key={p.nombre} className="list-item">
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <strong style={{ fontSize: 15 }}>{p.nombre}</strong>
-                      {p.categoria && (
-                        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20, background: (CATEGORIA_COLOR[p.categoria] || "#555") + "22", color: CATEGORIA_COLOR[p.categoria] || "#aaa", border: `1px solid ${CATEGORIA_COLOR[p.categoria] || "#555"}` }}>
-                          {p.categoria}
-                        </span>
-                      )}
-                    </div>
-                    <span className="badge b-accent">Total: ${fmt(p.total)}</span>
-                  </div>
-                  {p.telefono && <div className="muted">📞 {p.telefono}</div>}
-                  {p.direccion && <div className="muted">📍 {p.direccion}</div>}
-                  <div style={{ marginTop: 8, borderTop: "1px solid #2a2d3a", paddingTop: 8 }}>
-                    <div style={{ fontSize: 11, color: "#c9922a", marginBottom: 6, fontWeight: 700 }}>Compras ({p.compras.length})</div>
-                    {p.compras.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "")).map((c, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4, gap: 8 }}>
-                        <span style={{ color: "#aaa" }}>{c.fecha} · {c.que_compro || "—"}</span>
-                        <span style={{ color: "#c9922a", whiteSpace: "nowrap" }}>${fmt(c.monto)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+      {subTab === "proveedores" && (() => {
+        const provFiltrados = listaProveedores
+          .filter(p => filtroCategoria === "Todos" || p.categoria === filtroCategoria)
+          .filter(p => !busquedaProv || p.nombre.toLowerCase().includes(busquedaProv.toLowerCase()));
+        return (
+          <div>
+            <h3 className="sub-title">Proveedores ({listaProveedores.length})</h3>
+
+            {/* Búsqueda */}
+            <input
+              value={busquedaProv}
+              onChange={e => setBusquedaProv(e.target.value)}
+              placeholder="🔍 Buscar proveedor…"
+              style={{ width: "100%", marginBottom: 10, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "8px 12px", color: "#e0e0e0", fontSize: 13 }}
+            />
+
+            {/* Filtros por categoría */}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+              {["Todos", ...CATEGORIAS].map(cat => {
+                const color = CATEGORIA_COLOR[cat] || "#c9922a";
+                const activo = filtroCategoria === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setFiltroCategoria(cat)}
+                    style={{
+                      padding: "5px 14px", borderRadius: 20, border: `1.5px solid ${cat === "Todos" ? "#c9922a" : color}`,
+                      background: activo ? (cat === "Todos" ? "#c9922a" : color) : "transparent",
+                      color: activo ? "#000" : (cat === "Todos" ? "#c9922a" : color),
+                      fontWeight: 700, fontSize: 12, cursor: "pointer",
+                    }}
+                  >
+                    {cat === "Todos" ? "Todos" : cat}
+                    <span style={{ marginLeft: 5, opacity: .7 }}>
+                      {cat === "Todos" ? listaProveedores.length : listaProveedores.filter(p => p.categoria === cat).length}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          )}
-        </div>
-      )}
+
+            {provFiltrados.length === 0
+              ? <p className="empty">Sin proveedores en esta categoría.</p>
+              : (
+                <div style={{ display: "grid", gap: 12 }}>
+                  {provFiltrados.map(p => {
+                    const color = CATEGORIA_COLOR[p.categoria] || "#3a3f5a";
+                    return (
+                      <div key={p.nombre} style={{
+                        background: "#13161e",
+                        borderRadius: 14,
+                        borderLeft: `4px solid ${color}`,
+                        padding: 16,
+                        boxShadow: `0 0 0 1px ${color}22`,
+                      }}>
+                        {/* Header */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                          <div>
+                            <div style={{ fontSize: 17, fontWeight: 800, color: "#e0e0e0" }}>{p.nombre}</div>
+                            {p.categoria && (
+                              <span style={{ display: "inline-block", marginTop: 4, fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20, background: color + "22", color, border: `1px solid ${color}` }}>
+                                {p.categoria}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontSize: 20, fontWeight: 900, color }}>
+                              ${fmt(p.total)}
+                            </div>
+                            <div style={{ fontSize: 10, color: "#555", marginTop: 2 }}>total gastado</div>
+                          </div>
+                        </div>
+
+                        {/* Contacto */}
+                        {(p.telefono || p.direccion) && (
+                          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
+                            {p.telefono && <span style={{ fontSize: 12, color: "#aaa" }}>📞 {p.telefono}</span>}
+                            {p.direccion && <span style={{ fontSize: 12, color: "#aaa" }}>📍 {p.direccion}</span>}
+                          </div>
+                        )}
+
+                        {/* Stats */}
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                          <div style={{ background: "#0d0f14", borderRadius: 8, padding: "8px 12px" }}>
+                            <div style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: ".05em" }}>Compras</div>
+                            <div style={{ fontSize: 22, fontWeight: 800, color: "#e0e0e0" }}>{p.compras.length}</div>
+                          </div>
+                          <div style={{ background: "#0d0f14", borderRadius: 8, padding: "8px 12px" }}>
+                            <div style={{ fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: ".05em" }}>Última compra</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: "#e0e0e0", marginTop: 2 }}>
+                              {p.compras.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""))[0]?.fecha || "—"}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Historial compras */}
+                        <div style={{ borderTop: "1px solid #1e2130", paddingTop: 10 }}>
+                          <div style={{ fontSize: 10, color: "#555", fontWeight: 700, letterSpacing: ".06em", marginBottom: 8, textTransform: "uppercase" }}>Historial</div>
+                          {p.compras.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "")).map((c, i) => (
+                            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "5px 0", borderBottom: i < p.compras.length - 1 ? "1px solid #1a1d26" : "none" }}>
+                              <span style={{ color: "#aaa" }}>{c.fecha} · {c.que_compro || "—"}</span>
+                              <span style={{ color, fontWeight: 700, whiteSpace: "nowrap" }}>${fmt(c.monto)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )
+            }
+          </div>
+        );
+      })()}
       {subTab === "inventario" && (
         <div>
           <h3 className="sub-title">Agregar refacción</h3>
