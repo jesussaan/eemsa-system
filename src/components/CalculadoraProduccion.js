@@ -21,19 +21,10 @@ const DISENOS = [
   { key: 'relleno', label: 'Relleno completo + logo', cob: 0.825 },
 ];
 
-// Parsea "2\"×100m", "2x100", "1.5" x 50m", etc.
-const parseMedida = (medida) => {
-  if (!medida) return {};
-  const m = String(medida).match(/(\d+(?:\.\d+)?)[^0-9.]*?[xX×][^0-9.]*?(\d+(?:\.\d+)?)/);
-  return m ? { ancho: m[1], largo: m[2] } : {};
-};
-
 export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial, onConfirmar, inline }) {
-  const ini = pedidoInicial ? parseMedida(pedidoInicial.medida) : {};
-
-  const [ancho,      setAncho]      = useState(ini.ancho || '2');
-  const [largo,      setLargo]      = useState(ini.largo || '100');
-  const [cajas,      setCajas]      = useState(pedidoInicial?.cajas ? String(pedidoInicial.cajas) : '');
+  const [ancho,      setAncho]      = useState(pedidoInicial?.ancho  ? String(pedidoInicial.ancho)      : '2');
+  const [largo,      setLargo]      = useState(pedidoInicial?.largo  ? String(pedidoInicial.largo)      : '100');
+  const [cajas,      setCajas]      = useState(pedidoInicial?.cajas  ? String(pedidoInicial.cajas)      : '');
   const [rollosCaja, setRollosCaja] = useState(pedidoInicial?.rollos_caja ? String(pedidoInicial.rollos_caja) : '36');
   const [merma,      setMerma]      = useState('');
   const [portaliche, setPortaliche] = useState('30.9');
