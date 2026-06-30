@@ -69,8 +69,6 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const mermaPct = piezasProd && mermaReal && Number(piezasProd) > 0
     ? ((Number(mermaReal) / Number(piezasProd)) * 100).toFixed(2) : null;
 
-  const fmt2 = n => n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
   const content = (
     <div
       style={{ background: '#181b24', borderRadius: inline ? 0 : 18, padding: inline ? '0 0 24px' : 24, width: '100%', maxWidth: inline ? '100%' : 460, border: inline ? 'none' : '1px solid #2d3249', boxShadow: inline ? 'none' : '0 8px 40px rgba(0,0,0,0.6)', ...(inline ? {} : { maxHeight: '94vh', overflowY: 'auto' }) }}
