@@ -15,29 +15,17 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     .sort((a, b) => (a.orden ?? 9999) - (b.orden ?? 9999) || (a.fecha_solicitud || "").localeCompare(b.fecha_solicitud || ""));
   const [pedidoSel, setPedidoSel] = useState(null);
   const [vista, setVista] = useState(null); // null | "finalizar" | "falla"
-  const [formFin, setFormFin] = useState({ piezas_prod: "", merma: "", rollos_usados: "", tinta_kg: "", alcohol_litros: "", notas: "" });
   const [fotoProducto, setFotoProducto] = useState(null);
-  const [fotoPreview, setFotoPreview] = useState(null);
   const [formFalla, setFormFalla] = useState({ comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" });
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showCalc, setShowCalc] = useState(false);
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
   const compsSugeridos = [...new Set([...COMPS, ...fallas.map(f => f.comp).filter(Boolean)])];
 
   const seleccionarPedido = (p) => {
     setPedidoSel(p);
     setVista(null);
-    setFormFin({
-      piezas_prod: p.piezas_prod ?? "",
-      merma: p.merma ?? "",
-      rollos_usados: p.rollos_usados ?? "",
-      tinta_kg: p.tinta_kg ?? "",
-      alcohol_litros: p.alcohol_litros ?? "",
-      notas: p.notas ?? "",
-    });
     setFotoProducto(null);
-    setFotoPreview(null);
     setFormFalla({ comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" });
   };
 
@@ -66,24 +54,24 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     setLoading(false);
   };
 
-  const finalizarPedido = async () => {
+  const finalizarPedido = async (fin) => {
     setLoading(true);
-    const piezas = formFin.piezas_prod !== "" ? Number(formFin.piezas_prod) : null;
-    const mermaNum = formFin.merma !== "" ? Number(formFin.merma) : null;
-    const mermaPct = piezas && mermaNum != null && piezas > 0
+    const piezas = fin.piezas_prod != null && fin.piezas_prod !== "" ? Number(fin.piezas_prod) : null;
+    const mermaNum = fin.merma != null && fin.merma !== "" ? Number(fin.merma) : null;
+    const mermaPct = fin.mermaPct ?? (piezas && mermaNum != null && piezas > 0
       ? ((mermaNum / piezas) * 100).toFixed(2)
-      : null;
+      : null);
     const update = {
       status: "pendiente",
       fecha_termino: today(),
-      notas: formFin.notas || pedidoSel.notas || null,
+      notas: fin.notas || pedidoSel.notas || null,
     };
     if (piezas != null) update.piezas_prod = piezas;
     if (mermaNum != null) update.merma = mermaNum;
     if (mermaPct != null) update.merma_pct = mermaPct;
-    if (formFin.rollos_usados !== "") update.rollos_usados = Number(formFin.rollos_usados);
-    if (formFin.tinta_kg !== "") update.tinta_kg = Number(formFin.tinta_kg);
-    if (formFin.alcohol_litros !== "") update.alcohol_litros = Number(formFin.alcohol_litros);
+    if (fin.rollos_usados != null && fin.rollos_usados !== "") update.rollos_usados = Number(fin.rollos_usados);
+    if (fin.tinta_kg != null && fin.tinta_kg !== "") update.tinta_kg = Number(fin.tinta_kg);
+    if (fin.alcohol_litros != null && fin.alcohol_litros !== "") update.alcohol_litros = Number(fin.alcohol_litros);
 
     if (fotoProducto) {
       const ext = fotoProducto.name.split('.').pop();
@@ -255,10 +243,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
           <div style={{ color: "#c9922a", fontWeight: 700, fontSize: 16, fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: ".05em" }}>EEMSA · Modo Operador</div>
           <div style={{ color: "#4be87a", fontSize: 11 }}>👷 William</div>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowCalc(true)}>🧮</button>
-          <button className="btn btn-ghost btn-sm" onClick={onSalir}>Salir</button>
-        </div>
+        <button className="btn btn-ghost btn-sm" onClick={onSalir}>Salir</button>
       </header>
 
       <div style={{ padding: 16, maxWidth: 480, margin: "0 auto" }}>
@@ -382,7 +367,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
             )}
             {pedidoSel.status === "proceso" && (
               <>
-                <button className="btn btn-primary btn-block" style={{ marginBottom: 10, padding: 16, fontSize: 16 }} onClick={() => setVista("finalizar")}>✅ Finalizar pedido</button>
+                <button className="btn btn-primary btn-block" style={{ marginBottom: 10, padding: 16, fontSize: 16 }} onClick={() => setVista("calc")}>✅ Finalizar pedido</button>
                 <button className="btn btn-danger btn-block" style={{ padding: 16, fontSize: 16 }} onClick={() => setVista("falla")}>⚠️ Reportar falla</button>
               </>
             )}
@@ -394,52 +379,26 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
           </>
         )}
 
-        {/* Formulario finalizar pedido */}
-        {pedidoSel && vista === "finalizar" && (
+        {/* Calculadora de producción — flujo finalizar */}
+        {pedidoSel && vista === "calc" && (
           <>
             <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setVista(null)}>← Volver</button>
-            <h3 style={{ color: "#4be87a", marginBottom: 4 }}>✅ Finalizar — {pedidoSel.cliente}</h3>
-            <p style={{ fontSize: 12, color: "#666", marginBottom: 14 }}>El pedido quedará pendiente de dar de alta. Registra los consumos totales del pedido completo.</p>
-            <div className="form-grid">
-              <div className="field">
-                <label>Rollos usados (total pedido)</label>
-                <input type="number" placeholder="0" value={formFin.rollos_usados} onChange={e => setFormFin(f => ({ ...f, rollos_usados: e.target.value }))} />
-              </div>
-              <div className="field">
-                <label>Tinta kg (total pedido)</label>
-                <input type="number" step="0.1" placeholder="0.0" value={formFin.tinta_kg} onChange={e => setFormFin(f => ({ ...f, tinta_kg: e.target.value }))} />
-              </div>
-              <div className="field">
-                <label>Alcohol litros (ej: 0.75)</label>
-                <input type="number" step="0.01" placeholder="0.75" value={formFin.alcohol_litros} onChange={e => setFormFin(f => ({ ...f, alcohol_litros: e.target.value }))} />
-              </div>
-              <div className="field">
-                <label>Piezas producidas</label>
-                <input type="number" placeholder="1800" value={formFin.piezas_prod} onChange={e => setFormFin(f => ({ ...f, piezas_prod: e.target.value }))} />
-              </div>
-              <div className="field">
-                <label>Merma (piezas)</label>
-                <input type="number" placeholder="0" value={formFin.merma} onChange={e => setFormFin(f => ({ ...f, merma: e.target.value }))} />
-              </div>
-              {formFin.piezas_prod && formFin.merma && Number(formFin.piezas_prod) > 0 && (
-                <div className="field">
-                  <label>% Merma (auto)</label>
-                  <input readOnly value={((Number(formFin.merma) / Number(formFin.piezas_prod)) * 100).toFixed(2) + "%"} style={{ background: "#1a2744", color: ((Number(formFin.merma) / Number(formFin.piezas_prod)) * 100) > 3 ? "#ff4d4d" : "#4be87a" }} />
-                </div>
-              )}
-              <div className="field full">
-                <label>📷 Foto del producto terminado</label>
-                <input type="file" accept="image/*" capture="environment" onChange={e => { const f = e.target.files[0]; if (!f) return; setFotoProducto(f); setFotoPreview(URL.createObjectURL(f)); }} />
-                {fotoPreview && <img src={fotoPreview} alt="producto" style={{ width: "100%", maxWidth: 300, marginTop: 8, borderRadius: 8, border: "1px solid #4be87a" }} />}
-              </div>
-              <div className="field full">
-                <label>Observaciones</label>
-                <textarea placeholder="Notas del pedido…" value={formFin.notas} onChange={e => setFormFin(f => ({ ...f, notas: e.target.value }))} />
-              </div>
-            </div>
-            <button className="btn btn-primary btn-block" onClick={finalizarPedido} disabled={loading} style={{ padding: 16, fontSize: 16 }}>
-              {loading ? "Guardando…" : "✅ Confirmar finalización"}
-            </button>
+            {loading
+              ? <div style={{ textAlign: "center", padding: 32, color: "#4be87a", fontSize: 15 }}>Guardando…</div>
+              : <CalculadoraProduccion
+                  pedidoInicial={pedidoSel}
+                  inline
+                  onConfirmar={(res) => finalizarPedido({
+                    piezas_prod:    res.piezasProd != null ? String(res.piezasProd) : "",
+                    merma:          res.mermaReal  != null ? String(res.mermaReal)  : "",
+                    mermaPct:       res.mermaPct,
+                    rollos_usados:  res.rollosMP != null ? String(res.rollosMP) : "",
+                    tinta_kg:       res.tintaKg != null ? res.tintaKg.toFixed(3) : "",
+                    alcohol_litros: res.solventeKg != null ? res.solventeKg.toFixed(3) : "",
+                    notas:          res.notas || "",
+                  })}
+                />
+            }
           </>
         )}
 
@@ -476,7 +435,6 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
         )}
       </div>
       {toast && <div className="toast">{toast}</div>}
-      {showCalc && <CalculadoraProduccion pedidos={pedidos} onClose={() => setShowCalc(false)} />}
     </div>
   );
 }
