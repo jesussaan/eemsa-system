@@ -164,6 +164,24 @@ export default function ModoEmilio({ pedidos, setPedidos, onSalir }) {
                 {p.fecha_solicitud && <div style={{ fontSize: 11, color: "#444", marginTop: 4 }}>Solicitud: {p.fecha_solicitud}</div>}
               </div>
 
+              {/* ── COSTO / PRECIO ── */}
+              {(p.costo_pieza != null || p.precio_pieza != null) && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+                  {p.costo_pieza != null && (
+                    <div style={{ background: '#0d0f14', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>Costo / pieza</div>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: '#e0e0e0' }}>${Number(p.costo_pieza).toFixed(4)}</div>
+                    </div>
+                  )}
+                  {p.precio_pieza != null && (
+                    <div style={{ background: '#07140a', borderRadius: 10, padding: '10px 12px', textAlign: 'center', border: '1px solid #1a3a1a' }}>
+                      <div style={{ fontSize: 10, color: '#4be87a', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>Precio +{p.margen_pct || 0}%</div>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: '#4be87a' }}>${Number(p.precio_pieza).toFixed(4)}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* ── PRODUCCIÓN ── */}
               <div style={S.section}>
                 <div style={S.secTitle}>📦 Producción</div>

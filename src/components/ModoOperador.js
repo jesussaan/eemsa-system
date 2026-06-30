@@ -76,7 +76,10 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     if (fin.rollos_usados != null && fin.rollos_usados !== "") update.rollos_usados = Number(fin.rollos_usados);
     if (fin.tinta_kg != null && fin.tinta_kg !== "") update.tinta_kg = Number(fin.tinta_kg);
     if (fin.alcohol_litros != null && fin.alcohol_litros !== "") update.alcohol_litros = Number(fin.alcohol_litros);
-    if (fin.stickyback != null) update.stickyback = Number(fin.stickyback);
+    if (fin.stickyback   != null) update.stickyback   = Number(fin.stickyback);
+    if (fin.costoPieza  != null) update.costo_pieza  = Number(fin.costoPieza.toFixed(6));
+    if (fin.precioPieza != null) update.precio_pieza = Number(fin.precioPieza.toFixed(6));
+    if (fin.margenPct   != null) update.margen_pct   = Number(fin.margenPct);
 
     if (fotoProducto) {
       const ext = fotoProducto.name.split('.').pop();
@@ -397,14 +400,17 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                   pedidoInicial={pedidoSel}
                   inline
                   onConfirmar={(res) => finalizarPedido({
-                    piezas_prod:    res.piezasProd != null ? String(res.piezasProd) : "",
-                    merma:          res.mermaReal  != null ? String(res.mermaReal)  : "",
+                    piezas_prod:    res.piezasProd  != null ? String(res.piezasProd)  : "",
+                    merma:          res.mermaReal   != null ? String(res.mermaReal)   : "",
                     mermaPct:       res.mermaPct,
-                    rollos_usados:  res.rollosMP != null ? String(res.rollosMP) : "",
-                    tinta_kg:       res.tintaKg != null ? res.tintaKg.toFixed(3) : "",
-                    alcohol_litros: res.solventeKg != null ? res.solventeKg.toFixed(3) : "",
-                    notas:          res.notas || "",
+                    rollos_usados:  res.rollosMP    != null ? String(res.rollosMP)    : "",
+                    tinta_kg:       res.tintaKg     != null ? res.tintaKg.toFixed(3)  : "",
+                    alcohol_litros: res.solventeKg  != null ? res.solventeKg.toFixed(3) : "",
+                    notas:          res.notas       || "",
                     stickyback:     res.stickyback,
+                    costoPieza:     res.costoPieza,
+                    precioPieza:    res.precioPieza,
+                    margenPct:      res.margenPct,
                   })}
                 />
             }

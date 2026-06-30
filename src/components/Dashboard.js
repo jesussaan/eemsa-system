@@ -81,6 +81,11 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
       .reduce((acc, p) => { const k = p.cliente || "Sin nombre"; acc[k] = (acc[k] || 0) + Number(p.cajas || 0); return acc; }, {})
   ).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([lbl, val]) => ({ lbl: lbl.slice(0, 14), val }));
 
+  const pedidosConCosto = pedidos.filter(p => p.status === "terminado" && p.costo_pieza != null);
+  const ingresoTotal   = pedidosConCosto.reduce((s, p) => s + (Number(p.precio_pieza || 0) * Number(p.piezas_prod || 0)), 0);
+  const costoMermaTotal = pedidosConCosto.reduce((s, p) => s + (Number(p.costo_pieza || 0) * Number(p.merma || 0)), 0);
+  const ingresoMes     = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual) && p.precio_pieza != null)
+    .reduce((s, p) => s + (Number(p.precio_pieza || 0) * Number(p.piezas_prod || 0)), 0);
   const pedMes = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual));
   const tintaMes = pedMes.reduce((s, p) => s + Number(p.tinta_kg || 0), 0);
   const alcoholMes = pedMes.reduce((s, p) => s + Number(p.alcohol_litros || 0), 0);
@@ -372,6 +377,35 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
           </div>
           <BarChart data={ultimas8sem} meta={META_CAJAS * 5} />
         </div>
+      )}
+
+      {/* ── Sección Costos e Ingresos ── */}
+      {pedidosConCosto.length > 0 && (
+        <>
+          <h3 className="sub-title">💰 Costos e Ingresos</h3>
+          <div className="stat-grid" style={{ marginBottom: 12 }}>
+            <div className="stat-card green">
+              <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(ingresoTotal))}</div>
+              <div className="stat-lbl">Ingreso generado (total)</div>
+            </div>
+            {ingresoMes > 0 && (
+              <div className="stat-card green">
+                <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(ingresoMes))}</div>
+                <div className="stat-lbl">Ingreso este mes</div>
+              </div>
+            )}
+            <div className="stat-card red">
+              <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(costoMermaTotal))}</div>
+              <div className="stat-lbl">Pérdida por merma (total)</div>
+            </div>
+            {ingresoTotal > 0 && costoMermaTotal > 0 && (
+              <div className="stat-card orange">
+                <div className="stat-val" style={{ fontSize: 18 }}>{((costoMermaTotal / ingresoTotal) * 100).toFixed(1)}%</div>
+                <div className="stat-lbl">Merma vs ingreso</div>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* ── Sección Pedidos ── */}
