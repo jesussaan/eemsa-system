@@ -172,19 +172,15 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             </div>
           )}
           <div className="field">
-            <label>Stickybacks usados</label>
-            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+            <label>Stickybacks</label>
+            <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
               {[1, 2].map(n => (
                 <button key={n} type="button" onClick={() => setStickyback(stickyback === n ? null : n)}
-                  style={{ flex: 1, padding: "12px 0", borderRadius: 8, border: "2px solid", borderColor: stickyback === n ? "#c9922a" : "#2a2d3a", background: stickyback === n ? "#c9922a22" : "transparent", color: stickyback === n ? "#c9922a" : "#555", fontWeight: 900, fontSize: 22, cursor: "pointer", transition: "all .15s" }}>
+                  style={{ flex: 1, padding: "6px 0", borderRadius: 6, border: "2px solid", borderColor: stickyback === n ? "#c9922a" : "#2a2d3a", background: stickyback === n ? "#c9922a22" : "transparent", color: stickyback === n ? "#c9922a" : "#555", fontWeight: 900, fontSize: 16, cursor: "pointer", transition: "all .15s" }}>
                   {n}
                 </button>
               ))}
             </div>
-          </div>
-          <div className="field full">
-            <label>Observaciones</label>
-            <textarea placeholder="Notas del pedido…" value={notasFin} onChange={e => setNotasFin(e.target.value)} />
           </div>
         </>)}
       </div>
@@ -261,7 +257,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             rollosMP, tintaKg, solventeKg,
             piezasProd: piezasProd !== "" ? Number(piezasProd) : null,
             mermaReal:  mermaReal  !== "" ? Number(mermaReal)  : null,
-            mermaPct, notas: notasFin || null, stickyback,
+            mermaPct, stickyback,
           })}
         >
           ✅ Confirmar y enviar a Emilio
