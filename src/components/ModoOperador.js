@@ -76,6 +76,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     if (fin.rollos_usados != null && fin.rollos_usados !== "") update.rollos_usados = Number(fin.rollos_usados);
     if (fin.tinta_kg != null && fin.tinta_kg !== "") update.tinta_kg = Number(fin.tinta_kg);
     if (fin.alcohol_litros != null && fin.alcohol_litros !== "") update.alcohol_litros = Number(fin.alcohol_litros);
+    if (fin.stickyback != null) update.stickyback = Number(fin.stickyback);
 
     if (fotoProducto) {
       const ext = fotoProducto.name.split('.').pop();
@@ -403,6 +404,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                     tinta_kg:       res.tintaKg != null ? res.tintaKg.toFixed(3) : "",
                     alcohol_litros: res.solventeKg != null ? res.solventeKg.toFixed(3) : "",
                     notas:          res.notas || "",
+                    stickyback:     res.stickyback,
                   })}
                 />
             }

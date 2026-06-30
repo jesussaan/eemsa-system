@@ -115,7 +115,7 @@ export default function ModoEmilio({ pedidos, setPedidos, onSalir }) {
           const centros = p.piezas_prod != null
             ? Number(p.piezas_prod) + (Number(p.merma) || 0)
             : null;
-          const sticky  = stickybacks[p.id] || 1;
+          const sticky  = stickybacks[p.id] ?? (p.stickyback != null ? Number(p.stickyback) : null);
           const tiempo  = calcTiempo(p);
           const exacto  = !!(p.inicio_ts && p.fin_ts);
 
@@ -225,18 +225,23 @@ export default function ModoEmilio({ pedidos, setPedidos, onSalir }) {
                     </div>
                   )}
                   <div style={S.mini}>
-                    <div style={S.miniLbl}>Stickybacks</div>
-                    <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <div style={S.miniLbl}>Stickybacks</div>
+                      {p.stickyback != null && (
+                        <span style={{ fontSize: 10, color: "#c9922a", fontWeight: 700 }}>★ Op: {p.stickyback}</span>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
                       {[1, 2].map(n => (
                         <button
                           key={n}
                           onClick={() => setStickybacks(s => ({ ...s, [p.id]: n }))}
                           style={{
-                            flex: 1, padding: "10px 0", borderRadius: 8, border: "none", cursor: "pointer",
-                            fontWeight: 900, fontSize: 20,
-                            background: sticky === n ? "#c9922a" : "#1a1d26",
-                            color:      sticky === n ? "#000"    : "#444",
-                            transition: "all .15s",
+                            flex: 1, padding: "10px 0", borderRadius: 8, border: "2px solid",
+                            borderColor: sticky === n ? "#c9922a" : "#1e2130",
+                            background:  sticky === n ? "#c9922a22" : "#13161e",
+                            color:       sticky === n ? "#c9922a"   : "#444",
+                            fontWeight: 900, fontSize: 20, cursor: "pointer", transition: "all .15s",
                           }}>
                           {n}
                         </button>
