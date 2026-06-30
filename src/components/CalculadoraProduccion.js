@@ -126,8 +126,8 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
             <div style={{ background: 'rgba(75,142,232,0.12)', border: '1px solid rgba(75,142,232,0.3)', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
               <div style={{ fontSize: 10, color: '#4b8fe8', fontWeight: 700, letterSpacing: '.05em', marginBottom: 4 }}>ROLLOS MP</div>
-              <div style={{ fontSize: 36, fontWeight: 900, color: '#4b8fe8', lineHeight: 1 }}>{rollosMP}</div>
-              <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 3 }}>exacto {rollosExacto.toFixed(1)}</div>
+              <div style={{ fontSize: 36, fontWeight: 900, color: '#4b8fe8', lineHeight: 1 }}>{rollosExacto.toFixed(2)}</div>
+              <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 3 }}>enteros: {rollosMP}</div>
             </div>
             <div style={{ background: 'rgba(201,146,42,0.1)', border: '1px solid rgba(201,146,42,0.25)', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
               <div style={{ fontSize: 10, color: '#c9922a', fontWeight: 700, letterSpacing: '.05em', marginBottom: 4 }}>TINTA</div>
@@ -179,7 +179,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
           disabled={!listo}
           style={{ padding: '14px 0', fontSize: 15, marginTop: 16, opacity: listo ? 1 : 0.4 }}
           onClick={() => onConfirmar({
-            rollosMP, tintaKg, solventeKg,
+            rollosMP, rollosExacto, tintaKg, solventeKg,
             piezasProd:  piezasProd !== "" ? Number(piezasProd) : null,
             mermaReal:   mermaReal  !== "" ? Number(mermaReal)  : null,
             mermaPct, stickyback,

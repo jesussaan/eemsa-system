@@ -403,7 +403,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                     piezas_prod:    res.piezasProd  != null ? String(res.piezasProd)  : "",
                     merma:          res.mermaReal   != null ? String(res.mermaReal)   : "",
                     mermaPct:       res.mermaPct,
-                    rollos_usados:  res.rollosMP    != null ? String(res.rollosMP)    : "",
+                    rollos_usados:  res.rollosExacto != null ? res.rollosExacto.toFixed(2) : "",
                     tinta_kg:       res.tintaKg     != null ? res.tintaKg.toFixed(3)  : "",
                     alcohol_litros: res.solventeKg  != null ? res.solventeKg.toFixed(3) : "",
                     notas:          res.notas       || "",

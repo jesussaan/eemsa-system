@@ -178,8 +178,8 @@ export default function Cotizador({ onSalir }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 }}>
               <div style={{ background: 'rgba(75,143,232,0.1)', border: '1px solid rgba(75,143,232,0.25)', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
                 <div style={{ fontSize: 10, color: '#4b8fe8', fontWeight: 700, marginBottom: 4 }}>ROLLOS MP</div>
-                <div style={{ fontSize: 32, fontWeight: 900, color: '#4b8fe8', lineHeight: 1 }}>{rollosMP}</div>
-                <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 2 }}>exacto {rollosExacto.toFixed(1)}</div>
+                <div style={{ fontSize: 32, fontWeight: 900, color: '#4b8fe8', lineHeight: 1 }}>{rollosExacto.toFixed(2)}</div>
+                <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 2 }}>enteros: {rollosMP}</div>
               </div>
               <div style={{ background: 'rgba(201,146,42,0.1)', border: '1px solid rgba(201,146,42,0.25)', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
                 <div style={{ fontSize: 10, color: '#c9922a', fontWeight: 700, marginBottom: 4 }}>TINTA</div>

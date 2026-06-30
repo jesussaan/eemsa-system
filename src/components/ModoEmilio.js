@@ -201,7 +201,7 @@ export default function ModoEmilio({ pedidos, setPedidos, onSalir }) {
                   {p.rollos_usados != null && (
                     <div style={S.mini}>
                       <div style={S.miniLbl}>Rollos MP usados</div>
-                      <div style={{ color: "#4b8fe8", fontWeight: 800, fontSize: 20 }}>{p.rollos_usados}</div>
+                      <div style={{ color: "#4b8fe8", fontWeight: 800, fontSize: 20 }}>{Number(p.rollos_usados).toFixed(2)}</div>
                     </div>
                   )}
                   {p.tinta_kg != null && (
