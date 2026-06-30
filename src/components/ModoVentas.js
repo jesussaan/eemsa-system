@@ -31,6 +31,21 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(""), 3000); };
   const upd = (k, v) => setForm(f => ({...f, [k]: v}));
 
+  const repetirPedido = (p) => {
+    setForm(f => ({
+      ...f,
+      cliente:        p.cliente || "",
+      tipo:           p.tipo || "Blanca",
+      medida:         p.medida || "",
+      cajas:          p.cajas ? String(p.cajas) : "",
+      rollos_caja:    p.rollos_caja ? String(p.rollos_caja) : "",
+      rollos_totales: p.rollos_totales ? String(p.rollos_totales) : "",
+      tinta_tipo:     p.tinta_tipo || "",
+      notas:          "",
+    }));
+    showToast("✓ Datos pre-llenados — revisa y guarda");
+  };
+
   const mesStr  = `${mes.y}-${String(mes.m+1).padStart(2,"0")}`;
   const numDias = new Date(mes.y, mes.m+1, 0).getDate();
   const offset  = (() => { const d = new Date(mes.y, mes.m, 1).getDay(); return d===0?6:d-1; })();
@@ -225,9 +240,39 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
         )}
 
         {/* ── NUEVO PEDIDO ── */}
-        {tab === "nuevo" && (
+        {tab === "nuevo" && (() => {
+          const sorted = [...pedidos].sort((a, b) => (b.fecha_solicitud || "").localeCompare(a.fecha_solicitud || ""));
+          const q = form.cliente.trim().toLowerCase();
+          const recientes = q.length >= 2
+            ? sorted.filter(p => p.cliente?.toLowerCase().includes(q)).slice(0, 5)
+            : sorted.slice(0, 6);
+          return (
           <div>
-            <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:800, color:"#e8b84b", letterSpacing:".06em", margin:"0 0 18px" }}>Nuevo Pedido</h2>
+            <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:800, color:"#e8b84b", letterSpacing:".06em", margin:"0 0 14px" }}>Nuevo Pedido</h2>
+
+            {recientes.length > 0 && (
+              <div style={{ background:"#13161e", borderRadius:12, padding:"10px 12px", marginBottom:18 }}>
+                <div style={{ fontSize:10, color:"#666", fontWeight:700, letterSpacing:".07em", textTransform:"uppercase", marginBottom:8 }}>
+                  {q.length >= 2 ? `Pedidos de ${form.cliente.trim()}` : "Pedidos recientes"}
+                </div>
+                {recientes.map((p, i) => (
+                  <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom: i < recientes.length - 1 ? "1px solid #1a1d26" : "none" }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, color:"#e0e0e0", fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.cliente}</div>
+                      <div style={{ fontSize:11, color:"#555", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                        #{p.num} · {p.medida} · {p.cajas} cajas · {p.tipo}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => repetirPedido(p)}
+                      style={{ flexShrink:0, background:"#0f1a2e", border:"1px solid #2a4a7a", borderRadius:8, color:"#4b8fe8", fontSize:12, fontWeight:700, padding:"6px 14px", cursor:"pointer" }}
+                    >
+                      Repetir
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
 
@@ -283,7 +328,8 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
               {saving ? "Guardando…" : "📋 Registrar Pedido"}
             </button>
           </div>
-        )}
+          );
+        })()}
 
         {/* ── CLIENTES ── */}
         {tab === "clientes" && <Clientes pedidos={pedidos} ocultarMerma />}

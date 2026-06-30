@@ -86,6 +86,10 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     const { error } = await supabase.from("pedidos").update(update).eq("id", pedidoSel.id);
     if (error) { showToast("❌ Error al finalizar pedido"); setLoading(false); return; }
 
+    const finTs = new Date().toISOString();
+    supabase.from("pedidos").update({ fin_ts: finTs }).eq("id", pedidoSel.id);
+    update.fin_ts = finTs;
+
     setPedidos(ps => ps.map(p => p.id === pedidoSel.id ? { ...p, ...update } : p));
     sendWhatsApp(`📝 William anotó los datos del pedido #${pedidoSel.num} ${pedidoSel.cliente}`);
     sendPush('✅ Pedido terminado', `#${pedidoSel.num} ${pedidoSel.cliente} — finalizado por William`);
