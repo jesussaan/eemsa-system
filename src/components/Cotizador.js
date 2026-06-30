@@ -33,7 +33,7 @@ export default function Cotizador({ onSalir }) {
   const [colorKey,   setColorKey]   = useState('naranja');
   const [tipoCentro, setTipoCentro] = useState('2');
   const [stickyback, setStickyback] = useState(0);
-  const [diasProd,   setDiasProd]   = useState(1);
+  const [diasProd,   setDiasProd]   = useState(0.5);
   const [margen,     setMargen]     = useState(30);
 
   const anchoN      = parseFloat(ancho)    || 0;
@@ -137,8 +137,16 @@ export default function Cotizador({ onSalir }) {
             </div>
             <div>
               <div style={{ fontSize: 10, color: '#545a78', marginBottom: 5 }}>Días prod.</div>
-              <input type="number" min="1" value={diasProd} onChange={e => setDiasProd(Math.max(1, Number(e.target.value) || 1))}
-                style={{ width: '100%', background: '#1a1d26', border: '1px solid #2a2d3a', borderRadius: 6, padding: '6px 8px', color: '#e0e0e0', fontSize: 13 }} />
+              <input type="number" min="0.25" step="0.25" value={diasProd} onChange={e => setDiasProd(Math.max(0.25, Number(e.target.value) || 0.25))}
+                style={{ width: '100%', background: '#1a1d26', border: '1px solid #2a2d3a', borderRadius: 6, padding: '6px 8px', color: '#e0e0e0', fontSize: 13, marginBottom: 4 }} />
+              <div style={{ display: 'flex', gap: 3 }}>
+                {[0.25, 0.5, 1, 2].map(v => (
+                  <button key={v} type="button" onClick={() => setDiasProd(v)}
+                    style={{ flex: 1, padding: '3px 0', borderRadius: 5, border: `1px solid ${diasProd === v ? '#4be87a' : '#2a2d3a'}`, background: diasProd === v ? '#4be87a22' : 'transparent', color: diasProd === v ? '#4be87a' : '#555', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>
+                    {v === 0.25 ? '¼d' : v === 0.5 ? '½d' : `${v}d`}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
