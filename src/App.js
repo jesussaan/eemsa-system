@@ -197,6 +197,7 @@ function EemsaApp() {
     <ModoTV
       pedidos={pedidos}
       fallas={fallas}
+      prodDiaria={prodDiaria}
       onSalir={() => setModo(null)}
     />
   );

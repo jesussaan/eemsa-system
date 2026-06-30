@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { today } from '../lib/utils';
+import { META_CAJAS } from '../lib/constants';
 
-export default function ModoTV({ pedidos, fallas, onSalir }) {
+export default function ModoTV({ pedidos, fallas, prodDiaria = [], onSalir }) {
   const [hora, setHora] = useState(new Date());
 
   useEffect(() => {
@@ -51,6 +53,10 @@ export default function ModoTV({ pedidos, fallas, onSalir }) {
   const timeStr = hora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const dateStr = hora.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
 
+  const cajasHoy      = prodDiaria.filter(r => r.fecha === today()).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
+  const metaPct       = Math.min(100, Math.round((cajasHoy / META_CAJAS) * 100));
+  const metaAlcanzada = cajasHoy >= META_CAJAS;
+
   const diasColor = d => d < 0 ? '#ff4d4d' : d === 0 ? '#ff9900' : d <= 2 ? '#ff9900' : '#4be87a';
   const diasTxt   = d => d < 0 ? `${Math.abs(d)}d VENCIDO` : d === 0 ? '¡HOY!' : `${d} días`;
   const sevColor  = s => s === 'critica' ? '#ff4d4d' : s === 'moderada' ? '#ff9900' : '#9aa0bc';
@@ -62,6 +68,12 @@ export default function ModoTV({ pedidos, fallas, onSalir }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#080a10', color: '#e0e0e0', fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <style>{`
+        @keyframes pulse-critica {
+          0%, 100% { box-shadow: 0 0 0 rgba(255,77,77,0); border-color: #ff4d4d; }
+          50%       { box-shadow: 0 0 18px rgba(255,77,77,0.5); border-color: #ff2020; }
+        }
+      `}</style>
 
       {/* ── HEADER ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 32px', background: '#0b0d15', borderBottom: '1px solid #13161e', flexShrink: 0 }}>
@@ -143,8 +155,28 @@ export default function ModoTV({ pedidos, fallas, onSalir }) {
           )}
         </div>
 
-        {/* RIGHT — Vencimientos + Fallas */}
+        {/* RIGHT — Meta + Vencimientos + Fallas */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+
+          {/* Meta del día */}
+          <div style={{ ...S.panel, flexShrink: 0 }}>
+            <div style={{ ...S.label, color: metaAlcanzada ? '#4be87a' : '#e8b84b' }}>📦 META DEL DÍA</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 }}>
+              <span style={{ fontSize: 52, fontWeight: 900, color: metaAlcanzada ? '#4be87a' : '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{cajasHoy}</span>
+              <span style={{ fontSize: 20, color: '#3a3f5a', fontWeight: 700 }}>/ {META_CAJAS} cajas</span>
+            </div>
+            <div style={{ background: '#13161e', borderRadius: 6, height: 12, overflow: 'hidden', marginBottom: 8 }}>
+              <div style={{
+                height: '100%', borderRadius: 6,
+                width: `${metaPct}%`,
+                background: metaAlcanzada ? '#4be87a' : metaPct >= 60 ? '#e8b84b' : '#4b8fe8',
+                transition: 'width 0.6s ease',
+              }} />
+            </div>
+            <div style={{ fontSize: 13, color: metaAlcanzada ? '#4be87a' : '#545a78', fontWeight: 700 }}>
+              {metaAlcanzada ? '✓ Meta alcanzada' : `Faltan ${META_CAJAS - cajasHoy} cajas · ${metaPct}%`}
+            </div>
+          </div>
 
           {/* Próximos vencimientos */}
           <div style={{ ...S.panel, flex: 1 }}>
@@ -170,7 +202,7 @@ export default function ModoTV({ pedidos, fallas, onSalir }) {
           </div>
 
           {/* Fallas abiertas */}
-          <div style={{ ...S.panel, flexShrink: 0 }}>
+          <div style={{ ...S.panel, flexShrink: 0, border: fallasCriticas.length > 0 ? '1px solid #ff4d4d' : '1px solid transparent', animation: fallasCriticas.length > 0 ? 'pulse-critica 2s ease-in-out infinite' : 'none' }}>
             <div style={{ ...S.label, color: fallasCriticas.length > 0 ? '#ff4d4d' : '#545a78' }}>
               ⚠️ FALLAS ABIERTAS &nbsp;
               <span style={{ background: fallasAbiertas.length > 0 ? '#ff4d4d' : '#2a2d3a', color: '#fff', borderRadius: 20, padding: '1px 10px', fontSize: 13 }}>
@@ -201,9 +233,10 @@ export default function ModoTV({ pedidos, fallas, onSalir }) {
           { val: anotados.length,       lbl: 'EN COLA',         color: '#e8b84b' },
           { val: enProceso.length,       lbl: 'EN PROCESO',      color: '#4b8fe8' },
           { val: terminados.length,      lbl: 'TERMINADOS',      color: '#4be87a' },
+          { val: `${cajasHoy}/${META_CAJAS}`, lbl: 'CAJAS HOY', color: metaAlcanzada ? '#4be87a' : '#e8b84b' },
           { val: fallasAbiertas.length,  lbl: 'FALLAS ABIERTAS', color: fallasAbiertas.length > 0 ? '#ff4d4d' : '#4be87a' },
         ].map((s, i) => (
-          <div key={i} style={{ flex: 1, textAlign: 'center', borderRight: i < 3 ? '1px solid #1a1d26' : 'none' }}>
+          <div key={i} style={{ flex: 1, textAlign: 'center', borderRight: i < 4 ? '1px solid #1a1d26' : 'none' }}>
             <div style={{ fontSize: 42, fontWeight: 900, color: s.color, lineHeight: 1 }}>{s.val}</div>
             <div style={{ fontSize: 11, color: '#3a3f5a', letterSpacing: 2, marginTop: 4 }}>{s.lbl}</div>
           </div>
