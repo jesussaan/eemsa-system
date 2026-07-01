@@ -10,6 +10,12 @@ import { COMPS, SEV, UMBRAL_MERMA } from '../lib/constants';
 import { sendWhatsApp } from '../utils/whatsapp';
 
 export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, onSalir }) {
+  const [ahora, setAhora] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setAhora(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
   const [costosDB, setCostosDB] = useState(null);
   useEffect(() => {
     supabase.from('costos').select('*').then(({ data }) => {
@@ -424,12 +430,33 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
               );
             })()}
 
-            {pedidoSel.status === "proceso" && (
-              <>
-                <button className="btn btn-primary btn-block" style={{ marginBottom: 10, padding: 16, fontSize: 16 }} onClick={() => setVista("calc")}>✅ Finalizar pedido</button>
-                <button className="btn btn-danger btn-block" style={{ padding: 16, fontSize: 16 }} onClick={() => setVista("falla")}>⚠️ Reportar falla</button>
-              </>
-            )}
+            {pedidoSel.status === "proceso" && (() => {
+              let elapsed = null;
+              if (pedidoSel.inicio_ts) {
+                const ms = ahora - new Date(pedidoSel.inicio_ts);
+                if (ms >= 0) {
+                  const d = Math.floor(ms / 86400000);
+                  const h = Math.floor((ms % 86400000) / 3600000);
+                  const m = Math.floor((ms % 3600000) / 60000);
+                  const s = Math.floor((ms % 60000) / 1000);
+                  elapsed = d > 0 ? `${d}d ${h}h ${String(m).padStart(2,'0')}m`
+                          : h > 0 ? `${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`
+                          : `${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
+                }
+              }
+              return (
+                <>
+                  {elapsed && (
+                    <div style={{ textAlign: "center", background: "#0d1a0d", border: "1px solid #1e3a1e", borderRadius: 12, padding: "12px 16px", marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, color: "#4be87a", fontWeight: 700, letterSpacing: ".07em", marginBottom: 4 }}>⏱ TIEMPO EN PRODUCCIÓN</div>
+                      <div style={{ fontSize: 36, fontWeight: 900, color: "#4be87a", fontVariantNumeric: "tabular-nums" }}>{elapsed}</div>
+                    </div>
+                  )}
+                  <button className="btn btn-primary btn-block" style={{ marginBottom: 10, padding: 16, fontSize: 16 }} onClick={() => setVista("calc")}>✅ Finalizar pedido</button>
+                  <button className="btn btn-danger btn-block" style={{ padding: 16, fontSize: 16 }} onClick={() => setVista("falla")}>⚠️ Reportar falla</button>
+                </>
+              );
+            })()}
             {pedidoSel.status === "anotado" && (
               <button className="btn btn-primary btn-block" style={{ padding: 16, fontSize: 16 }} onClick={iniciarPedido} disabled={loading}>
                 {loading ? "Guardando…" : "▶ Poner en proceso"}

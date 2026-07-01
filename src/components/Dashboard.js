@@ -49,6 +49,7 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
   const cajasHoy = prodDiaria.filter(r => r.fecha === todayStr).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
   const metaHoyCumplida = cajasHoy >= META_CAJAS;
   const mesActual = today().slice(0, 7);
+  const mesPrev = (() => { const [y, m] = mesActual.split('-').map(Number); return m === 1 ? `${y-1}-12` : `${y}-${String(m-1).padStart(2,'0')}`; })();
   const diasDelMes = [...new Set(prodDiaria.filter(r => r.fecha?.startsWith(mesActual)).map(r => r.fecha))];
   const diasConMeta = diasDelMes.filter(fecha => prodDiaria.filter(r => r.fecha === fecha).reduce((s, r) => s + Number(r.cajas_dia || 0), 0) >= META_CAJAS).length;
   const pctMeta = diasDelMes.length > 0 ? Math.round((diasConMeta / diasDelMes.length) * 100) : 0;
@@ -103,7 +104,23 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
     .reduce((s, p) => s + (Number(p.costo_pieza) * Number(p.piezas_prod || 0)), 0);
   const perdidaMermaMes  = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual) && p.costo_pieza != null)
     .reduce((s, p) => s + (Number(p.costo_pieza) * Number(p.merma || 0)), 0);
-  const pedMes = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual));
+  const pedMes  = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual));
+  const pedPrev = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesPrev));
+
+  const cajasMes  = prodDiaria.filter(r => r.fecha?.startsWith(mesActual)).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
+  const cajasPrev = prodDiaria.filter(r => r.fecha?.startsWith(mesPrev)).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
+
+  const mermaPctMes  = (() => { const ps = pedMes.filter(p => p.merma_pct != null && p.merma_pct !== ""); return ps.length ? (ps.reduce((s,p) => s + Number(p.merma_pct), 0) / ps.length).toFixed(1) : null; })();
+  const mermaPctPrev = (() => { const ps = pedPrev.filter(p => p.merma_pct != null && p.merma_pct !== ""); return ps.length ? (ps.reduce((s,p) => s + Number(p.merma_pct), 0) / ps.length).toFixed(1) : null; })();
+
+  const valorMes  = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual) && p.costo_pieza != null).reduce((s, p) => s + Number(p.costo_pieza) * Number(p.piezas_prod || 0), 0);
+  const valorPrev = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesPrev)   && p.costo_pieza != null).reduce((s, p) => s + Number(p.costo_pieza) * Number(p.piezas_prod || 0), 0);
+
+  const delta = (curr, prev) => {
+    if (!prev) return null;
+    const pct = ((curr - prev) / prev * 100).toFixed(0);
+    return { pct: Math.abs(pct), sube: curr >= prev };
+  };
   const tintaMes = pedMes.reduce((s, p) => s + Number(p.tinta_kg || 0), 0);
   const alcoholMes = pedMes.reduce((s, p) => s + Number(p.alcohol_litros || 0), 0);
   const rollosMes = pedMes.reduce((s, p) => s + Number(p.rollos_usados || 0), 0);
@@ -390,6 +407,40 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
         <div className="stat-card orange"><div className="stat-val">{mermaPct}%</div><div className="stat-lbl">Merma del mes</div></div>
         <div className={`stat-card ${fallasAbiertas > 0 ? "red" : "green"}`}><div className="stat-val">{fallasAbiertas}</div><div className="stat-lbl">Fallas abiertas</div></div>
       </div>
+
+      {/* ── Comparativo mes a mes ── */}
+      {(cajasPrev > 0 || mermaPctPrev || valorPrev > 0) && (() => {
+        const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+        const lblMes  = MESES[parseInt(mesActual.split('-')[1]) - 1];
+        const lblPrev = MESES[parseInt(mesPrev.split('-')[1]) - 1];
+        const items = [
+          { lbl: "Cajas producidas", curr: cajasMes, prev: cajasPrev, fmt: v => v, menorEsMejor: false },
+          ...(mermaPctMes && mermaPctPrev ? [{ lbl: "Merma %", curr: Number(mermaPctMes), prev: Number(mermaPctPrev), fmt: v => v + "%", menorEsMejor: true }] : []),
+          ...(valorMes > 0 || valorPrev > 0 ? [{ lbl: "Valor producido", curr: valorMes, prev: valorPrev, fmt: v => "$" + fmt(Math.round(v)), menorEsMejor: false }] : []),
+        ];
+        return (
+          <>
+            <h3 className="sub-title">📊 {lblMes} vs {lblPrev}</h3>
+            <div style={{ background: "#181b24", borderRadius: 12, padding: "12px 16px", marginBottom: 20, border: "1px solid #22263a" }}>
+              {items.map(it => {
+                const d = delta(it.curr, it.prev);
+                const mejora = d ? (it.menorEsMejor ? !d.sube : d.sube) : null;
+                return (
+                  <div key={it.lbl} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #13161e" }}>
+                    <span style={{ fontSize: 13, color: "#9aa0bc" }}>{it.lbl}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 11, color: "#3a3f5a" }}>{it.fmt(it.prev)}</span>
+                      <span style={{ fontSize: 11, color: "#3a3f5a" }}>→</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: "#e0e0e0" }}>{it.fmt(it.curr)}</span>
+                      {d && <span style={{ fontSize: 12, fontWeight: 700, color: mejora ? "#4be87a" : "#ff4d4d" }}>{d.sube ? "▲" : "▼"}{d.pct}%</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        );
+      })()}
 
       {/* ── Sección Producción ── */}
       <h3 className="sub-title">📈 Producción</h3>
