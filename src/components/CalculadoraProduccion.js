@@ -27,8 +27,8 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const [cajas,      setCajas]      = useState(pedidoInicial?.cajas       ? String(pedidoInicial.cajas)       : '');
   const [rollosCaja, setRollosCaja] = useState(pedidoInicial?.rollos_caja ? String(pedidoInicial.rollos_caja) : '36');
   const [merma,      setMerma]      = useState('');
-  const [portaliche, setPortaliche] = useState(pedidoInicial?.portaliche || '30.9');
-  const [diseno,     setDiseno]     = useState(pedidoInicial?.diseno     || 'normal');
+  const [portaliche, setPortaliche] = useState('30.9');
+  const [diseno,     setDiseno]     = useState('normal');
 
   // Datos reales (flujo finalizar)
   const [piezasProd, setPiezasProd] = useState('');

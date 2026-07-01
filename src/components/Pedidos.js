@@ -9,7 +9,7 @@ import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT } from '../lib/
 import { sendWhatsApp, mensajePedidoNuevo } from '../utils/whatsapp';
 
 export default function Pedidos({ pedidos, setPedidos }) {
-  const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", rollos_totales: "", ancho: "", largo: "", portaliche: "30.9", diseno: "normal", color: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_estimada: "", fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "anotado" };
+  const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", rollos_totales: "", ancho: "", largo: "", color: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_estimada: "", fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "anotado" };
   const [form, setForm] = useState(() => ({ ...formInicial, num: siguienteNumPedido(pedidos) }));
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
@@ -97,8 +97,6 @@ export default function Pedidos({ pedidos, setPedidos }) {
       rollos_totales: p.rollos_totales || "",
       ancho: p.ancho || "",
       largo: p.largo || "",
-      portaliche: p.portaliche || "30.9",
-      diseno: p.diseno || "normal",
       color: p.color || "",
       maq: p.maq || "SIAT L36 #1",
       op: p.op || "William",
@@ -182,7 +180,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
       if (upErr) { showToast("⚠ Foto no subida: " + upErr.message); }
       else if (up) { cliche_url = up.path; }
     }
-    const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.num, tipo: form.tipo, medida: form.medida, cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(form.rollos_totales), ancho: form.ancho, largo: form.largo, portaliche: form.portaliche || "30.9", diseno: form.diseno || "normal", color: form.color, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
+    const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.num, tipo: form.tipo, medida: form.medida, cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(form.rollos_totales), ancho: form.ancho, largo: form.largo, color: form.color, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
     const { error } = await supabase.from("pedidos").insert([nuevo]);
     if (error) { showToast("❌ Error: " + error.message); setLoading(false); return; }
     setPedidos(p => [nuevo, ...p]);
@@ -229,8 +227,6 @@ export default function Pedidos({ pedidos, setPedidos }) {
       tinta_kg: n2(modalPedido.tinta_kg),
       alcohol_litros: n2(modalPedido.alcohol_litros),
       notas_consumo: modalPedido.notas_consumo || null,
-      portaliche: modalPedido.portaliche || "30.9",
-      diseno: modalPedido.diseno || "normal",
       color_cinta: modalPedido.color_cinta || null,
       cliche_url: modalPedido.cliche_url || null,
       foto_producto_url: modalPedido.foto_producto_url || null,
@@ -342,22 +338,6 @@ export default function Pedidos({ pedidos, setPedidos }) {
         <div className="field"><label>Rollos / piezas totales</label><input type="number" value={form.rollos_totales} onChange={e => upd("rollos_totales", e.target.value)} placeholder="1800" /></div>
         <div className="field"><label>Ancho (pulg)</label><input value={form.ancho} onChange={e => upd("ancho", e.target.value)} placeholder='2"' /></div>
         <div className="field"><label>Largo (m)</label><input type="number" value={form.largo} onChange={e => upd("largo", e.target.value)} placeholder="100" /></div>
-        <div className="field full">
-          <label>Portacliché</label>
-          <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-            {["30.9","25.4","29.0"].map(v => (
-              <button key={v} type="button" onClick={() => upd("portaliche", v)} style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "2px solid", borderColor: form.portaliche === v ? "#c9922a" : "#2a2d3a", background: form.portaliche === v ? "#c9922a22" : "transparent", color: form.portaliche === v ? "#c9922a" : "#666", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{v} cm</button>
-            ))}
-          </div>
-        </div>
-        <div className="field full">
-          <label>Diseño / cobertura</label>
-          <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-            {[{k:"chica",l:"Letra chica",p:"12.5%"},{k:"normal",l:"Normal",p:"27.5%"},{k:"grande",l:"Grande",p:"45%"},{k:"relleno",l:"Relleno",p:"82.5%"}].map(d => (
-              <button key={d.k} type="button" onClick={() => upd("diseno", d.k)} style={{ flex: 1, minWidth: 70, padding: "7px 4px", borderRadius: 6, border: "2px solid", borderColor: form.diseno === d.k ? "#4b8fe8" : "#2a2d3a", background: form.diseno === d.k ? "#4b8fe822" : "transparent", color: form.diseno === d.k ? "#4b8fe8" : "#666", fontWeight: 700, fontSize: 11, cursor: "pointer", textAlign: "center", lineHeight: 1.3 }}>{d.l}<br/><span style={{ fontWeight: 400, opacity: .7 }}>{d.p}</span></button>
-            ))}
-          </div>
-        </div>
         <div className="field"><label>Color impresión</label><input value={form.color} onChange={e => upd("color", e.target.value)} placeholder="Rojo PMS 485" /></div>
         <div className="field full"><label>📷 Foto del cliché</label><input type="file" accept="image/*" onChange={e => { const f = e.target.files[0]; if (!f) return; setClicheImg(f); setClichePreview(URL.createObjectURL(f)); }} />{clichePreview && <img src={clichePreview} alt="cliché" style={{ width: "100%", maxWidth: 260, marginTop: 8, borderRadius: 8, border: "1px solid #2a2d3a" }} />}</div>
         <div className="field"><label>Máquina</label><select value={form.maq} onChange={e => upd("maq", e.target.value)}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>

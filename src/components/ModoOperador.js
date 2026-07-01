@@ -401,12 +401,12 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                 <ClicheImg src={pedidoSel.cliche_url} style={{ width: "100%", borderRadius: 10, border: "1px solid #2a2d3a" }} />
               </div>
             )}
-            {/* Bloque preparación */}
+            {/* Bloque rollos MP necesarios */}
             {(() => {
-              const anchoN      = parseFloat(pedidoSel.ancho)      || 0;
-              const largoN      = parseFloat(pedidoSel.largo)      || 0;
-              const cajasN      = parseInt(pedidoSel.cajas)        || 0;
-              const rollosCajaN = parseInt(pedidoSel.rollos_caja)  || 36;
+              const anchoN      = parseFloat(pedidoSel.ancho)     || 0;
+              const largoN      = parseFloat(pedidoSel.largo)     || 0;
+              const cajasN      = parseInt(pedidoSel.cajas)       || 0;
+              const rollosCajaN = parseInt(pedidoSel.rollos_caja) || 36;
               if (!anchoN || !largoN || !cajasN) return null;
               const largoReal    = largoN > 4 ? largoN - 4 : largoN;
               const pistas       = Math.floor(6 / anchoN);
@@ -415,32 +415,11 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
               const piezasBuenas = cajasN * rollosCajaN;
               const rollosExacto = rendimiento > 0 ? piezasBuenas / rendimiento : 0;
               const rollosMP     = Math.ceil(rollosExacto);
-              const clicheLargo  = parseFloat(pedidoSel.portaliche) || 30.9;
-              const cobMap       = { chica: 0.125, normal: 0.275, grande: 0.450, relleno: 0.825 };
-              const cobertura    = cobMap[pedidoSel.diseno] ?? 0.275;
-              const impresiones  = piezasBuenas > 0 ? (piezasBuenas * largoReal * 100) / (clicheLargo * 3) : 0;
-              const tintaKg      = (impresiones * 14.4 * clicheLargo * 0.000698 * cobertura * 0.5) / 1000;
-              const solventeKg   = (tintaKg * 0.5) + 0.600;
               return (
-                <div style={{ background: "#0e1a2e", border: "1px solid #1e3a5f", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
-                  <div style={{ fontSize: 11, color: "#4a9eff", fontWeight: 700, letterSpacing: ".07em", marginBottom: 10 }}>📋 PREPARAR PARA ESTA CORRIDA</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                    <div style={{ background: "#0d1520", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
-                      <div style={{ fontSize: 10, color: "#4a9eff", fontWeight: 700, marginBottom: 4 }}>ROLLOS MP</div>
-                      <div style={{ fontSize: 28, fontWeight: 900, color: "#4a9eff", lineHeight: 1 }}>{rollosMP}</div>
-                      <div style={{ fontSize: 10, color: "#3a3f5a", marginTop: 3 }}>{rollosExacto.toFixed(2)} exacto</div>
-                    </div>
-                    <div style={{ background: "#0d1520", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
-                      <div style={{ fontSize: 10, color: "#c9922a", fontWeight: 700, marginBottom: 4 }}>TINTA</div>
-                      <div style={{ fontSize: 28, fontWeight: 900, color: "#c9922a", lineHeight: 1 }}>{tintaKg.toFixed(2)}</div>
-                      <div style={{ fontSize: 10, color: "#3a3f5a", marginTop: 3 }}>kg</div>
-                    </div>
-                    <div style={{ background: "#0d1520", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
-                      <div style={{ fontSize: 10, color: "#4b8fe8", fontWeight: 700, marginBottom: 4 }}>SOLVENTE</div>
-                      <div style={{ fontSize: 28, fontWeight: 900, color: "#4b8fe8", lineHeight: 1 }}>{solventeKg.toFixed(2)}</div>
-                      <div style={{ fontSize: 10, color: "#3a3f5a", marginTop: 3 }}>kg</div>
-                    </div>
-                  </div>
+                <div style={{ background: "#0e1a2e", border: "1px solid #1e3a5f", borderRadius: 12, padding: "14px 16px", marginBottom: 14, textAlign: "center" }}>
+                  <div style={{ fontSize: 11, color: "#4a9eff", fontWeight: 700, letterSpacing: ".07em", marginBottom: 8 }}>🧻 ROLLOS MP A UTILIZAR</div>
+                  <div style={{ fontSize: 52, fontWeight: 900, color: "#4a9eff", lineHeight: 1 }}>{rollosMP}</div>
+                  <div style={{ fontSize: 12, color: "#3a3f5a", marginTop: 4 }}>{rollosExacto.toFixed(2)} exacto</div>
                 </div>
               );
             })()}
