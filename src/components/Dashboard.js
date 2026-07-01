@@ -108,6 +108,30 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
   const alcoholMes = pedMes.reduce((s, p) => s + Number(p.alcohol_litros || 0), 0);
   const rollosMes = pedMes.reduce((s, p) => s + Number(p.rollos_usados || 0), 0);
 
+  const tintaPorColor = (() => {
+    const map = {};
+    pedidos.filter(p => p.status === "terminado" && p.tinta_kg).forEach(p => {
+      const k = (p.color || p.tinta_tipo || "Sin color").trim();
+      if (!map[k]) map[k] = { total: 0, mes: 0, pedidos: 0 };
+      map[k].total += Number(p.tinta_kg || 0);
+      map[k].pedidos += 1;
+      if (p.fecha_termino?.startsWith(mesActual)) map[k].mes += Number(p.tinta_kg || 0);
+    });
+    return Object.entries(map).map(([color, d]) => ({ color, ...d })).sort((a, b) => b.total - a.total);
+  })();
+
+  const tipoCintaStats = (() => {
+    const map = {};
+    pedidos.filter(p => p.status === "terminado").forEach(p => {
+      const k = (p.tipo || "Sin tipo").trim();
+      if (!map[k]) map[k] = { cajas: 0, cajasMes: 0, pedidos: 0 };
+      map[k].cajas += Number(p.cajas || 0);
+      map[k].pedidos += 1;
+      if (p.fecha_termino?.startsWith(mesActual)) map[k].cajasMes += Number(p.cajas || 0);
+    });
+    return Object.entries(map).map(([tipo, d]) => ({ tipo, ...d })).sort((a, b) => b.cajas - a.cajas);
+  })();
+
   const generarPDF = () => {
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const W = 210, mg = 14;
@@ -542,6 +566,66 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
                       <td style={{ padding: '8px 10px', color: '#545a78', textAlign: 'right' }}>{r.pedidos}</td>
                       <td style={{ padding: '8px 10px', color: '#4b8fe8', textAlign: 'right', fontWeight: 700 }}>${fmt(Math.round(r.valor))}</td>
                       <td style={{ padding: '8px 10px', color: '#ff4d4d', textAlign: 'right' }}>${fmt(Math.round(r.merma))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Tinta por color ── */}
+      {tintaPorColor.length > 0 && (
+        <>
+          <h3 className="sub-title">🎨 Tinta por color</h3>
+          <div style={chartCard}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #22263a' }}>
+                    {['Color','Pedidos','Este mes','Total'].map(h => (
+                      <th key={h} style={{ padding: '6px 10px', color: '#545a78', fontWeight: 600, textAlign: h === 'Color' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tintaPorColor.map((r, i) => (
+                    <tr key={r.color} style={{ borderBottom: '1px solid #13161e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                      <td style={{ padding: '8px 10px', color: '#e0e0e0', fontWeight: 600 }}>{r.color}</td>
+                      <td style={{ padding: '8px 10px', color: '#545a78', textAlign: 'right' }}>{r.pedidos}</td>
+                      <td style={{ padding: '8px 10px', color: '#4be87a', textAlign: 'right', fontWeight: 700 }}>{r.mes > 0 ? r.mes.toFixed(2) + ' kg' : '—'}</td>
+                      <td style={{ padding: '8px 10px', color: '#4b8fe8', textAlign: 'right', fontWeight: 700 }}>{r.total.toFixed(2)} kg</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Por tipo de cinta ── */}
+      {tipoCintaStats.length > 0 && (
+        <>
+          <h3 className="sub-title">🧷 Por tipo de cinta</h3>
+          <div style={chartCard}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #22263a' }}>
+                    {['Tipo','Pedidos','Cajas este mes','Cajas total'].map(h => (
+                      <th key={h} style={{ padding: '6px 10px', color: '#545a78', fontWeight: 600, textAlign: h === 'Tipo' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tipoCintaStats.map((r, i) => (
+                    <tr key={r.tipo} style={{ borderBottom: '1px solid #13161e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                      <td style={{ padding: '8px 10px', color: '#e0e0e0', fontWeight: 600, textTransform: 'capitalize' }}>{r.tipo}</td>
+                      <td style={{ padding: '8px 10px', color: '#545a78', textAlign: 'right' }}>{r.pedidos}</td>
+                      <td style={{ padding: '8px 10px', color: '#4be87a', textAlign: 'right', fontWeight: 700 }}>{r.cajasMes > 0 ? r.cajasMes : '—'}</td>
+                      <td style={{ padding: '8px 10px', color: '#4b8fe8', textAlign: 'right', fontWeight: 700 }}>{r.cajas}</td>
                     </tr>
                   ))}
                 </tbody>
