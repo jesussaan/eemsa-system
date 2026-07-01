@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import ClicheImg from './ClicheImg';
 import CalculadoraProduccion from './CalculadoraProduccion';
 import { supabase } from '../lib/supabase';
@@ -21,7 +21,59 @@ export default function Pedidos({ pedidos, setPedidos }) {
   const [modalClichePreview, setModalClichePreview] = useState(null);
   const [busqueda, setBusqueda] = useState("");
   const [showCalc, setShowCalc] = useState(false);
+  const [plantillas, setPlantillas] = useState([]);
+  const [showPlantillas, setShowPlantillas] = useState(false);
+  const [nombrePlantilla, setNombrePlantilla] = useState("");
+  const [showGuardarPl, setShowGuardarPl] = useState(false);
   const formRef = useRef(null);
+
+  useEffect(() => {
+    supabase.from('plantillas').select('*').order('created_at', { ascending: false })
+      .then(({ data }) => { if (data) setPlantillas(data); });
+  }, []);
+
+  const aplicarPlantilla = (pl) => {
+    setForm(f => ({
+      ...f,
+      cliente:     pl.cliente     || f.cliente,
+      tipo:        pl.tipo        || f.tipo,
+      medida:      pl.medida      || f.medida,
+      ancho:       pl.ancho       != null ? String(pl.ancho) : f.ancho,
+      largo:       pl.largo       != null ? String(pl.largo) : f.largo,
+      cajas:       pl.cajas       != null ? String(pl.cajas) : f.cajas,
+      rollos_caja: pl.rollos_caja != null ? String(pl.rollos_caja) : f.rollos_caja,
+      rollos_totales: pl.cajas && pl.rollos_caja ? String(pl.cajas * pl.rollos_caja) : f.rollos_totales,
+      color:       pl.color       || f.color,
+      notas:       pl.notas       || f.notas,
+    }));
+    setShowPlantillas(false);
+    showToast("📋 Plantilla aplicada");
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const guardarPlantilla = async () => {
+    if (!nombrePlantilla.trim()) { showToast("⚠ Escribe un nombre"); return; }
+    const nueva = {
+      nombre: nombrePlantilla.trim(),
+      cliente: form.cliente || null, tipo: form.tipo || null,
+      medida: form.medida || null, ancho: form.ancho ? Number(form.ancho) : null,
+      largo: form.largo ? Number(form.largo) : null,
+      cajas: form.cajas ? Number(form.cajas) : null,
+      rollos_caja: form.rollos_caja ? Number(form.rollos_caja) : null,
+      color: form.color || null, notas: form.notas || null,
+    };
+    const { data, error } = await supabase.from('plantillas').insert([nueva]).select().single();
+    if (error) { showToast("❌ Error: " + error.message); return; }
+    setPlantillas(p => [data, ...p]);
+    setNombrePlantilla("");
+    setShowGuardarPl(false);
+    showToast("✓ Plantilla guardada");
+  };
+
+  const eliminarPlantilla = async (id) => {
+    await supabase.from('plantillas').delete().eq('id', id);
+    setPlantillas(p => p.filter(x => x.id !== id));
+  };
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
   const upd = (k, v) => setForm(f => {
     const nf = { ...f, [k]: v };
@@ -246,8 +298,36 @@ export default function Pedidos({ pedidos, setPedidos }) {
       )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h3 className="sub-title" ref={formRef} style={{ margin: 0 }}>➕ Anotar pedido</h3>
-        <button className="btn btn-ghost btn-sm" onClick={() => setShowCalc(true)}>🧮 Calculadora</button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowPlantillas(true)}>📋 Plantillas</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowCalc(true)}>🧮 Calculadora</button>
+        </div>
       </div>
+
+      {/* Modal plantillas */}
+      {showPlantillas && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.85)', zIndex: 300, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setShowPlantillas(false)}>
+          <div style={{ background: '#181b24', borderRadius: '18px 18px 0 0', width: '100%', maxWidth: 500, padding: '20px 16px 32px', maxHeight: '75vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, fontSize: 16, color: '#e0e0e0', marginBottom: 14 }}>📋 Plantillas guardadas</div>
+            {plantillas.length === 0 ? (
+              <div style={{ color: '#545a78', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>No hay plantillas. Llena el formulario y guarda una.</div>
+            ) : plantillas.map(pl => (
+              <div key={pl.id} style={{ background: '#0d0f14', borderRadius: 10, padding: '12px 14px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 700, color: '#e0e0e0', fontSize: 14 }}>{pl.nombre}</div>
+                  <div style={{ fontSize: 12, color: '#545a78', marginTop: 2 }}>
+                    {[pl.cliente, pl.tipo, pl.medida, pl.cajas ? `${pl.cajas} cajas` : null].filter(Boolean).join(' · ')}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={() => aplicarPlantilla(pl)} style={{ padding: '6px 14px', borderRadius: 8, border: 'none', background: '#4be87a', color: '#000', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>Usar</button>
+                  <button onClick={() => eliminarPlantilla(pl.id)} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #2a2d3a', background: 'transparent', color: '#ff4d4d', fontSize: 14, cursor: 'pointer' }}>🗑</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="form-grid">
         <div className="field"><label>Cliente *</label><input value={form.cliente} onChange={e => upd("cliente", e.target.value)} placeholder="MAFENSA, ARIAT…" /></div>
         <div className="field"><label>No. Pedido * <span style={{ color: "#666", fontWeight: 400 }}>(sugerido)</span></label><input value={form.num} onChange={e => upd("num", e.target.value)} placeholder="84, 85…" /></div>
@@ -267,6 +347,16 @@ export default function Pedidos({ pedidos, setPedidos }) {
         <div className="field full"><label>Notas</label><textarea value={form.notas} onChange={e => upd("notas", e.target.value)} placeholder="Observaciones…" /></div>
       </div>
       <button className="btn btn-primary btn-block" onClick={save} disabled={loading}>{loading ? "Guardando…" : "📝 Anotar pedido"}</button>
+
+      {showGuardarPl ? (
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <input value={nombrePlantilla} onChange={e => setNombrePlantilla(e.target.value)} placeholder="Nombre de la plantilla…" style={{ flex: 1, background: '#1a1d26', border: '1px solid #2a2d3a', borderRadius: 8, padding: '8px 12px', color: '#e0e0e0', fontSize: 13 }} onKeyDown={e => e.key === 'Enter' && guardarPlantilla()} />
+          <button onClick={guardarPlantilla} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#4be87a', color: '#000', fontWeight: 700, cursor: 'pointer' }}>💾</button>
+          <button onClick={() => { setShowGuardarPl(false); setNombrePlantilla(''); }} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #2a2d3a', background: 'transparent', color: '#545a78', cursor: 'pointer' }}>✕</button>
+        </div>
+      ) : (
+        <button className="btn btn-ghost btn-block" style={{ marginTop: 8, fontSize: 12 }} onClick={() => setShowGuardarPl(true)}>💾 Guardar como plantilla</button>
+      )}
       <div style={{ display: "flex", gap: 8, margin: "16px 0 8px", flexWrap: "wrap" }}>
         {[["activos", "🟡 Activos"], ["todos", "Todos"], ["anotado", "Anotados"], ["proceso", "En proceso"], ["terminado", "✅ Terminados"], ["pendiente", "Falta alta"]].map(([k, v]) => (
           <button key={k} className={`btn btn-sm ${filtro === k ? "btn-primary" : "btn-ghost"}`} onClick={() => setFiltro(k)}>{v}</button>

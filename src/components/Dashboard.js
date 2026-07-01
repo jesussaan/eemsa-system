@@ -81,6 +81,23 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
       .reduce((acc, p) => { const k = p.cliente || "Sin nombre"; acc[k] = (acc[k] || 0) + Number(p.cajas || 0); return acc; }, {})
   ).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([lbl, val]) => ({ lbl: lbl.slice(0, 14), val }));
 
+  const rentabilidadClientes = (() => {
+    const map = {};
+    pedidos.filter(p => p.status === "terminado" && p.costo_pieza != null && p.precio_pieza != null).forEach(p => {
+      const k = p.cliente || "Sin nombre";
+      if (!map[k]) map[k] = { ingreso: 0, costo: 0, merma: 0, pedidos: 0 };
+      const piezas = Number(p.piezas_prod || 0);
+      map[k].ingreso  += Number(p.precio_pieza) * piezas;
+      map[k].costo    += Number(p.costo_pieza)  * piezas;
+      map[k].merma    += Number(p.costo_pieza)  * Number(p.merma || 0);
+      map[k].pedidos  += 1;
+    });
+    return Object.entries(map)
+      .map(([nombre, d]) => ({ nombre, ...d, margen: d.ingreso > 0 ? ((d.ingreso - d.costo) / d.ingreso * 100) : 0 }))
+      .sort((a, b) => b.ingreso - a.ingreso)
+      .slice(0, 8);
+  })();
+
   const pedidosConCosto = pedidos.filter(p => p.status === "terminado" && p.costo_pieza != null);
   const ingresoTotal   = pedidosConCosto.reduce((s, p) => s + (Number(p.precio_pieza || 0) * Number(p.piezas_prod || 0)), 0);
   const costoMermaTotal = pedidosConCosto.reduce((s, p) => s + (Number(p.costo_pieza || 0) * Number(p.merma || 0)), 0);
@@ -500,6 +517,38 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
                 </Bar>
               </ReBarChart>
             </ResponsiveContainer>
+          </div>
+        </>
+      )}
+
+      {/* ── Rentabilidad por cliente ── */}
+      {rentabilidadClientes.length > 0 && (
+        <>
+          <h3 className="sub-title">💹 Rentabilidad por cliente</h3>
+          <div style={chartCard}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #22263a' }}>
+                    {['Cliente','Pedidos','Ingreso','Costo MP','Margen','Pérd. merma'].map(h => (
+                      <th key={h} style={{ padding: '6px 10px', color: '#545a78', fontWeight: 600, textAlign: h === 'Cliente' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rentabilidadClientes.map((r, i) => (
+                    <tr key={r.nombre} style={{ borderBottom: '1px solid #13161e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                      <td style={{ padding: '8px 10px', color: '#e0e0e0', fontWeight: 600, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.nombre}</td>
+                      <td style={{ padding: '8px 10px', color: '#545a78', textAlign: 'right' }}>{r.pedidos}</td>
+                      <td style={{ padding: '8px 10px', color: '#4be87a', textAlign: 'right', fontWeight: 700 }}>${fmt(Math.round(r.ingreso))}</td>
+                      <td style={{ padding: '8px 10px', color: '#9aa0bc', textAlign: 'right' }}>${fmt(Math.round(r.costo))}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, color: r.margen >= 20 ? '#4be87a' : r.margen >= 10 ? '#e8b84b' : '#ff4d4d' }}>{r.margen.toFixed(1)}%</td>
+                      <td style={{ padding: '8px 10px', color: '#ff4d4d', textAlign: 'right' }}>${fmt(Math.round(r.merma))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}
