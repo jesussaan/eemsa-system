@@ -415,8 +415,11 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
               const piezasBuenas = cajasN * rollosCajaN;
               const rollosExacto = rendimiento > 0 ? piezasBuenas / rendimiento : 0;
               const rollosMP     = Math.ceil(rollosExacto);
-              const impresiones  = piezasBuenas > 0 ? (piezasBuenas * largoReal * 100) / (30.9 * 3) : 0;
-              const tintaKg      = (impresiones * 14.4 * 30.9 * 0.000698 * 0.275 * 0.5) / 1000;
+              const clicheLargo  = parseFloat(pedidoSel.portaliche) || 30.9;
+              const cobMap       = { chica: 0.125, normal: 0.275, grande: 0.450, relleno: 0.825 };
+              const cobertura    = cobMap[pedidoSel.diseno] ?? 0.275;
+              const impresiones  = piezasBuenas > 0 ? (piezasBuenas * largoReal * 100) / (clicheLargo * 3) : 0;
+              const tintaKg      = (impresiones * 14.4 * clicheLargo * 0.000698 * cobertura * 0.5) / 1000;
               const solventeKg   = (tintaKg * 0.5) + 0.600;
               return (
                 <div style={{ background: "#0e1a2e", border: "1px solid #1e3a5f", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
