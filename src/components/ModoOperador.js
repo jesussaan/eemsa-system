@@ -347,17 +347,6 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                       </div>
                       {p.fecha_solicitud && <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>Solicitud: {p.fecha_solicitud}</div>}
                       {p.cliche_url && <div style={{ fontSize: 11, color: "#ff9900", marginTop: 4 }}>📷 Ver diseño →</div>}
-                      {(() => {
-                        const aN = parseFloat(p.ancho) || 0;
-                        const lN = parseFloat(p.largo) || 0;
-                        const cN = parseInt(p.cajas)   || 0;
-                        const rN = parseInt(p.rollos_caja) || 36;
-                        if (!aN || !lN || !cN) return null;
-                        const lR = lN > 4 ? lN - 4 : lN;
-                        const rend = Math.floor(6 / aN) * (lR > 0 ? Math.floor(914 / lR) : 0);
-                        const rollosMP = rend > 0 ? Math.ceil((cN * rN) / rend) : 0;
-                        return <div style={{ fontSize: 12, color: "#4a9eff", fontWeight: 700, marginTop: 6 }}>🧻 {rollosMP} rollos MP</div>;
-                      })()}
                     </div>
                   </div>
                   );
