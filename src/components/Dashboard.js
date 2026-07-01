@@ -83,26 +83,26 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
 
   const rentabilidadClientes = (() => {
     const map = {};
-    pedidos.filter(p => p.status === "terminado" && p.costo_pieza != null && p.precio_pieza != null).forEach(p => {
+    pedidos.filter(p => p.status === "terminado" && p.costo_pieza != null).forEach(p => {
       const k = p.cliente || "Sin nombre";
-      if (!map[k]) map[k] = { ingreso: 0, costo: 0, merma: 0, pedidos: 0 };
-      const piezas = Number(p.piezas_prod || 0);
-      map[k].ingreso  += Number(p.precio_pieza) * piezas;
-      map[k].costo    += Number(p.costo_pieza)  * piezas;
-      map[k].merma    += Number(p.costo_pieza)  * Number(p.merma || 0);
-      map[k].pedidos  += 1;
+      if (!map[k]) map[k] = { valor: 0, merma: 0, pedidos: 0 };
+      map[k].valor   += Number(p.costo_pieza) * Number(p.piezas_prod || 0);
+      map[k].merma   += Number(p.costo_pieza) * Number(p.merma || 0);
+      map[k].pedidos += 1;
     });
     return Object.entries(map)
-      .map(([nombre, d]) => ({ nombre, ...d, margen: d.ingreso > 0 ? ((d.ingreso - d.costo) / d.ingreso * 100) : 0 }))
-      .sort((a, b) => b.ingreso - a.ingreso)
+      .map(([nombre, d]) => ({ nombre, ...d }))
+      .sort((a, b) => b.valor - a.valor)
       .slice(0, 8);
   })();
 
-  const pedidosConCosto = pedidos.filter(p => p.status === "terminado" && p.costo_pieza != null);
-  const ingresoTotal   = pedidosConCosto.reduce((s, p) => s + (Number(p.precio_pieza || 0) * Number(p.piezas_prod || 0)), 0);
-  const costoMermaTotal = pedidosConCosto.reduce((s, p) => s + (Number(p.costo_pieza || 0) * Number(p.merma || 0)), 0);
-  const ingresoMes     = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual) && p.precio_pieza != null)
-    .reduce((s, p) => s + (Number(p.precio_pieza || 0) * Number(p.piezas_prod || 0)), 0);
+  const pedidosConCosto  = pedidos.filter(p => p.status === "terminado" && p.costo_pieza != null);
+  const valorProducido   = pedidosConCosto.reduce((s, p) => s + (Number(p.costo_pieza) * Number(p.piezas_prod || 0)), 0);
+  const perdidaMerma     = pedidosConCosto.reduce((s, p) => s + (Number(p.costo_pieza) * Number(p.merma || 0)), 0);
+  const valorProducidoMes= pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual) && p.costo_pieza != null)
+    .reduce((s, p) => s + (Number(p.costo_pieza) * Number(p.piezas_prod || 0)), 0);
+  const perdidaMermaMes  = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual) && p.costo_pieza != null)
+    .reduce((s, p) => s + (Number(p.costo_pieza) * Number(p.merma || 0)), 0);
   const pedMes = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual));
   const tintaMes = pedMes.reduce((s, p) => s + Number(p.tinta_kg || 0), 0);
   const alcoholMes = pedMes.reduce((s, p) => s + Number(p.alcohol_litros || 0), 0);
@@ -396,29 +396,33 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
         </div>
       )}
 
-      {/* ── Sección Costos e Ingresos ── */}
+      {/* ── Sección Producción en $ ── */}
       {pedidosConCosto.length > 0 && (
         <>
-          <h3 className="sub-title">💰 Costos e Ingresos</h3>
-          <div className="stat-grid" style={{ marginBottom: 12 }}>
+          <h3 className="sub-title">💰 Tu máquina en números</h3>
+          <div className="stat-grid" style={{ marginBottom: 8 }}>
             <div className="stat-card green">
-              <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(ingresoTotal))}</div>
-              <div className="stat-lbl">Ingreso generado (total)</div>
+              <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(valorProducidoMes))}</div>
+              <div className="stat-lbl">Valor producido este mes</div>
             </div>
-            {ingresoMes > 0 && (
-              <div className="stat-card green">
-                <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(ingresoMes))}</div>
-                <div className="stat-lbl">Ingreso este mes</div>
-              </div>
-            )}
             <div className="stat-card red">
-              <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(costoMermaTotal))}</div>
-              <div className="stat-lbl">Pérdida por merma (total)</div>
+              <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(perdidaMermaMes))}</div>
+              <div className="stat-lbl">Perdido en merma este mes</div>
             </div>
-            {ingresoTotal > 0 && costoMermaTotal > 0 && (
-              <div className="stat-card orange">
-                <div className="stat-val" style={{ fontSize: 18 }}>{((costoMermaTotal / ingresoTotal) * 100).toFixed(1)}%</div>
-                <div className="stat-lbl">Merma vs ingreso</div>
+          </div>
+          <div className="stat-grid" style={{ marginBottom: 12 }}>
+            <div className="stat-card blue">
+              <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(valorProducido))}</div>
+              <div className="stat-lbl">Valor producido total</div>
+            </div>
+            <div className="stat-card orange">
+              <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(perdidaMerma))}</div>
+              <div className="stat-lbl">Perdido en merma total</div>
+            </div>
+            {valorProducido > 0 && perdidaMerma > 0 && (
+              <div className="stat-card accent">
+                <div className="stat-val" style={{ fontSize: 18 }}>{((perdidaMerma / valorProducido) * 100).toFixed(1)}%</div>
+                <div className="stat-lbl">Merma vs producción</div>
               </div>
             )}
           </div>
@@ -530,7 +534,7 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #22263a' }}>
-                    {['Cliente','Pedidos','Ingreso','Costo MP','Margen','Pérd. merma'].map(h => (
+                    {['Cliente','Pedidos','Valor producido','Pérd. merma'].map(h => (
                       <th key={h} style={{ padding: '6px 10px', color: '#545a78', fontWeight: 600, textAlign: h === 'Cliente' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -538,11 +542,9 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
                 <tbody>
                   {rentabilidadClientes.map((r, i) => (
                     <tr key={r.nombre} style={{ borderBottom: '1px solid #13161e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
-                      <td style={{ padding: '8px 10px', color: '#e0e0e0', fontWeight: 600, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.nombre}</td>
+                      <td style={{ padding: '8px 10px', color: '#e0e0e0', fontWeight: 600, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.nombre}</td>
                       <td style={{ padding: '8px 10px', color: '#545a78', textAlign: 'right' }}>{r.pedidos}</td>
-                      <td style={{ padding: '8px 10px', color: '#4be87a', textAlign: 'right', fontWeight: 700 }}>${fmt(Math.round(r.ingreso))}</td>
-                      <td style={{ padding: '8px 10px', color: '#9aa0bc', textAlign: 'right' }}>${fmt(Math.round(r.costo))}</td>
-                      <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, color: r.margen >= 20 ? '#4be87a' : r.margen >= 10 ? '#e8b84b' : '#ff4d4d' }}>{r.margen.toFixed(1)}%</td>
+                      <td style={{ padding: '8px 10px', color: '#4b8fe8', textAlign: 'right', fontWeight: 700 }}>${fmt(Math.round(r.valor))}</td>
                       <td style={{ padding: '8px 10px', color: '#ff4d4d', textAlign: 'right' }}>${fmt(Math.round(r.merma))}</td>
                     </tr>
                   ))}

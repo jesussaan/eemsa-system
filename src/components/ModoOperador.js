@@ -1,14 +1,24 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import CalculadoraProduccion from './CalculadoraProduccion';
 import ClicheImg from './ClicheImg';
 import { supabase } from '../lib/supabase';
 import { today, alertaEntrega } from '../lib/utils';
+import { calcularCosto } from '../lib/costos';
 import { sendPush } from '../lib/push';
 import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV, UMBRAL_MERMA } from '../lib/constants';
 import { sendWhatsApp } from '../utils/whatsapp';
 
 export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, onSalir }) {
+  const [costosDB, setCostosDB] = useState(null);
+  useEffect(() => {
+    supabase.from('costos').select('*').then(({ data }) => {
+      if (!data?.length) return;
+      const obj = {};
+      data.forEach(r => { obj[r.key] = Number(r.valor); });
+      setCostosDB(obj);
+    });
+  }, []);
   const pedidosEnProceso = pedidos.filter(p => p.status === "proceso");
   const pedidosAnotados = pedidos
     .filter(p => p.status === "anotado")
@@ -76,10 +86,25 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     if (fin.rollos_usados != null && fin.rollos_usados !== "") update.rollos_usados = Number(fin.rollos_usados);
     if (fin.tinta_kg != null && fin.tinta_kg !== "") update.tinta_kg = Number(fin.tinta_kg);
     if (fin.alcohol_litros != null && fin.alcohol_litros !== "") update.alcohol_litros = Number(fin.alcohol_litros);
-    if (fin.stickyback   != null) update.stickyback   = Number(fin.stickyback);
-    if (fin.costoPieza  != null) update.costo_pieza  = Number(fin.costoPieza.toFixed(6));
-    if (fin.precioPieza != null) update.precio_pieza = Number(fin.precioPieza.toFixed(6));
-    if (fin.margenPct   != null) update.margen_pct   = Number(fin.margenPct);
+    if (fin.stickyback != null) update.stickyback = Number(fin.stickyback);
+
+    // Calcular costo automáticamente sin mostrar a William
+    const tintaKgNum   = fin.tinta_kg     ? Number(fin.tinta_kg)     : 0;
+    const solventeKgNum= fin.alcohol_litros ? Number(fin.alcohol_litros) : 0;
+    const rollosNum    = fin.rollos_usados ? Number(fin.rollos_usados) : 0;
+    const diasProd     = pedidoSel.inicio_ts
+      ? Math.max(0.5, Math.ceil((Date.now() - new Date(pedidoSel.inicio_ts).getTime()) / 86400000))
+      : 1;
+    if (piezas != null && piezas > 0) {
+      const costoCalc = calcularCosto({
+        rollosMP: rollosNum, tintaKg: tintaKgNum, solventeKg: solventeKgNum,
+        cajas: Number(pedidoSel.cajas || 0), piezasBuenas: piezas,
+        sticky: fin.stickyback || 0, diasProd,
+        colorKey: pedidoSel.color || pedidoSel.tinta_tipo || '',
+        tipoCentro: '2', costosDB,
+      });
+      update.costo_pieza = Number(costoCalc.porPieza.toFixed(6));
+    }
 
     if (fotoProducto) {
       const ext = fotoProducto.name.split('.').pop();
