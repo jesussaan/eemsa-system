@@ -409,7 +409,7 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
       </div>
 
       {/* ── Comparativo mes a mes ── */}
-      {(cajasPrev > 0 || mermaPctPrev || valorPrev > 0) && (() => {
+      {(cajasMes > 0 || valorMes > 0) && (cajasPrev > 0 || valorPrev > 0) && (() => {
         const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
         const lblMes  = MESES[parseInt(mesActual.split('-')[1]) - 1];
         const lblPrev = MESES[parseInt(mesPrev.split('-')[1]) - 1];
