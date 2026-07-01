@@ -397,37 +397,33 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
       )}
 
       {/* ── Sección Producción en $ ── */}
-      {pedidosConCosto.length > 0 && (
-        <>
-          <h3 className="sub-title">💰 Tu máquina en números</h3>
-          <div className="stat-grid" style={{ marginBottom: 8 }}>
-            <div className="stat-card green">
-              <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(valorProducidoMes))}</div>
-              <div className="stat-lbl">Valor producido este mes</div>
-            </div>
-            <div className="stat-card red">
-              <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(perdidaMermaMes))}</div>
-              <div className="stat-lbl">Perdido en merma este mes</div>
-            </div>
+      <h3 className="sub-title">💰 Tu máquina en números</h3>
+      <div className="stat-grid" style={{ marginBottom: 8 }}>
+        <div className="stat-card green">
+          <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(valorProducidoMes))}</div>
+          <div className="stat-lbl">Valor producido este mes</div>
+        </div>
+        <div className="stat-card red">
+          <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(perdidaMermaMes))}</div>
+          <div className="stat-lbl">Perdido en merma este mes</div>
+        </div>
+      </div>
+      <div className="stat-grid" style={{ marginBottom: 12 }}>
+        <div className="stat-card blue">
+          <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(valorProducido))}</div>
+          <div className="stat-lbl">Valor producido total</div>
+        </div>
+        <div className="stat-card orange">
+          <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(perdidaMerma))}</div>
+          <div className="stat-lbl">Perdido en merma total</div>
+        </div>
+        {valorProducido > 0 && perdidaMerma > 0 && (
+          <div className="stat-card accent">
+            <div className="stat-val" style={{ fontSize: 18 }}>{((perdidaMerma / valorProducido) * 100).toFixed(1)}%</div>
+            <div className="stat-lbl">Merma vs producción</div>
           </div>
-          <div className="stat-grid" style={{ marginBottom: 12 }}>
-            <div className="stat-card blue">
-              <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(valorProducido))}</div>
-              <div className="stat-lbl">Valor producido total</div>
-            </div>
-            <div className="stat-card orange">
-              <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(perdidaMerma))}</div>
-              <div className="stat-lbl">Perdido en merma total</div>
-            </div>
-            {valorProducido > 0 && perdidaMerma > 0 && (
-              <div className="stat-card accent">
-                <div className="stat-val" style={{ fontSize: 18 }}>{((perdidaMerma / valorProducido) * 100).toFixed(1)}%</div>
-                <div className="stat-lbl">Merma vs producción</div>
-              </div>
-            )}
-          </div>
-        </>
-      )}
+        )}
+      </div>
 
       {/* ── Sección Pedidos ── */}
       <h3 className="sub-title">📋 Pedidos</h3>
