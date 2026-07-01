@@ -577,11 +577,11 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
       )}
 
       {/* ── Tinta por color ── */}
-      {tintaPorColor.length > 0 && (
-        <>
-          <h3 className="sub-title">🎨 Tinta por color</h3>
-          <div style={chartCard}>
-            <div style={{ overflowX: 'auto' }}>
+      <h3 className="sub-title">🎨 Tinta por color</h3>
+      <div style={chartCard}>
+        {tintaPorColor.length === 0
+          ? <div style={{ textAlign: 'center', color: '#3a3f5a', fontSize: 13, padding: '12px 0' }}>Sin datos aún — se llena al finalizar pedidos</div>
+          : <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #22263a' }}>
@@ -602,16 +602,15 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
                 </tbody>
               </table>
             </div>
-          </div>
-        </>
-      )}
+        }
+      </div>
 
       {/* ── Por tipo de cinta ── */}
-      {tipoCintaStats.length > 0 && (
-        <>
-          <h3 className="sub-title">🧷 Por tipo de cinta</h3>
-          <div style={chartCard}>
-            <div style={{ overflowX: 'auto' }}>
+      <h3 className="sub-title">🧷 Por tipo de cinta</h3>
+      <div style={chartCard}>
+        {tipoCintaStats.length === 0
+          ? <div style={{ textAlign: 'center', color: '#3a3f5a', fontSize: 13, padding: '12px 0' }}>Sin datos aún — se llena al finalizar pedidos</div>
+          : <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #22263a' }}>
@@ -632,9 +631,8 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
                 </tbody>
               </table>
             </div>
-          </div>
-        </>
-      )}
+        }
+      </div>
 
       <h3 className="sub-title">🔧 Refacciones</h3>
       <div className="stat-grid">
