@@ -76,11 +76,11 @@ export default function ModoTV({ pedidos, fallas, prodDiaria = [], onSalir }) {
       `}</style>
 
       {/* ── HEADER ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 32px', background: '#0b0d15', borderBottom: '1px solid #13161e', flexShrink: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 32px', background: '#0b0d15', borderBottom: '2px solid var(--violet)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <img src="/logo192.png" alt="EEMSA" style={{ height: 40 }} />
           <div>
-            <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: 3, color: '#e8b84b' }}>EEMSA SYSTEM</div>
+            <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: 3, color: 'var(--accent)' }}>EEMSA SYSTEM</div>
             <div style={{ fontSize: 11, color: '#3a3f5a', letterSpacing: 2 }}>PRODUCCIÓN EN VIVO</div>
           </div>
         </div>

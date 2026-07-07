@@ -16,16 +16,7 @@ import Cotizador from "./components/Cotizador";
 import CalendarioEntregas from "./components/CalendarioEntregas";
 import PortalCliente from "./components/PortalCliente";
 import NotifBell from "./components/NotifBell";
-
-const S = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
-const IcoDash = () => (<svg viewBox="0 0 24 24" {...S}><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>);
-const IcoPed  = () => (<svg viewBox="0 0 24 24" {...S}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>);
-const IcoProd = () => (<svg viewBox="0 0 24 24" {...S}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>);
-const IcoRef  = () => (<svg viewBox="0 0 24 24" {...S}><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>);
-const IcoFal  = () => (<svg viewBox="0 0 24 24" {...S}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>);
-const IcoCli  = () => (<svg viewBox="0 0 24 24" {...S}><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>);
-const IcoIA   = () => (<svg viewBox="0 0 24 24" {...S}><rect x="7" y="7" width="10" height="10" rx="1"/><line x1="7" y1="4" x2="7" y2="7"/><line x1="12" y1="4" x2="12" y2="7"/><line x1="17" y1="4" x2="17" y2="7"/><line x1="7" y1="17" x2="7" y2="20"/><line x1="12" y1="17" x2="12" y2="20"/><line x1="17" y1="17" x2="17" y2="20"/><line x1="4" y1="7" x2="7" y2="7"/><line x1="4" y1="12" x2="7" y2="12"/><line x1="4" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="20" y2="7"/><line x1="17" y1="12" x2="20" y2="12"/><line x1="17" y1="17" x2="20" y2="17"/></svg>);
-const IcoCal  = () => (<svg viewBox="0 0 24 24" {...S}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="8" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="15" r="1" fill="currentColor" stroke="none"/></svg>);
+import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoLock, IcoOperador, IcoVentas, IcoEmilio, IcoTV, IcoCotizador, IcoSpinner } from "./components/Icons";
 
 const TABS = [
   { id: "dash", Icon: IcoDash, lbl: "Dashboard" },
@@ -54,6 +45,7 @@ function EemsaApp() {
   const [refs, setRefs] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [prodDiaria, setProdDiaria] = useState([]);
+  const [listaMateriales, setListaMateriales] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [modo, setModo] = useState(null); // null | "operador" | "supervisor"
   const [pinInput, setPinInput] = useState("");
@@ -63,11 +55,12 @@ function EemsaApp() {
 
   const cargarTablas = async (tablas) => {
     const mapa = {
-      pedidos:     (d) => setPedidos(d),
-      fallas:      (d) => setFallas(d),
-      refacciones: (d) => setRefs(d),
-      proveedores: (d) => setProveedores(d),
-      prod_diaria: (d) => setProdDiaria(d),
+      pedidos:          (d) => setPedidos(d),
+      fallas:           (d) => setFallas(d),
+      refacciones:      (d) => setRefs(d),
+      proveedores:      (d) => setProveedores(d),
+      prod_diaria:      (d) => setProdDiaria(d),
+      lista_materiales: (d) => setListaMateriales(d),
     };
     await Promise.all(tablas.map(async t => {
       const { data } = await supabase.from(t).select("*");
@@ -77,7 +70,7 @@ function EemsaApp() {
 
   useEffect(() => {
     const cargar = async () => {
-      await cargarTablas(["pedidos", "fallas", "refacciones", "proveedores", "prod_diaria"]);
+      await cargarTablas(["pedidos", "fallas", "refacciones", "proveedores", "prod_diaria", "lista_materiales"]);
       setCargando(false);
     };
     cargar();
@@ -86,11 +79,12 @@ function EemsaApp() {
   // Realtime: actualiza el estado local cuando otro usuario cambia datos en Supabase
   useEffect(() => {
     const setters = {
-      pedidos:     { set: setPedidos },
-      fallas:      { set: setFallas },
-      refacciones: { set: setRefs },
-      proveedores: { set: setProveedores },
-      prod_diaria: { set: setProdDiaria },
+      pedidos:          { set: setPedidos },
+      fallas:           { set: setFallas },
+      refacciones:      { set: setRefs },
+      proveedores:      { set: setProveedores },
+      prod_diaria:      { set: setProdDiaria },
+      lista_materiales: { set: setListaMateriales },
     };
     const canales = Object.entries(setters).map(([tabla, { set }]) =>
       supabase.channel(`rt_${tabla}`)
@@ -123,7 +117,7 @@ function EemsaApp() {
 
   if (cargando) return (
     <div className="loading-screen">
-      <div className="loading-icon">⚙️</div>
+      <div className="loading-icon"><IcoSpinner /></div>
       <div className="loading-text">CARGANDO EEMSA SYSTEM…</div>
     </div>
   );
@@ -134,29 +128,34 @@ function EemsaApp() {
       <div className="mode-tagline">Control SIAT L36 · Calidad · Innovación</div>
       <div className="mode-buttons">
         <button className="mode-btn mode-btn-op" onClick={() => setModo("operador")}>
-          <span>👷</span> Modo Operador
+          <span style={{ display: "inline-flex", fontSize: 20 }}><IcoOperador /></span> Modo Operador
         </button>
         <button className="mode-btn mode-btn-ven" onClick={() => setModo("ventas")}>
-          <span>🛒</span> Módulo Ventas
+          <span style={{ display: "inline-flex", fontSize: 20 }}><IcoVentas /></span> Módulo Ventas
         </button>
         <button className="mode-btn mode-btn-emi" onClick={() => setModo("emilio")}>
-          <span>🔔</span> Modo Emilio
+          <span style={{ display: "inline-flex", fontSize: 20 }}><IcoEmilio /></span> Modo Emilio
         </button>
         <button className="mode-btn mode-btn-sup" onClick={() => abrirPin("supervisor")}>
-          <span>🔒</span> Modo Supervisor
+          <span style={{ display: "inline-flex", fontSize: 20 }}><IcoDash /></span> Modo Supervisor
+          <span className="mode-btn-lock" style={{ display: "inline-flex" }}><IcoLock /></span>
         </button>
         <button className="mode-btn mode-btn-tv" onClick={() => setModo("tv")}>
-          <span>📺</span> Modo TV
+          <span style={{ display: "inline-flex", fontSize: 20 }}><IcoTV /></span> Modo TV
         </button>
         <button className="mode-btn mode-btn-cot" onClick={() => abrirPin("cotizador")}>
-          <span>💰</span> Cotizador
+          <span style={{ display: "inline-flex", fontSize: 20 }}><IcoCotizador /></span> Cotizador
+          <span className="mode-btn-lock" style={{ display: "inline-flex" }}><IcoLock /></span>
         </button>
       </div>
 
       {showPinModal && (
         <div className="pin-overlay">
           <div className="pin-dialog">
-            <div className="pin-title">{pinTarget === "cotizador" ? "💰 PIN Cotizador" : "🔒 PIN Supervisor"}</div>
+            <div className="pin-title" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <span style={{ display: "inline-flex", fontSize: 18 }}>{pinTarget === "cotizador" ? <IcoCotizador /> : <IcoLock />}</span>
+              {pinTarget === "cotizador" ? "PIN Cotizador" : "PIN Supervisor"}
+            </div>
             <div className="pin-dots">
               {[0,1,2,3].map(i => (
                 <div key={i} className={`pin-dot${pinInput.length > i ? " filled" : ""}`} />
@@ -198,6 +197,7 @@ function EemsaApp() {
   if (modo === "emilio") return (
     <ModoEmilio
       pedidos={pedidos} setPedidos={setPedidos}
+      listaMateriales={listaMateriales} setListaMateriales={setListaMateriales}
       onSalir={() => setModo(null)}
     />
   );

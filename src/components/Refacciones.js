@@ -10,8 +10,8 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
   const [subTab, setSubTab] = useState("compras");
   const [form, setForm] = useState({ nombre: "", costo: "", maq: "SIAT L36 #1", proveedor: "", fecha: today(), notas: "", stock: "1", stock_min: "1" });
   const [formProv, setFormProv] = useState({ nombre: "", telefono: "", direccion: "", monto: "", fecha: today(), que_compro: "", categoria: "" });
-  const CATEGORIAS = ["Neumática", "Eléctrica", "Electrónica", "Mecánica"];
-  const CATEGORIA_COLOR = { "Neumática": "#4b8fe8", "Eléctrica": "#e8b84b", "Electrónica": "#9b59b6", "Mecánica": "#27ae60" };
+  const CATEGORIAS = ["Neumática", "Eléctrica", "Electrónica", "Mecánica", "Torno", "Servicio", "Componentes"];
+  const CATEGORIA_COLOR = { "Neumática": "#4b8fe8", "Eléctrica": "#e8b84b", "Electrónica": "#9b59b6", "Mecánica": "#27ae60", "Torno": "#f39c12", "Servicio": "#4be8d8", "Componentes": "#c0392b" };
   const [imagen, setImagen] = useState(null);
   const [preview, setPreview] = useState(null);
   const [toast, setToast] = useState("");
@@ -350,11 +350,20 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
     showToast("✓ Compra actualizada");
   };
 
-  const totalCompras = proveedores.reduce((s, p) => s + Number(p.monto || 0), 0);
+  const hoy = new Date();
+  const [mesSel, setMesSel] = useState(() => hoy.toISOString().slice(0, 7));
+  const cambiarMes = (d) => {
+    const [y, m] = mesSel.split("-").map(Number);
+    const nd = new Date(y, m - 1 + d, 1);
+    setMesSel(`${nd.getFullYear()}-${String(nd.getMonth() + 1).padStart(2, "0")}`);
+  };
+  const nomMes = new Date(mesSel + "-15").toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+  const comprasMes = proveedores.filter(p => (p.fecha || "").startsWith(mesSel));
+  const totalCompras = comprasMes.reduce((s, p) => s + Number(p.monto || 0), 0);
   const totalRefs = refs.reduce((s, r) => s + (Number(r.costo || 0) * Number(r.stock || 1)), 0);
   const stockBajo = refs.filter(r => { const min = r.stock_min ?? 1; return min > 0 && Number(r.stock || 0) <= min; }).length;
   const refsFiltradas = refs.filter(r => !busquedaInv || [r.nombre, r.maq, r.proveedor].some(v => String(v || "").toLowerCase().includes(busquedaInv.toLowerCase())));
-  const comprasFiltradas = proveedores.filter(p => !busquedaCompras || [p.nombre, p.que_compro].some(v => String(v || "").toLowerCase().includes(busquedaCompras.toLowerCase())));
+  const comprasFiltradas = comprasMes.filter(p => !busquedaCompras || [p.nombre, p.que_compro].some(v => String(v || "").toLowerCase().includes(busquedaCompras.toLowerCase())));
   const listaProveedores = Object.values(proveedores.reduce((acc, p) => {
     const key = (p.nombre || "").trim().toLowerCase();
     if (!acc[key]) acc[key] = { nombre: p.nombre, telefono: "", direccion: "", categoria: "", compras: [] };
@@ -372,7 +381,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
         <div className="stat-card accent"><div className="stat-val">{refs.length}</div><div className="stat-lbl">En inventario</div></div>
         <div className="stat-card red"><div className="stat-val">${fmt(totalRefs)}</div><div className="stat-lbl">Valor inventario</div></div>
         <div className={`stat-card ${stockBajo > 0 ? "red" : "green"}`}><div className="stat-val">{stockBajo}</div><div className="stat-lbl">Stock bajo ⚠</div></div>
-        <div className="stat-card blue"><div className="stat-val">${fmt(totalCompras)}</div><div className="stat-lbl">Gasto total</div></div>
+        <div className="stat-card blue"><div className="stat-val">${fmt(totalCompras)}</div><div className="stat-lbl" style={{ textTransform: "capitalize" }}>{nomMes}</div></div>
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 16, marginTop: 12 }}>
         <button className={`btn ${subTab === "compras" ? "btn-primary" : "btn-ghost"}`} onClick={() => setSubTab("compras")}>🛒 Compras</button>
@@ -405,6 +414,12 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
           </div>
           <button className="btn btn-primary btn-block" onClick={saveCompra} disabled={loading}>{loading ? "Guardando…" : "+ Registrar compra"}</button>
           <h3 className="sub-title" style={{ marginTop: 20 }}>Historial de compras</h3>
+          {/* Navegador de mes */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1a1d26", borderRadius: 10, padding: "8px 12px", marginBottom: 10 }}>
+            <button onClick={() => cambiarMes(-1)} style={{ background: "transparent", border: "none", color: "#c9922a", fontSize: 20, cursor: "pointer", padding: "0 6px" }}>‹</button>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#e0e0e0", textTransform: "capitalize" }}>{nomMes} · <span style={{ color: "#c9922a" }}>${fmt(totalCompras)}</span></span>
+            <button onClick={() => cambiarMes(1)} disabled={mesSel >= hoy.toISOString().slice(0, 7)} style={{ background: "transparent", border: "none", color: mesSel >= hoy.toISOString().slice(0, 7) ? "#333" : "#c9922a", fontSize: 20, cursor: mesSel >= hoy.toISOString().slice(0, 7) ? "default" : "pointer", padding: "0 6px" }}>›</button>
+          </div>
           <input value={busquedaCompras} onChange={e => setBusquedaCompras(e.target.value)} placeholder="🔍 Buscar proveedor, qué se compró…" style={{ width: "100%", marginBottom: 8, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "8px 12px", color: "#e0e0e0", fontSize: 13 }} />
           {proveedores.length === 0 ? <p className="empty">Sin compras registradas.</p> : (
             <div className="list">

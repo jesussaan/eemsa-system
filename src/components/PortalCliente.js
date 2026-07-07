@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { fechaLegible } from "../lib/utils";
+import { IcoLock, IcoPed } from "./Icons";
 
 const STATUS_BADGE = {
-  anotado:   { lbl: "Anotado",    color: "#e8b84b" },
-  proceso:   { lbl: "En proceso", color: "#4b8fe8" },
-  pendiente: { lbl: "En proceso", color: "#4b8fe8" },
-  terminado: { lbl: "Entregado",  color: "#4be87a" },
+  anotado:   { lbl: "Anotado",    cls: "b-accent" },
+  proceso:   { lbl: "En proceso", cls: "b-blue" },
+  pendiente: { lbl: "En proceso", cls: "b-blue" },
+  terminado: { lbl: "Entregado",  cls: "b-green" },
 };
 
 const PASOS = ["Anotado", "Producción", "Listo"];
-const PASOS_COLOR = ["#e8894b", "#4b8fe8", "#4be87a"];
+const PASOS_COLOR = ["var(--orange)", "var(--blue)", "var(--green)"];
 
 const pasoDe = (status) => {
   if (status === "terminado") return 3;
@@ -21,15 +22,15 @@ const pasoDe = (status) => {
 const ProgresoPedido = ({ status }) => {
   const paso = pasoDe(status);
   return (
-    <div style={{ marginTop: 10 }}>
+    <div style={{ marginTop: 12 }}>
       <div style={{ display: "flex", gap: 4 }}>
         {PASOS.map((_, i) => (
-          <div key={i} style={{ flex: 1, height: 5, borderRadius: 3, background: i < paso ? PASOS_COLOR[i] : "#2a2d3a" }} />
+          <div key={i} style={{ flex: 1, height: 5, borderRadius: 3, background: i < paso ? PASOS_COLOR[i] : "var(--border-light)" }} />
         ))}
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
         {PASOS.map((p, i) => (
-          <span key={p} style={{ fontSize: 10, color: i < paso ? PASOS_COLOR[i] : "#555", fontWeight: i < paso ? 700 : 400 }}>{p}</span>
+          <span key={p} style={{ fontSize: 10, color: i < paso ? PASOS_COLOR[i] : "var(--muted)", fontWeight: i < paso ? 700 : 400 }}>{p}</span>
         ))}
       </div>
     </div>
@@ -37,28 +38,28 @@ const ProgresoPedido = ({ status }) => {
 };
 
 const PedidoCard = ({ p }) => {
-  const badge = STATUS_BADGE[p.status] || { lbl: p.status, color: "#888" };
+  const badge = STATUS_BADGE[p.status] || { lbl: p.status, cls: "b-accent" };
   return (
-    <div style={{ background: "#1a1d26", borderRadius: 12, padding: 14, marginBottom: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Pedido #{p.num}</span>
-        <span style={{ background: badge.color + "22", color: badge.color, borderRadius: 6, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>{badge.lbl}</span>
+    <div className="list-item">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <strong>Pedido #{p.num}</strong>
+        <span className={`badge ${badge.cls}`}>{badge.lbl}</span>
       </div>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 12, color: "#aaa" }}>
-        {p.medida && <span>📏 {p.medida}</span>}
-        {p.cajas != null && <span>📦 {p.cajas} cajas</span>}
-        {p.piezas_prod != null && p.piezas_prod !== "" && <span>🔢 {p.piezas_prod} piezas</span>}
-        {(p.color || p.tinta_tipo) && <span>🖌 Tinta: {p.color || p.tinta_tipo}</span>}
+      <div className="muted" style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 2 }}>
+        {p.medida && <span>{p.medida}</span>}
+        {p.cajas != null && <span>{p.cajas} cajas</span>}
+        {p.piezas_prod != null && p.piezas_prod !== "" && <span>{p.piezas_prod} piezas</span>}
+        {(p.color || p.tinta_tipo) && <span>Tinta: {p.color || p.tinta_tipo}</span>}
       </div>
       {p.fecha_estimada && (
-        <div style={{ marginTop: 8, background: "#0d0f14", borderRadius: 8, padding: "8px 10px" }}>
-          <div style={{ fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 2 }}>📅 Entrega estimada</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#c9922a" }}>{fechaLegible(p.fecha_estimada)}</div>
+        <div style={{ marginTop: 8, background: "var(--surface)", borderRadius: "var(--r-sm)", padding: "8px 10px" }}>
+          <div style={{ fontSize: 10, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 2 }}>Entrega estimada</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--accent)" }}>{fechaLegible(p.fecha_estimada)}</div>
         </div>
       )}
       {p.fecha_original && p.fecha_original !== p.fecha_estimada && (
-        <div style={{ fontSize: 11, color: "#e8b84b", marginTop: 6 }}>
-          🔄 Fecha actualizada — nueva entrega estimada: {fechaLegible(p.fecha_estimada)}
+        <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 6 }}>
+          Fecha actualizada — nueva entrega estimada: {fechaLegible(p.fecha_estimada)}
         </div>
       )}
       <ProgresoPedido status={p.status} />
@@ -104,18 +105,19 @@ export default function PortalCliente({ token }) {
 
   if (estado === "cargando") {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0d0f14", color: "#888", fontSize: 13 }}>
-        Cargando…
+      <div className="loading-screen">
+        <div className="loading-icon"><IcoPed /></div>
+        <div className="loading-text">CARGANDO TUS PEDIDOS…</div>
       </div>
     );
   }
 
   if (estado === "invalido") {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0d0f14", color: "#888", textAlign: "center", padding: 24 }}>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#e0e0e0" }}>Link no válido</div>
-        <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>Verifica el enlace o solicita uno nuevo a EEMSA.</div>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg)", textAlign: "center", padding: 24 }}>
+        <div style={{ width: 44, height: 44, color: "var(--muted)", marginBottom: 14 }}><IcoLock /></div>
+        <div style={{ fontFamily: "var(--font-h)", fontSize: 18, fontWeight: 700, color: "var(--text)" }}>Link no válido</div>
+        <div className="muted" style={{ marginTop: 6 }}>Verifica el enlace o solicita uno nuevo a EEMSA.</div>
       </div>
     );
   }
@@ -131,56 +133,51 @@ export default function PortalCliente({ token }) {
   const cEntregados = pedidos.filter(p => p.status === "terminado").length;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0d0f14", paddingBottom: 32 }}>
-      <header style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "#11131a", borderBottom: "1px solid #1e2130" }}>
-        <img src="/logo192.png" alt="EEMSA" style={{ height: 38, width: "auto" }} />
-        <div>
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 16, color: "#e0e0e0", letterSpacing: ".06em" }}>EEMSA System</div>
-          <div style={{ fontSize: 10, color: "#c9922a", fontWeight: 700, letterSpacing: ".08em" }}>PORTAL DE CLIENTES</div>
+    <div style={{ minHeight: "100vh", background: "var(--bg)", paddingBottom: 32 }}>
+      <header className="header" style={{ position: "static", justifyContent: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", maxWidth: 640 }}>
+          <div className="logo">E</div>
+          <div>
+            <div className="header-title">EEMSA System</div>
+            <div className="header-sub">Portal de Clientes</div>
+          </div>
         </div>
       </header>
 
-      <main style={{ padding: "16px 16px 32px", maxWidth: 640, margin: "0 auto" }}>
-        <h2 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: "#e0e0e0", letterSpacing: ".04em", margin: "0 0 14px" }}>
-          Hola, {cliente.nombre} 👋
-        </h2>
+      <main style={{ padding: "20px 16px 32px", maxWidth: 640, margin: "0 auto" }}>
+        <h2 className="sec-title">Hola, {cliente.nombre}</h2>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 18 }}>
-          <div style={{ background: "#13161e", borderRadius: 12, padding: "12px 8px", textAlign: "center" }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#e8b84b" }}>{cAnotados}</div>
-            <div style={{ fontSize: 10, color: "#666" }}>Anotados</div>
-          </div>
-          <div style={{ background: "#13161e", borderRadius: 12, padding: "12px 8px", textAlign: "center" }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#4b8fe8" }}>{cProceso}</div>
-            <div style={{ fontSize: 10, color: "#666" }}>En proceso</div>
-          </div>
-          <div style={{ background: "#13161e", borderRadius: 12, padding: "12px 8px", textAlign: "center" }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#4be87a" }}>{cEntregados}</div>
-            <div style={{ fontSize: 10, color: "#666" }}>Entregados</div>
-          </div>
+        <div className="stat-grid">
+          <div className="stat-card accent"><div className="stat-val">{cAnotados}</div><div className="stat-lbl">Anotados</div></div>
+          <div className="stat-card blue"><div className="stat-val">{cProceso}</div><div className="stat-lbl">En proceso</div></div>
+          <div className="stat-card green"><div className="stat-val">{cEntregados}</div><div className="stat-lbl">Entregados</div></div>
         </div>
 
-        <h3 style={{ fontSize: 13, color: "#c9922a", textTransform: "uppercase", letterSpacing: ".06em", margin: "0 0 8px" }}>Pedidos activos</h3>
-        {activos.length === 0 && <div style={{ color: "#444", fontSize: 13, padding: "16px 0" }}>No tienes pedidos activos en este momento.</div>}
-        {activos.map(p => <PedidoCard key={p.num} p={p} />)}
+        <h3 className="sub-title">Pedidos activos</h3>
+        {activos.length === 0
+          ? <div className="empty">No tienes pedidos activos en este momento.</div>
+          : <div className="list" style={{ marginBottom: 8 }}>{activos.map(p => <PedidoCard key={p.num} p={p} />)}</div>
+        }
 
         {entregados.length > 0 && (
           <>
-            <h3 style={{ fontSize: 13, color: "#c9922a", textTransform: "uppercase", letterSpacing: ".06em", margin: "20px 0 8px" }}>Últimos entregados</h3>
-            {entregados.map(p => (
-              <div key={p.num} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#13161e", borderRadius: 10, padding: "10px 14px", marginBottom: 6 }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#e0e0e0" }}>Pedido #{p.num}</div>
-                  <div style={{ fontSize: 11, color: "#666" }}>{p.medida} · {p.cajas} cajas</div>
+            <h3 className="sub-title" style={{ marginTop: 24 }}>Últimos entregados</h3>
+            <div className="list">
+              {entregados.map(p => (
+                <div key={p.num} className="list-item" style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontWeight: 700 }}>Pedido #{p.num}</div>
+                    <div className="muted">{p.medida} · {p.cajas} cajas</div>
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--green)", fontWeight: 700 }}>{p.fecha_termino}</div>
                 </div>
-                <div style={{ fontSize: 11, color: "#4be87a", fontWeight: 700 }}>{p.fecha_termino}</div>
-              </div>
-            ))}
+              ))}
+            </div>
           </>
         )}
       </main>
 
-      <footer style={{ textAlign: "center", padding: "16px 16px 24px", color: "#444", fontSize: 11, borderTop: "1px solid #1e2130" }}>
+      <footer style={{ textAlign: "center", padding: "18px 16px 24px", color: "var(--muted)", fontSize: 11, borderTop: "1px solid var(--border)" }}>
         EEMSA · Contacto: (871) 103-9578<br />
         Este enlace es personal e intransferible.
       </footer>

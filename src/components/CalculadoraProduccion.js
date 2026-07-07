@@ -29,6 +29,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const [merma,      setMerma]      = useState('');
   const [portaliche, setPortaliche] = useState('30.9');
   const [diseno,     setDiseno]     = useState('normal');
+  const [clicheNA,   setClicheNA]   = useState(false);
 
   // Datos reales (flujo finalizar)
   const [piezasProd, setPiezasProd] = useState('');
@@ -61,10 +62,10 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const impresiones     = piezasTotal > 0 && clicheLargo > 0
     ? (piezasTotal * largoRealCm) / (clicheLargo * PISTAS) : 0;
   const tintaCm3 = impresiones * inkPerImpresion;
-  const tintaKg  = (tintaCm3 * INK_DENSITY * TRANSFER) / 1000;
+  const tintaKg  = clicheNA ? 0 : (tintaCm3 * INK_DENSITY * TRANSFER) / 1000;
+  const solventeKg = clicheNA ? 0 : (tintaKg * 0.5) + 0.600;
 
-  const listo      = anchoN > 0 && largoN > 0 && cajasN > 0 && rollosCajaN > 0;
-  const solventeKg = listo ? (tintaKg * 0.5) + 0.600 : 0;
+  const listo = anchoN > 0 && largoN > 0 && cajasN > 0 && rollosCajaN > 0;
 
   const mermaPct = piezasProd && mermaReal && Number(piezasProd) > 0
     ? ((Number(mermaReal) / Number(piezasProd)) * 100).toFixed(2) : null;
@@ -86,14 +87,36 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
         {!inline && onClose && <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#545a78', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>✕</button>}
       </div>
 
-      {/* Formulario unificado */}
+      {/* Formulario */}
       <div className="form-grid">
         <div className="field"><label>Ancho (")</label><input type="number" step="0.5" min="0.5" value={ancho} onChange={e => setAncho(e.target.value)} placeholder="2" /></div>
         <div className="field"><label>Largo (m)</label><input type="number" value={largo} onChange={e => setLargo(e.target.value)} placeholder="100" /></div>
         <div className="field"><label>Cajas</label><input type="number" value={cajas} onChange={e => setCajas(e.target.value)} placeholder="50" /></div>
         <div className="field"><label>Rollos / caja</label><input type="number" value={rollosCaja} onChange={e => setRollosCaja(e.target.value)} placeholder="36" /></div>
-        <div className="field"><label>Portacliché</label><select value={portaliche} onChange={e => setPortaliche(e.target.value)}>{PORTALICHES.map(p => <option key={p.largo} value={p.largo}>{p.label}</option>)}</select></div>
-        <div className="field"><label>Diseño</label><select value={diseno} onChange={e => setDiseno(e.target.value)}>{DISENOS.map(d => <option key={d.key} value={d.key}>{d.label} ({Math.round(d.cob * 100)}%)</option>)}</select></div>
+
+        {/* Portacliché con botón N/A */}
+        <div className="field">
+          <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            Portacliché
+            <button type="button" onClick={() => setClicheNA(v => !v)}
+              style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6, border: `1px solid ${clicheNA ? '#ff9900' : '#2a2d3a'}`, background: clicheNA ? '#ff990022' : 'transparent', color: clicheNA ? '#ff9900' : '#555', cursor: 'pointer' }}>
+              N/A
+            </button>
+          </label>
+          <select value={portaliche} onChange={e => setPortaliche(e.target.value)} disabled={clicheNA} style={{ opacity: clicheNA ? 0.35 : 1 }}>
+            {PORTALICHES.map(p => <option key={p.largo} value={p.largo}>{p.label}</option>)}
+          </select>
+        </div>
+
+        {!clicheNA && (
+          <div className="field">
+            <label>Diseño</label>
+            <select value={diseno} onChange={e => setDiseno(e.target.value)}>
+              {DISENOS.map(d => <option key={d.key} value={d.key}>{d.label} ({Math.round(d.cob * 100)}%)</option>)}
+            </select>
+          </div>
+        )}
+
         <div className="field full"><label>Merma esperada (piezas)</label><input type="number" value={merma} onChange={e => setMerma(e.target.value)} placeholder="0" /></div>
 
         {onConfirmar && (<>
@@ -122,49 +145,50 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
       {/* Resultados */}
       {listo ? (
         <div style={{ marginTop: 18 }}>
-          {/* 3 números grandes */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
             <div style={{ background: 'rgba(75,142,232,0.12)', border: '1px solid rgba(75,142,232,0.3)', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
               <div style={{ fontSize: 10, color: '#4b8fe8', fontWeight: 700, letterSpacing: '.05em', marginBottom: 4 }}>ROLLOS MP</div>
               <div style={{ fontSize: 36, fontWeight: 900, color: '#4b8fe8', lineHeight: 1 }}>{rollosExacto.toFixed(2)}</div>
               <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 3 }}>enteros: {rollosMP}</div>
             </div>
-            <div style={{ background: 'rgba(201,146,42,0.1)', border: '1px solid rgba(201,146,42,0.25)', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
-              <div style={{ fontSize: 10, color: '#c9922a', fontWeight: 700, letterSpacing: '.05em', marginBottom: 4 }}>TINTA</div>
-              <div style={{ fontSize: 28, fontWeight: 900, color: '#c9922a', lineHeight: 1 }}>{tintaKg.toFixed(2)}</div>
-              <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 3 }}>kg</div>
+            <div style={{ background: clicheNA ? 'rgba(42,45,58,0.4)' : 'rgba(201,146,42,0.1)', border: `1px solid ${clicheNA ? '#2a2d3a' : 'rgba(201,146,42,0.25)'}`, borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
+              <div style={{ fontSize: 10, color: clicheNA ? '#3a3f5a' : '#c9922a', fontWeight: 700, letterSpacing: '.05em', marginBottom: 4 }}>TINTA</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: clicheNA ? '#3a3f5a' : '#c9922a', lineHeight: 1 }}>{clicheNA ? '0' : tintaKg.toFixed(2)}</div>
+              <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 3 }}>kg{clicheNA ? ' · N/A' : ''}</div>
             </div>
-            <div style={{ background: 'rgba(75,143,232,0.07)', border: '1px solid rgba(75,143,232,0.18)', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
-              <div style={{ fontSize: 10, color: '#4b8fe8', fontWeight: 700, letterSpacing: '.05em', marginBottom: 4 }}>SOLVENTE</div>
-              <div style={{ fontSize: 28, fontWeight: 900, color: '#4b8fe8', lineHeight: 1 }}>{solventeKg.toFixed(2)}</div>
-              <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 3 }}>kg</div>
+            <div style={{ background: clicheNA ? 'rgba(42,45,58,0.4)' : 'rgba(75,143,232,0.07)', border: `1px solid ${clicheNA ? '#2a2d3a' : 'rgba(75,143,232,0.18)'}`, borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
+              <div style={{ fontSize: 10, color: clicheNA ? '#3a3f5a' : '#4b8fe8', fontWeight: 700, letterSpacing: '.05em', marginBottom: 4 }}>SOLVENTE</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: clicheNA ? '#3a3f5a' : '#4b8fe8', lineHeight: 1 }}>{clicheNA ? '0' : solventeKg.toFixed(2)}</div>
+              <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 3 }}>kg{clicheNA ? ' · N/A' : ''}</div>
             </div>
           </div>
 
-          {/* Toggle desglose fórmulas */}
-          <button type="button" onClick={() => setVerDesglose(v => !v)}
-            style={{ width: '100%', background: 'transparent', border: '1px solid #1e2132', borderRadius: 8, color: '#545a78', fontSize: 12, padding: '7px 0', cursor: 'pointer', marginBottom: verDesglose ? 8 : 12 }}>
-            {verDesglose ? '▲ Ocultar desglose' : '▼ Ver desglose de fórmulas'}
-          </button>
+          {!clicheNA && (
+            <>
+              <button type="button" onClick={() => setVerDesglose(v => !v)}
+                style={{ width: '100%', background: 'transparent', border: '1px solid #1e2132', borderRadius: 8, color: '#545a78', fontSize: 12, padding: '7px 0', cursor: 'pointer', marginBottom: verDesglose ? 8 : 12 }}>
+                {verDesglose ? '▲ Ocultar desglose' : '▼ Ver desglose de fórmulas'}
+              </button>
 
-          {verDesglose && (
-            <div style={{ background: '#0e1018', borderRadius: 12, padding: '14px 16px', border: '1px solid #1e2132', marginBottom: 12 }}>
-              <div style={{ fontSize: 12, color: '#545a78', lineHeight: 2.1, marginBottom: 10 }}>
-                <span style={{ color: '#3a3f5a' }}>Largo real: </span><span style={{ color: '#9aa0bc' }}>{largoN}m − 4m = <strong style={{ color: '#c9c9c9' }}>{largoReal}m</strong></span><br />
-                <span style={{ color: '#3a3f5a' }}>Pistas: </span><span style={{ color: '#9aa0bc' }}>{MP_ANCHO}" ÷ {anchoN}" = <strong style={{ color: '#c9c9c9' }}>{pistas}</strong></span><br />
-                <span style={{ color: '#3a3f5a' }}>Rollos/pista: </span><span style={{ color: '#9aa0bc' }}>{MP_LARGO}m ÷ {largoReal}m = <strong style={{ color: '#c9c9c9' }}>{rollosPista}</strong></span><br />
-                <span style={{ color: '#3a3f5a' }}>Rend./rollo MP: </span><span style={{ color: '#9aa0bc' }}>{pistas} × {rollosPista} = <strong style={{ color: '#c9c9c9' }}>{rendimiento} pzas</strong></span>
-              </div>
-              <div style={{ borderTop: '1px solid #1e2132', paddingTop: 8, fontSize: 12 }}>
-                {[[`Piezas buenas`, piezasBuenas.toLocaleString(), '#e0e0e0'], mermaN > 0 ? [`+ Merma esperada`, `+${mermaN}`, '#ff9900'] : null, [`Total a producir`, `${piezasTotal.toLocaleString()} pzas`, '#e8b84b']].filter(Boolean).map(([l, v, c]) => (
-                  <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #13161e' }}>
-                    <span style={{ color: '#545a78' }}>{l}</span><span style={{ color: c, fontWeight: 700 }}>{v}</span>
+              {verDesglose && (
+                <div style={{ background: '#0e1018', borderRadius: 12, padding: '14px 16px', border: '1px solid #1e2132', marginBottom: 12 }}>
+                  <div style={{ fontSize: 12, color: '#545a78', lineHeight: 2.1, marginBottom: 10 }}>
+                    <span style={{ color: '#3a3f5a' }}>Largo real: </span><span style={{ color: '#9aa0bc' }}>{largoN}m − 4m = <strong style={{ color: '#c9c9c9' }}>{largoReal}m</strong></span><br />
+                    <span style={{ color: '#3a3f5a' }}>Pistas: </span><span style={{ color: '#9aa0bc' }}>{MP_ANCHO}" ÷ {anchoN}" = <strong style={{ color: '#c9c9c9' }}>{pistas}</strong></span><br />
+                    <span style={{ color: '#3a3f5a' }}>Rollos/pista: </span><span style={{ color: '#9aa0bc' }}>{MP_LARGO}m ÷ {largoReal}m = <strong style={{ color: '#c9c9c9' }}>{rollosPista}</strong></span><br />
+                    <span style={{ color: '#3a3f5a' }}>Rend./rollo MP: </span><span style={{ color: '#9aa0bc' }}>{pistas} × {rollosPista} = <strong style={{ color: '#c9c9c9' }}>{rendimiento} pzas</strong></span>
                   </div>
-                ))}
-              </div>
-            </div>
+                  <div style={{ borderTop: '1px solid #1e2132', paddingTop: 8, fontSize: 12 }}>
+                    {[[`Piezas buenas`, piezasBuenas.toLocaleString(), '#e0e0e0'], mermaN > 0 ? [`+ Merma esperada`, `+${mermaN}`, '#ff9900'] : null, [`Total a producir`, `${piezasTotal.toLocaleString()} pzas`, '#e8b84b']].filter(Boolean).map(([l, v, c]) => (
+                      <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #13161e' }}>
+                        <span style={{ color: '#545a78' }}>{l}</span><span style={{ color: c, fontWeight: 700 }}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
-
         </div>
       ) : (
         <div style={{ textAlign: 'center', color: '#3a3f5a', fontSize: 13, marginTop: 20, padding: 16 }}>

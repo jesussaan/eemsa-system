@@ -8,6 +8,7 @@ import { sendPush } from '../lib/push';
 import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV, UMBRAL_MERMA } from '../lib/constants';
 import { sendWhatsApp } from '../utils/whatsapp';
+import { IcoOperador } from './Icons';
 
 export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, onSalir }) {
   const [ahora, setAhora] = useState(new Date());
@@ -168,9 +169,9 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
     return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? "#1a1a1a" : "#fff";
   };
-  const card = { background: "#1a1d26", borderRadius: 12, padding: 16, marginBottom: 12 };
-  const miniCard = { background: "#0d0f14", borderRadius: 8, padding: "8px 12px" };
-  const miniLbl = { fontSize: 10, color: "#666", marginBottom: 2, textTransform: "uppercase", letterSpacing: ".05em" };
+  const card = { background: "var(--card)", borderRadius: "var(--r-md)", padding: 16, marginBottom: 12 };
+  const miniCard = { background: "var(--surface)", borderRadius: "var(--r-sm)", padding: "8px 12px" };
+  const miniLbl = { fontSize: 10, color: "var(--muted)", marginBottom: 2, textTransform: "uppercase", letterSpacing: ".05em" };
 
   const COLOR_MAP = {
     blanco: "#FFFFFF", blanca: "#FFFFFF",
@@ -280,11 +281,11 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
   ];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0d0f14" }}>
-      <header style={{ background: "#1a2744", padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #c9922a" }}>
+    <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+      <header style={{ background: "var(--surface)", padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid var(--blue)" }}>
         <div>
-          <div style={{ color: "#c9922a", fontWeight: 700, fontSize: 16, fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: ".05em" }}>EEMSA · Modo Operador</div>
-          <div style={{ color: "#4be87a", fontSize: 11 }}>👷 William</div>
+          <div style={{ color: "var(--blue)", fontWeight: 700, fontSize: 16, fontFamily: "var(--font-h)", letterSpacing: ".05em" }}>EEMSA · Modo Operador</div>
+          <div style={{ color: "var(--green)", fontSize: 11, display: "flex", alignItems: "center", gap: 5 }}><span style={{ display: "inline-flex" }}><IcoOperador /></span> William</div>
         </div>
         <button className="btn btn-ghost btn-sm" onClick={onSalir}>Salir</button>
       </header>

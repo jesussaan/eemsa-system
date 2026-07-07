@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { calcularCosto, TINTA_OPCIONES, COSTOS } from '../lib/costos';
 import { supabase } from '../lib/supabase';
+import { IcoCotizador } from './Icons';
 
 const MP_ANCHO    = 6;
 const MP_LARGO    = 914;
@@ -142,17 +143,17 @@ export default function Cotizador({ onSalir }) {
   const grupos = [...new Set(CAMPOS_COSTO.map(c => c.grupo))];
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0d0f14', padding: '0 0 40px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '0 0 40px' }}>
       {/* Header */}
-      <div style={{ background: '#12151f', borderBottom: '1px solid #1e2132', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 10 }}>
-        <button onClick={onSalir} style={{ background: 'transparent', border: 'none', color: '#545a78', fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}>←</button>
+      <div style={{ background: 'var(--surface)', borderBottom: '2px solid var(--orange)', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 10 }}>
+        <button onClick={onSalir} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}>←</button>
         <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 20, color: '#4be87a' }}>💰 Cotizador de Precio</div>
-          <div style={{ fontSize: 11, color: '#545a78' }}>Costo por pieza y precio de venta</div>
+          <div style={{ fontFamily: "var(--font-h)", fontWeight: 700, fontSize: 20, color: 'var(--orange)', display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ display: 'inline-flex' }}><IcoCotizador /></span> Cotizador de Precio</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>Costo por pieza y precio de venta</div>
         </div>
         <button onClick={abrirEditor}
-          style={{ background: 'transparent', border: '1px solid #2a2d3a', borderRadius: 8, color: '#9aa0bc', fontSize: 12, padding: '6px 12px', cursor: 'pointer' }}>
-          ⚙️ Costos
+          style={{ background: 'transparent', border: '1px solid var(--border-light)', borderRadius: 8, color: 'var(--text-2)', fontSize: 12, padding: '6px 12px', cursor: 'pointer' }}>
+          Costos
         </button>
       </div>
 

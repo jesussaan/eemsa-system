@@ -4,9 +4,9 @@ import { today, uid, siguienteNumPedido } from "../lib/utils";
 import { TIPOS } from "../lib/constants";
 import { sendWhatsApp, mensajePedidoNuevo } from "../utils/whatsapp";
 import Clientes from "./Clientes";
+import CalendarGrid from "./CalendarGrid";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const DIAS  = ["LUN","MAR","MIÉ","JUE","VIE","SÁB","DOM"];
 
 const S = { fill:"none", stroke:"currentColor", strokeWidth:2, strokeLinecap:"round", strokeLinejoin:"round" };
 const IcoAgenda = () => (<svg viewBox="0 0 24 24" {...S}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="8" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="15" r="1" fill="currentColor" stroke="none"/></svg>);
@@ -27,6 +27,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
   const initMes = () => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; };
   const [mes, setMes]       = useState(initMes);
   const [diaSel, setDiaSel] = useState(null);
+  const setMesYLimpiar = (updater) => { setMes(updater); setDiaSel(null); };
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(""), 3000); };
   const upd = (k, v) => setForm(f => ({...f, [k]: v}));
@@ -47,8 +48,6 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
   };
 
   const mesStr  = `${mes.y}-${String(mes.m+1).padStart(2,"0")}`;
-  const numDias = new Date(mes.y, mes.m+1, 0).getDate();
-  const offset  = (() => { const d = new Date(mes.y, mes.m, 1).getDay(); return d===0?6:d-1; })();
 
   const pedActivos = pedidos.filter(p => p.status !== "terminado");
   const conFecha   = pedActivos.filter(p => p.fecha_estimada).sort((a,b) => a.fecha_estimada.localeCompare(b.fecha_estimada));
@@ -99,13 +98,13 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
 
   const selPeds = diaSel ? porDia(diaSel) : [];
 
-  const inputStyle = { width:"100%", background:"#1a1d26", border:"1px solid #2a2d3a", borderRadius:8, padding:"11px 12px", color:"#e0e0e0", fontSize:14, boxSizing:"border-box" };
+  const inputStyle = { width:"100%", background:"var(--card)", border:"1px solid var(--border-light)", borderRadius:"var(--r-sm)", padding:"11px 12px", color:"var(--text)", fontSize:14, boxSizing:"border-box" };
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", minHeight:"100vh", background:"#0d0f14" }}>
+    <div style={{ display:"flex", flexDirection:"column", minHeight:"100vh", background:"var(--bg)" }}>
 
       {/* Header */}
-      <header style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 16px", background:"#11131a", borderBottom:"1px solid #1e2130", position:"sticky", top:0, zIndex:10 }}>
+      <header style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 16px", background:"var(--surface)", borderBottom:"2px solid var(--green)", position:"sticky", top:0, zIndex:10 }}>
         <img src="/logo192.png" alt="EEMSA" style={{ height:36, width:"auto" }} />
         <div>
           <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:16, color:"#e0e0e0", letterSpacing:".06em" }}>EEMSA System</div>
@@ -135,50 +134,13 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
             </div>
 
             {/* Calendario */}
-            <div style={{ background:"#13161e", borderRadius:16, padding:16, marginBottom:16 }}>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
-                <button onClick={() => { setMes(x => x.m===0?{y:x.y-1,m:11}:{...x,m:x.m-1}); setDiaSel(null); }} style={{ background:"transparent", border:"1px solid #252a38", borderRadius:10, color:"#aaa", fontSize:20, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
-                <div style={{ textAlign:"center" }}>
-                  <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:900, fontSize:22, color:"#e8b84b", letterSpacing:".08em" }}>{MESES[mes.m].toUpperCase()}</div>
-                  <div style={{ fontSize:13, color:"#555", marginTop:-2 }}>{mes.y}</div>
-                </div>
-                <button onClick={() => { setMes(x => x.m===11?{y:x.y+1,m:0}:{...x,m:x.m+1}); setDiaSel(null); }} style={{ background:"transparent", border:"1px solid #252a38", borderRadius:10, color:"#aaa", fontSize:20, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
-              </div>
-
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3, marginBottom:4 }}>
-                {DIAS.map(d => <div key={d} style={{ textAlign:"center", fontSize:9, fontWeight:700, color:"#444", letterSpacing:".06em", padding:"3px 0" }}>{d}</div>)}
-              </div>
-
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3 }}>
-                {Array.from({length:offset}).map((_,i) => <div key={`e${i}`} />)}
-                {Array.from({length:numDias},(_,i)=>i+1).map(d => {
-                  const pds   = porDia(d);
-                  const dStr  = `${mesStr}-${String(d).padStart(2,"0")}`;
-                  const esHoy = dStr === hoy;
-                  const sel   = diaSel === d;
-                  return (
-                    <div key={d} onClick={() => setDiaSel(sel?null:d)} style={{ background:sel?"#1a2744":esHoy?"#1a1a0d":"#1a1d26", border:`1.5px solid ${esHoy?"#e8b84b":sel?"#4b8fe8":pds.length>0?"#2a3050":"#1e2130"}`, borderRadius:10, padding:"6px 4px 5px", minHeight:56, cursor:"pointer" }}>
-                      <div style={{ textAlign:"center", fontSize:12, fontWeight:esHoy?800:400, color:esHoy?"#e8b84b":sel?"#4b8fe8":"#ccc", marginBottom:3 }}>{d}</div>
-                      {pds.slice(0,2).map(p => (
-                        <div key={p.id} style={{ background:chipColor(p), borderRadius:3, padding:"1px 3px", fontSize:8, fontWeight:700, color:"#000", marginBottom:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                          {p.num} {(p.cliente||"").slice(0,7)}
-                        </div>
-                      ))}
-                      {pds.length > 2 && <div style={{ fontSize:8, color:"#777", textAlign:"center" }}>+{pds.length-2}</div>}
-                      {pds.length === 0 && esHoy && <div style={{ width:6, height:6, background:"#e8b84b44", borderRadius:"50%", margin:"2px auto 0" }} />}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div style={{ display:"flex", gap:14, marginTop:12, paddingTop:10, borderTop:"1px solid #1e2130" }}>
-                {[["#e8b84b","Anotado"],["#4b8fe8","En proceso"],["#e84b4b","Vencido"]].map(([c,l]) => (
-                  <div key={l} style={{ display:"flex", alignItems:"center", gap:5, fontSize:10, color:"#666" }}>
-                    <div style={{ width:9, height:9, background:c, borderRadius:2 }} />{l}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <CalendarGrid
+              mes={mes} setMes={setMesYLimpiar}
+              diaSel={diaSel} onSelectDia={(d) => setDiaSel(d)}
+              pedidos={pedActivos}
+              chipColor={chipColor}
+              hoy={hoy}
+            />
 
             {/* Panel día seleccionado */}
             {diaSel !== null && (
@@ -343,7 +305,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
       )}
 
       {/* Bottom nav */}
-      <nav style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:640, background:"#11131a", borderTop:"1px solid #1e2130", display:"flex", paddingBottom:"env(safe-area-inset-bottom,0px)", zIndex:50 }}>
+      <nav style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:640, background:"var(--surface)", borderTop:"1px solid var(--border)", display:"flex", paddingBottom:"env(safe-area-inset-bottom,0px)", zIndex:50 }}>
         {[
           { id:"agenda",   Icon:IcoAgenda, lbl:"Agenda" },
           { id:"nuevo",    Icon:IcoNuevo,  lbl:"Nuevo Pedido" },

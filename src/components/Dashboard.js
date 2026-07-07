@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart as ReBarChart, Bar, XAxis, YAxis } from 'recharts';
@@ -7,6 +7,17 @@ import { today, fmt, diasHabilesRestantes, estadoPlazo } from '../lib/utils';
 import { META_CAJAS, META_MERMA_PCT } from '../lib/constants';
 import { notificar } from '../lib/notificaciones';
 import { exportarExcel } from '../lib/exportExcel';
+import { IcoDash, IcoFal, IcoMoney, IcoCompare, IcoTrendUp, IcoTrophy, IcoDroplet, IcoTapeRoll, IcoRef } from './Icons';
+
+const SECCIONES = [
+  { id: 'resumen',    lbl: 'Resumen',    Icon: IcoDash },
+  { id: 'produccion', lbl: 'Producción', Icon: IcoTrendUp },
+  { id: 'finanzas',   lbl: 'Finanzas',   Icon: IcoMoney },
+  { id: 'calidad',    lbl: 'Calidad',    Icon: IcoDroplet },
+];
+const SubTitle = ({ icon: Icon, children }) => (
+  <h3 className="sub-title"><span style={{ display: 'inline-flex', fontSize: 14 }}><Icon /></span>{children}</h3>
+);
 
 const PIE_COLORS = ['#e84b4b','#e8894b','#e8b84b','#4be87a','#4b8fe8','#9b59b6','#ff69b4','#4be8e8'];
 const ChartTip = ({ active, payload }) => {
@@ -20,6 +31,7 @@ const ChartTip = ({ active, payload }) => {
 };
 
 export default function Dashboard({ pedidos, fallas, refacciones, proveedores, prodDiaria }) {
+  const [seccion, setSeccion] = useState('resumen');
   useEffect(() => {
     const hoy = today();
     const yaAvisado = localStorage.getItem('vencidos_avisado');
@@ -55,18 +67,6 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
   const pctMeta = diasDelMes.length > 0 ? Math.round((diasConMeta / diasDelMes.length) * 100) : 0;
   const pedidosUrgentes = pedidos.filter(p => p.status !== "terminado" && p.fecha_solicitud).map(p => ({ ...p, diasRest: diasHabilesRestantes(p.fecha_solicitud) })).sort((a, b) => a.diasRest - b.diasRest).slice(0, 5);
   const ultimas14 = [...Array(14)].map((_, i) => { const d = new Date(today() + "T12:00:00"); d.setDate(d.getDate() - 13 + i); const fecha = d.toISOString().slice(0, 10); const val = prodDiaria.filter(r => r.fecha === fecha).reduce((s, r) => s + Number(r.cajas_dia || 0), 0); return { lbl: fecha.slice(8), val }; });
-  const ultimas8sem = [...Array(8)].map((_, i) => {
-    const base = new Date(today() + "T12:00:00");
-    const diasAtras = (7 - i) * 7;
-    const fin = new Date(base); fin.setDate(fin.getDate() - diasAtras);
-    const ini = new Date(fin); ini.setDate(ini.getDate() - 6);
-    const val = prodDiaria.filter(r => {
-      const f = r.fecha || "";
-      return f >= ini.toISOString().slice(0, 10) && f <= fin.toISOString().slice(0, 10);
-    }).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
-    const mes = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][fin.getMonth()];
-    return { lbl: `${mes} ${fin.getDate()}`, val };
-  });
   const pedidosMerma = pedidos.filter(p => p.status === "terminado" && p.merma_pct !== null && p.merma_pct !== "").slice(-10).map(p => ({ lbl: String(p.cliente).slice(0, 6), val: Number(p.merma_pct) }));
   const pedConTiempo = pedidos.filter(p => p.status === "terminado" && p.fecha_inicio && p.fecha_termino);
   const tiempoPromedio = pedConTiempo.length > 0 ? Math.round(pedConTiempo.reduce((s, p) => s + (new Date(p.fecha_termino + "T12:00:00") - new Date(p.fecha_inicio + "T12:00:00")) / 86400000 + 1, 0) / pedConTiempo.length) : null;
@@ -395,11 +395,20 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
         <h2 className="sec-title" style={{ marginBottom: 0 }}>Dashboard</h2>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn btn-ghost btn-sm" onClick={() => exportarExcel({ pedidos, fallas, prodDiaria, proveedores })}>📊 Excel</button>
-          <button className="btn btn-ghost btn-sm" onClick={generarPDF}>📄 PDF</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => exportarExcel({ pedidos, fallas, prodDiaria, proveedores })}>Excel</button>
+          <button className="btn btn-ghost btn-sm" onClick={generarPDF}>PDF</button>
         </div>
       </div>
 
+      <div className="dash-tabs">
+        {SECCIONES.map(s => (
+          <button key={s.id} className={`dash-tab ${seccion === s.id ? "active" : ""}`} onClick={() => setSeccion(s.id)}>
+            <s.Icon />{s.lbl}
+          </button>
+        ))}
+      </div>
+
+      {seccion === 'resumen' && <>
       {/* ── KPIs principales (4 tarjetas) ── */}
       <div className="stat-grid" style={{ marginBottom: 20 }}>
         <div className="stat-card accent"><div className="stat-val">{activos}</div><div className="stat-lbl">Pedidos activos</div></div>
@@ -408,72 +417,35 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
         <div className={`stat-card ${fallasAbiertas > 0 ? "red" : "green"}`}><div className="stat-val">{fallasAbiertas}</div><div className="stat-lbl">Fallas abiertas</div></div>
       </div>
 
-      {/* ── Comparativo mes a mes ── */}
-      {(cajasMes > 0 || valorMes > 0) && (cajasPrev > 0 || valorPrev > 0) && (() => {
-        const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-        const lblMes  = MESES[parseInt(mesActual.split('-')[1]) - 1];
-        const lblPrev = MESES[parseInt(mesPrev.split('-')[1]) - 1];
-        const items = [
-          { lbl: "Cajas producidas", curr: cajasMes, prev: cajasPrev, fmt: v => v, menorEsMejor: false },
-          ...(mermaPctMes && mermaPctPrev ? [{ lbl: "Merma %", curr: Number(mermaPctMes), prev: Number(mermaPctPrev), fmt: v => v + "%", menorEsMejor: true }] : []),
-          ...(valorMes > 0 || valorPrev > 0 ? [{ lbl: "Valor producido", curr: valorMes, prev: valorPrev, fmt: v => "$" + fmt(Math.round(v)), menorEsMejor: false }] : []),
-        ];
-        return (
-          <>
-            <h3 className="sub-title">📊 {lblMes} vs {lblPrev}</h3>
-            <div style={{ background: "#181b24", borderRadius: 12, padding: "12px 16px", marginBottom: 20, border: "1px solid #22263a" }}>
-              {items.map(it => {
-                const d = delta(it.curr, it.prev);
-                const mejora = d ? (it.menorEsMejor ? !d.sube : d.sube) : null;
-                return (
-                  <div key={it.lbl} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #13161e" }}>
-                    <span style={{ fontSize: 13, color: "#9aa0bc" }}>{it.lbl}</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontSize: 11, color: "#3a3f5a" }}>{it.fmt(it.prev)}</span>
-                      <span style={{ fontSize: 11, color: "#3a3f5a" }}>→</span>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: "#e0e0e0" }}>{it.fmt(it.curr)}</span>
-                      {d && <span style={{ fontSize: 12, fontWeight: 700, color: mejora ? "#4be87a" : "#ff4d4d" }}>{d.sube ? "▲" : "▼"}{d.pct}%</span>}
-                    </div>
+      {/* ── Próximos a vencer ── */}
+      {pedidosUrgentes.length > 0 && (
+        <>
+          <SubTitle icon={IcoFal}>Próximos a vencer</SubTitle>
+          <div className="list" style={{ marginBottom: 20 }}>
+            {pedidosUrgentes.map(p => {
+              const ep = estadoPlazo(p.diasRest);
+              const bordeColor = p.status === "terminado" ? "#4be87a" : p.status === "proceso" ? "#4a9eff" : "#ff9900";
+              return (
+                <div key={p.id} className="list-item" style={{ borderLeft: `3px solid ${bordeColor}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div><strong>#{p.num}</strong> — {p.cliente}</div>
+                    {ep && <span className={`badge ${ep.cls}`}>{ep.txt}</span>}
                   </div>
-                );
-              })}
-            </div>
-          </>
-        );
-      })()}
-
-      {/* ── Sección Producción ── */}
-      <h3 className="sub-title">📈 Producción</h3>
-      <div className="stat-grid" style={{ marginBottom: 12 }}>
-        <div className="stat-card green"><div className="stat-val">{cajasTerminadas}</div><div className="stat-lbl">Cajas terminadas</div></div>
-        <div className={`stat-card ${pctMeta >= 80 ? "green" : pctMeta >= 50 ? "orange" : "red"}`}><div className="stat-val">{pctMeta}%</div><div className="stat-lbl">Días con meta ({diasConMeta}/{diasDelMes.length})</div></div>
-        {rollosMes > 0 && <div className="stat-card accent"><div className="stat-val">{rollosMes}</div><div className="stat-lbl">Rollos (mes)</div></div>}
-        {tintaMes > 0 && <div className="stat-card blue"><div className="stat-val">{tintaMes.toFixed(1)}<span style={{ fontSize: 13 }}> kg</span></div><div className="stat-lbl">Tinta (mes)</div></div>}
-        {alcoholMes > 0 && <div className="stat-card orange"><div className="stat-val">{alcoholMes.toFixed(1)}<span style={{ fontSize: 13 }}> L</span></div><div className="stat-lbl">Alcohol (mes)</div></div>}
-      </div>
-      <div style={chartCard}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <span style={{ fontSize: 12, color: "#9aa0bc", fontWeight: 600 }}>Cajas diarias — últimas 2 semanas</span>
-          <div style={{ display: "flex", gap: 10, fontSize: 10, color: "#545a78" }}>
-            <span><span style={{ color: "#4be87a" }}>■</span> Con meta</span>
-            <span><span style={{ color: "#ff4d4d" }}>■</span> Sin meta</span>
+                  <div className="muted">{p.tipo} · {p.medida} · {p.cajas} cajas</div>
+                  {p.merma_pct !== undefined && p.merma_pct !== "" && (
+                    <div className="muted">Merma: <span style={{ color: Number(p.merma_pct) > META_MERMA_PCT ? "#ff4d4d" : "#4be87a", fontWeight: 600 }}>{p.merma_pct}%</span></div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        </div>
-        <BarChart data={ultimas14} meta={META_CAJAS} />
-      </div>
-
-      {ultimas8sem.some(s => s.val > 0) && (
-        <div style={chartCard}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <span style={{ fontSize: 12, color: "#9aa0bc", fontWeight: 600 }}>Cajas por semana — últimas 8 semanas</span>
-            <span style={{ fontSize: 10, color: "#545a78" }}>meta {META_CAJAS * 5}/sem</span>
-          </div>
-          <BarChart data={ultimas8sem} meta={META_CAJAS * 5} />
-        </div>
+        </>
       )}
+      </>}
 
-      {/* ── Sección Producción en $ ── */}
-      <h3 className="sub-title">💰 Tu máquina en números</h3>
+      {seccion === 'finanzas' && <>
+      {/* ── Tu máquina en números ── */}
+      <SubTitle icon={IcoMoney}>Tu máquina en números</SubTitle>
       <div className="stat-grid" style={{ marginBottom: 8 }}>
         <div className="stat-card green">
           <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(valorProducidoMes))}</div>
@@ -501,15 +473,68 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
         )}
       </div>
 
-      {/* ── Sección Pedidos ── */}
-      <h3 className="sub-title">📋 Pedidos</h3>
+      {/* ── Comparativo mes a mes ── */}
+      {(cajasMes > 0 || valorMes > 0) && (cajasPrev > 0 || valorPrev > 0) && (() => {
+        const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+        const lblMes  = MESES[parseInt(mesActual.split('-')[1]) - 1];
+        const lblPrev = MESES[parseInt(mesPrev.split('-')[1]) - 1];
+        const items = [
+          { lbl: "Cajas producidas", curr: cajasMes, prev: cajasPrev, fmt: v => v, menorEsMejor: false },
+          ...(mermaPctMes && mermaPctPrev ? [{ lbl: "Merma %", curr: Number(mermaPctMes), prev: Number(mermaPctPrev), fmt: v => v + "%", menorEsMejor: true }] : []),
+          ...(valorMes > 0 || valorPrev > 0 ? [{ lbl: "Valor producido", curr: valorMes, prev: valorPrev, fmt: v => "$" + fmt(Math.round(v)), menorEsMejor: false }] : []),
+        ];
+        return (
+          <>
+            <SubTitle icon={IcoCompare}>{lblMes} vs {lblPrev}</SubTitle>
+            <div style={{ background: "#181b24", borderRadius: 12, padding: "12px 16px", marginBottom: 20, border: "1px solid #22263a" }}>
+              {items.map(it => {
+                const d = delta(it.curr, it.prev);
+                const mejora = d ? (it.menorEsMejor ? !d.sube : d.sube) : null;
+                return (
+                  <div key={it.lbl} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #13161e" }}>
+                    <span style={{ fontSize: 13, color: "#9aa0bc" }}>{it.lbl}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 11, color: "#3a3f5a" }}>{it.fmt(it.prev)}</span>
+                      <span style={{ fontSize: 11, color: "#3a3f5a" }}>→</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: "#e0e0e0" }}>{it.fmt(it.curr)}</span>
+                      {d && <span style={{ fontSize: 12, fontWeight: 700, color: mejora ? "#4be87a" : "#ff4d4d" }}>{d.sube ? "▲" : "▼"}{d.pct}%</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        );
+      })()}
+      </>}
+
+      {seccion === 'produccion' && <>
+      {/* ── Producción ── */}
+      <SubTitle icon={IcoTrendUp}>Producción</SubTitle>
+      <div className="stat-grid" style={{ marginBottom: 12 }}>
+        <div className="stat-card green"><div className="stat-val">{cajasTerminadas}</div><div className="stat-lbl">Cajas terminadas</div></div>
+        <div className={`stat-card ${pctMeta >= 80 ? "green" : pctMeta >= 50 ? "orange" : "red"}`}><div className="stat-val">{pctMeta}%</div><div className="stat-lbl">Días con meta ({diasConMeta}/{diasDelMes.length})</div></div>
+        {rollosMes > 0 && <div className="stat-card accent"><div className="stat-val">{rollosMes}</div><div className="stat-lbl">Rollos (mes)</div></div>}
+        {tintaMes > 0 && <div className="stat-card blue"><div className="stat-val">{tintaMes.toFixed(1)}<span style={{ fontSize: 13 }}> kg</span></div><div className="stat-lbl">Tinta (mes)</div></div>}
+        {alcoholMes > 0 && <div className="stat-card orange"><div className="stat-val">{alcoholMes.toFixed(1)}<span style={{ fontSize: 13 }}> L</span></div><div className="stat-lbl">Alcohol (mes)</div></div>}
+      </div>
+      <div style={chartCard}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <span style={{ fontSize: 12, color: "#9aa0bc", fontWeight: 600 }}>Cajas diarias — últimas 2 semanas</span>
+          <div style={{ display: "flex", gap: 10, fontSize: 10, color: "#545a78" }}>
+            <span><span style={{ color: "#4be87a" }}>■</span> Con meta</span>
+            <span><span style={{ color: "#ff4d4d" }}>■</span> Sin meta</span>
+          </div>
+        </div>
+        <BarChart data={ultimas14} meta={META_CAJAS} />
+      </div>
+
+      {/* ── Merma ── */}
       <div className="stat-grid" style={{ marginBottom: 12 }}>
         <div className="stat-card blue"><div className="stat-val">{cajasTotal}</div><div className="stat-lbl">Cajas en sistema</div></div>
         <div className={`stat-card ${vencidos > 0 ? "red" : "green"}`}><div className="stat-val">{vencidos}</div><div className="stat-lbl">Vencidos</div></div>
         {tiempoPromedio !== null && <div className="stat-card blue"><div className="stat-val">{tiempoPromedio}<span style={{ fontSize: 13 }}> d</span></div><div className="stat-lbl">Días prom. por pedido</div></div>}
       </div>
-
-      {/* Barra de merma */}
       <div style={{ ...chartCard, padding: "12px 16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
           <span style={{ fontSize: 12, color: "#9aa0bc", fontWeight: 600 }}>Merma del mes vs meta máx. {META_MERMA_PCT}%</span>
@@ -519,7 +544,6 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
           <div style={{ width: `${Math.min(100, (Number(mermaPct) / META_MERMA_PCT) * 100)}%`, height: "100%", background: mermaColor, borderRadius: 6, transition: "width .5s" }} />
         </div>
       </div>
-
       {pedidosMerma.length > 0 && (
         <div style={chartCard}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -533,74 +557,13 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
         </div>
       )}
 
-      {/* Lista urgentes */}
-      {pedidosUrgentes.length > 0 && (
-        <>
-          <h3 className="sub-title" style={{ marginTop: 4 }}>🚨 Próximos a vencer</h3>
-          <div className="list" style={{ marginBottom: 20 }}>
-            {pedidosUrgentes.map(p => {
-              const ep = estadoPlazo(p.diasRest);
-              const bordeColor = p.status === "terminado" ? "#4be87a" : p.status === "proceso" ? "#4a9eff" : "#ff9900";
-              return (
-                <div key={p.id} className="list-item" style={{ borderLeft: `3px solid ${bordeColor}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div><strong>#{p.num}</strong> — {p.cliente}</div>
-                    {ep && <span className={`badge ${ep.cls}`}>{ep.txt}</span>}
-                  </div>
-                  <div className="muted">{p.tipo} · {p.medida} · {p.cajas} cajas</div>
-                  {p.merma_pct !== undefined && p.merma_pct !== "" && (
-                    <div className="muted">Merma: <span style={{ color: Number(p.merma_pct) > META_MERMA_PCT ? "#ff4d4d" : "#4be87a", fontWeight: 600 }}>{p.merma_pct}%</span></div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
+      </>}
 
-      {/* ── Sección Fallas ── */}
-      {fallasPorComp.length > 0 && (
-        <>
-          <h3 className="sub-title">🔩 Fallas</h3>
-          <div style={chartCard}>
-            <span style={{ fontSize: 12, color: "#9aa0bc", fontWeight: 600 }}>Minutos de paro por componente</span>
-            <ResponsiveContainer width="100%" height={210}>
-              <PieChart>
-                <Pie data={fallasPorComp.map(d => ({ name: d.lbl, value: d.val }))} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={52} outerRadius={82} paddingAngle={3}>
-                  {fallasPorComp.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                </Pie>
-                <Tooltip content={<ChartTip />} />
-                <Legend wrapperStyle={{ fontSize: 11, color: '#9aa0bc', paddingTop: 8 }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </>
-      )}
-
-      {/* ── Sección Clientes & Refacciones ── */}
-      {topClientes.length > 0 && (
-        <>
-          <h3 className="sub-title">🏆 Clientes</h3>
-          <div style={chartCard}>
-            <span style={{ fontSize: 12, color: "#9aa0bc", fontWeight: 600 }}>Top clientes por cajas terminadas</span>
-            <ResponsiveContainer width="100%" height={topClientes.length * 44 + 16}>
-              <ReBarChart data={topClientes} layout="vertical" margin={{ top: 10, right: 40, bottom: 0, left: 0 }}>
-                <XAxis type="number" hide />
-                <YAxis type="category" dataKey="lbl" tick={{ fill: '#9aa0bc', fontSize: 11 }} axisLine={false} tickLine={false} width={100} />
-                <Tooltip formatter={v => [`${v} cajas`]} contentStyle={{ background: '#181b24', border: '1px solid #2d3249', borderRadius: 8, fontSize: 12 }} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-                <Bar dataKey="val" radius={[0, 4, 4, 0]} label={{ position: 'right', fill: '#545a78', fontSize: 11 }}>
-                  {topClientes.map((_, i) => <Cell key={i} fill={['#4b8fe8','#4be87a','#e8b84b','#e8894b','#e84b4b'][i]} />)}
-                </Bar>
-              </ReBarChart>
-            </ResponsiveContainer>
-          </div>
-        </>
-      )}
-
+      {seccion === 'finanzas' && <>
       {/* ── Rentabilidad por cliente ── */}
       {rentabilidadClientes.length > 0 && (
         <>
-          <h3 className="sub-title">💹 Rentabilidad por cliente</h3>
+          <SubTitle icon={IcoMoney}>Rentabilidad por cliente</SubTitle>
           <div style={chartCard}>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
@@ -627,8 +590,31 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
         </>
       )}
 
+      {/* ── Clientes ── */}
+      {topClientes.length > 0 && (
+        <>
+          <SubTitle icon={IcoTrophy}>Clientes</SubTitle>
+          <div style={chartCard}>
+            <span style={{ fontSize: 12, color: "#9aa0bc", fontWeight: 600 }}>Top clientes por cajas terminadas</span>
+            <ResponsiveContainer width="100%" height={topClientes.length * 44 + 16}>
+              <ReBarChart data={topClientes} layout="vertical" margin={{ top: 10, right: 40, bottom: 0, left: 0 }}>
+                <XAxis type="number" hide />
+                <YAxis type="category" dataKey="lbl" tick={{ fill: '#9aa0bc', fontSize: 11 }} axisLine={false} tickLine={false} width={100} />
+                <Tooltip formatter={v => [`${v} cajas`]} contentStyle={{ background: '#181b24', border: '1px solid #2d3249', borderRadius: 8, fontSize: 12 }} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                <Bar dataKey="val" radius={[0, 4, 4, 0]} label={{ position: 'right', fill: '#545a78', fontSize: 11 }}>
+                  {topClientes.map((_, i) => <Cell key={i} fill={['#4b8fe8','#4be87a','#e8b84b','#e8894b','#e84b4b'][i]} />)}
+                </Bar>
+              </ReBarChart>
+            </ResponsiveContainer>
+          </div>
+        </>
+      )}
+
+      </>}
+
+      {seccion === 'calidad' && <>
       {/* ── Tinta por color ── */}
-      <h3 className="sub-title">🎨 Tinta por color</h3>
+      <SubTitle icon={IcoDroplet}>Tinta por color</SubTitle>
       <div style={chartCard}>
         {tintaPorColor.length === 0
           ? <div style={{ textAlign: 'center', color: '#3a3f5a', fontSize: 13, padding: '12px 0' }}>Sin datos aún — se llena al finalizar pedidos</div>
@@ -657,7 +643,7 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
       </div>
 
       {/* ── Por tipo de cinta ── */}
-      <h3 className="sub-title">🧷 Por tipo de cinta</h3>
+      <SubTitle icon={IcoTapeRoll}>Por tipo de cinta</SubTitle>
       <div style={chartCard}>
         {tipoCintaStats.length === 0
           ? <div style={{ textAlign: 'center', color: '#3a3f5a', fontSize: 13, padding: '12px 0' }}>Sin datos aún — se llena al finalizar pedidos</div>
@@ -685,12 +671,38 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
         }
       </div>
 
-      <h3 className="sub-title">🔧 Refacciones</h3>
+      </>}
+
+      {seccion === 'resumen' && <>
+      {/* ── Fallas ── */}
+      {fallasPorComp.length > 0 && (
+        <>
+          <SubTitle icon={IcoFal}>Fallas</SubTitle>
+          <div style={chartCard}>
+            <span style={{ fontSize: 12, color: "#9aa0bc", fontWeight: 600 }}>Minutos de paro por componente</span>
+            <ResponsiveContainer width="100%" height={210}>
+              <PieChart>
+                <Pie data={fallasPorComp.map(d => ({ name: d.lbl, value: d.val }))} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={52} outerRadius={82} paddingAngle={3}>
+                  {fallasPorComp.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                </Pie>
+                <Tooltip content={<ChartTip />} />
+                <Legend wrapperStyle={{ fontSize: 11, color: '#9aa0bc', paddingTop: 8 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </>
+      )}
+
+      </>}
+
+      {seccion === 'calidad' && <>
+      <SubTitle icon={IcoRef}>Refacciones</SubTitle>
       <div className="stat-grid">
         <div className="stat-card blue"><div className="stat-val">${fmt(gastoRef)}</div><div className="stat-lbl">Gasto en compras</div></div>
         <div className="stat-card accent"><div className="stat-val">${fmt(valorInventario)}</div><div className="stat-lbl">Valor inventario</div></div>
         <div className={`stat-card ${stockBajoDash > 0 ? "red" : "green"}`}><div className="stat-val">{stockBajoDash}</div><div className="stat-lbl">Stock bajo</div></div>
       </div>
+      </>}
 
     </div>
   );
