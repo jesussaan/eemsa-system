@@ -50,7 +50,11 @@ export default function ModoTV({ pedidos, fallas, prodDiaria = [], onSalir }) {
     return null;
   };
 
-  const timeStr = hora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const pad2 = n => String(n).padStart(2, '0');
+  const horaStr = pad2(hora.getHours() % 12 === 0 ? 12 : hora.getHours() % 12);
+  const minStr  = pad2(hora.getMinutes());
+  const segStr  = pad2(hora.getSeconds());
+  const ampm    = hora.getHours() >= 12 ? 'p.m.' : 'a.m.';
   const dateStr = hora.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
 
   const cajasHoy      = prodDiaria.filter(r => r.fecha === today()).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
@@ -73,20 +77,58 @@ export default function ModoTV({ pedidos, fallas, prodDiaria = [], onSalir }) {
           0%, 100% { box-shadow: 0 0 0 rgba(255,77,77,0); border-color: #ff4d4d; }
           50%       { box-shadow: 0 0 18px rgba(255,77,77,0.5); border-color: #ff2020; }
         }
+        @keyframes tv-glow {
+          0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+          50%      { opacity: 0.9; transform: translate(-50%, -50%) scale(1.15); }
+        }
+        @keyframes tv-shimmer {
+          0%   { background-position: 0% 50%; }
+          100% { background-position: 200% 50%; }
+        }
+        @keyframes tv-blink {
+          0%, 45% { opacity: 1; }
+          50%, 95% { opacity: 0.15; }
+          100% { opacity: 1; }
+        }
+        @keyframes tv-live-dot {
+          0%, 100% { opacity: 1; box-shadow: 0 0 0 rgba(75,232,122,0.6); }
+          50%      { opacity: 0.4; box-shadow: 0 0 10px rgba(75,232,122,0.8); }
+        }
       `}</style>
 
+      {/* Brillo ambiental de fondo — puramente decorativo */}
+      <div style={{
+        position: 'absolute', top: 0, left: '50%', width: 900, height: 900,
+        background: 'radial-gradient(circle, rgba(155,111,232,0.10) 0%, rgba(75,143,232,0.05) 40%, transparent 70%)',
+        transform: 'translate(-50%, -50%)', zIndex: 0, pointerEvents: 'none',
+        animation: 'tv-glow 8s ease-in-out infinite',
+      }} />
+
       {/* ── HEADER ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 32px', background: '#0b0d15', borderBottom: '2px solid var(--violet)', flexShrink: 0 }}>
+      <div style={{
+        position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 32px', background: '#0b0d15', flexShrink: 0,
+        borderBottom: '2px solid transparent',
+        backgroundImage: 'linear-gradient(#0b0d15,#0b0d15), linear-gradient(90deg, var(--violet), var(--blue), var(--accent), var(--violet))',
+        backgroundOrigin: 'border-box', backgroundClip: 'padding-box, border-box',
+        backgroundSize: '100% 100%, 300% 100%',
+        animation: 'tv-shimmer 10s linear infinite',
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <img src="/logo192.png" alt="EEMSA" style={{ height: 40 }} />
           <div>
             <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: 3, color: 'var(--accent)' }}>EEMSA SYSTEM</div>
-            <div style={{ fontSize: 11, color: '#3a3f5a', letterSpacing: 2 }}>PRODUCCIÓN EN VIVO</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#3a3f5a', letterSpacing: 2 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#4be87a', display: 'inline-block', animation: 'tv-live-dot 1.6s ease-in-out infinite' }} />
+              PRODUCCIÓN EN VIVO
+            </div>
           </div>
         </div>
 
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 52, fontWeight: 900, color: '#fff', letterSpacing: 3, lineHeight: 1 }}>{timeStr}</div>
+          <div style={{ fontSize: 52, fontWeight: 900, color: '#fff', letterSpacing: 1, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+            {horaStr}<span style={{ animation: 'tv-blink 1s step-start infinite' }}>:</span>{minStr}<span style={{ animation: 'tv-blink 1s step-start infinite' }}>:</span>{segStr}
+            <span style={{ fontSize: 20, marginLeft: 8, color: '#545a78' }}>{ampm}</span>
+          </div>
           <div style={{ fontSize: 13, color: '#545a78', textTransform: 'capitalize', marginTop: 2 }}>{dateStr}</div>
         </div>
 
@@ -94,7 +136,7 @@ export default function ModoTV({ pedidos, fallas, prodDiaria = [], onSalir }) {
       </div>
 
       {/* ── MAIN GRID ── */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 6, padding: 6, overflow: 'hidden', minHeight: 0 }}>
+      <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 6, padding: 6, overflow: 'hidden', minHeight: 0 }}>
 
         {/* LEFT — En proceso + Siguiente en cola */}
         <div style={{ ...S.panel, gap: 0 }}>
@@ -228,7 +270,7 @@ export default function ModoTV({ pedidos, fallas, prodDiaria = [], onSalir }) {
       </div>
 
       {/* ── BOTTOM BAR ── */}
-      <div style={{ background: '#0b0d15', borderTop: '1px solid #13161e', padding: '12px 32px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+      <div style={{ position: 'relative', zIndex: 1, background: '#0b0d15', borderTop: '1px solid #13161e', padding: '12px 32px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
         {[
           { val: anotados.length,       lbl: 'EN COLA',         color: '#e8b84b' },
           { val: enProceso.length,       lbl: 'EN PROCESO',      color: '#4b8fe8' },
