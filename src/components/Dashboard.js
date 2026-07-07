@@ -13,7 +13,7 @@ const SECCIONES = [
   { id: 'resumen',    lbl: 'Resumen',    Icon: IcoDash },
   { id: 'produccion', lbl: 'Producción', Icon: IcoTrendUp },
   { id: 'finanzas',   lbl: 'Finanzas',   Icon: IcoMoney },
-  { id: 'calidad',    lbl: 'Calidad',    Icon: IcoDroplet },
+  { id: 'consumibles', lbl: 'Consumibles', Icon: IcoDroplet },
 ];
 const SubTitle = ({ icon: Icon, children }) => (
   <h3 className="sub-title"><span style={{ display: 'inline-flex', fontSize: 14 }}><Icon /></span>{children}</h3>
@@ -47,20 +47,16 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
   }, [pedidos]);
   const activos = pedidos.filter(p => p.status !== "terminado").length;
   const fallasAbiertas = fallas.filter(f => f.status === "abierta").length;
-  const gastoRef = proveedores.reduce((s, p) => s + Number(p.monto || 0), 0);
   const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) * Number(r.stock || 1)), 0);
-  const cajasTerminadas = pedidos.filter(p => p.status === "terminado").reduce((s, p) => s + Number(p.cajas || 0), 0);
   const cajasTotal = pedidos.reduce((s, p) => s + Number(p.cajas || 0), 0);
-  const pedTerm = pedidos.filter(p => p.status === "terminado" && p.piezas_prod);
-  const mermaTotal = pedTerm.reduce((s, p) => s + Number(p.merma || 0), 0);
-  const piezasTotal = pedTerm.reduce((s, p) => s + Number(p.piezas_prod || 0), 0);
-  const mermaPct = piezasTotal > 0 ? ((mermaTotal / piezasTotal) * 100).toFixed(1) : 0;
   const vencidos = pedidos.filter(p => p.status !== "terminado" && diasHabilesRestantes(p.fecha_solicitud) < 0).length;
   const stockBajoDash = refacciones.filter(r => { const min = r.stock_min ?? 1; return min > 0 && Number(r.stock || 0) <= min; }).length;
   const todayStr = today();
   const cajasHoy = prodDiaria.filter(r => r.fecha === todayStr).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
   const metaHoyCumplida = cajasHoy >= META_CAJAS;
   const mesActual = today().slice(0, 7);
+  const cajasTerminadasMes = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual)).reduce((s, p) => s + Number(p.cajas || 0), 0);
+  const gastoRefMes = proveedores.filter(p => p.fecha?.startsWith(mesActual)).reduce((s, p) => s + Number(p.monto || 0), 0);
   const mesPrev = (() => { const [y, m] = mesActual.split('-').map(Number); return m === 1 ? `${y-1}-12` : `${y}-${String(m-1).padStart(2,'0')}`; })();
   const diasDelMes = [...new Set(prodDiaria.filter(r => r.fecha?.startsWith(mesActual)).map(r => r.fecha))];
   const diasConMeta = diasDelMes.filter(fecha => prodDiaria.filter(r => r.fecha === fecha).reduce((s, r) => s + Number(r.cajas_dia || 0), 0) >= META_CAJAS).length;
@@ -75,7 +71,7 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
     { comp: "Cliché/portacliché", lbl: "Cliché" }, { comp: "Motor principal", lbl: "Motor" },
     { comp: "Sistema de corte", lbl: "Corte" }, { comp: "Banda transportadora", lbl: "Banda" },
     { comp: "Sistema eléctrico", lbl: "Eléct." }, { comp: "Otro", lbl: "Otro" },
-  ].map(({ comp, lbl }) => ({ lbl, val: fallas.filter(f => f.comp === comp).reduce((s, f) => s + Number(f.min_paro || 0), 0) })).filter(d => d.val > 0).sort((a, b) => b.val - a.val);
+  ].map(({ comp, lbl }) => ({ lbl, val: fallas.filter(f => f.comp === comp && f.fecha?.startsWith(mesActual)).reduce((s, f) => s + Number(f.min_paro || 0), 0) })).filter(d => d.val > 0).sort((a, b) => b.val - a.val);
 
   const topClientes = Object.entries(
     pedidos.filter(p => p.status === "terminado")
@@ -386,7 +382,8 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
   };
 
   const chartCard = { background: "#181b24", borderRadius: 12, padding: "14px 16px", marginBottom: 14, border: "1px solid #22263a" };
-  const mermaColor = Number(mermaPct) > META_MERMA_PCT ? "#ff4d4d" : "#4be87a";
+  const mermaPctMesShow = mermaPctMes != null ? Number(mermaPctMes) : 0;
+  const mermaColor = mermaPctMesShow > META_MERMA_PCT ? "#ff4d4d" : "#4be87a";
 
   return (
     <div>
@@ -413,7 +410,7 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
       <div className="stat-grid" style={{ marginBottom: 20 }}>
         <div className="stat-card accent"><div className="stat-val">{activos}</div><div className="stat-lbl">Pedidos activos</div></div>
         <div className={`stat-card ${metaHoyCumplida ? "green" : "red"}`}><div className="stat-val">{cajasHoy}<span style={{ fontSize: 14, opacity: .6 }}>/{META_CAJAS}</span></div><div className="stat-lbl">Cajas hoy</div></div>
-        <div className="stat-card orange"><div className="stat-val">{mermaPct}%</div><div className="stat-lbl">Merma del mes</div></div>
+        <div className="stat-card orange"><div className="stat-val">{mermaPctMesShow}%</div><div className="stat-lbl">Merma del mes</div></div>
         <div className={`stat-card ${fallasAbiertas > 0 ? "red" : "green"}`}><div className="stat-val">{fallasAbiertas}</div><div className="stat-lbl">Fallas abiertas</div></div>
       </div>
 
@@ -512,7 +509,7 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
       {/* ── Producción ── */}
       <SubTitle icon={IcoTrendUp}>Producción</SubTitle>
       <div className="stat-grid" style={{ marginBottom: 12 }}>
-        <div className="stat-card green"><div className="stat-val">{cajasTerminadas}</div><div className="stat-lbl">Cajas terminadas</div></div>
+        <div className="stat-card green"><div className="stat-val">{cajasTerminadasMes}</div><div className="stat-lbl">Cajas terminadas (mes)</div></div>
         <div className={`stat-card ${pctMeta >= 80 ? "green" : pctMeta >= 50 ? "orange" : "red"}`}><div className="stat-val">{pctMeta}%</div><div className="stat-lbl">Días con meta ({diasConMeta}/{diasDelMes.length})</div></div>
         {rollosMes > 0 && <div className="stat-card accent"><div className="stat-val">{rollosMes}</div><div className="stat-lbl">Rollos (mes)</div></div>}
         {tintaMes > 0 && <div className="stat-card blue"><div className="stat-val">{tintaMes.toFixed(1)}<span style={{ fontSize: 13 }}> kg</span></div><div className="stat-lbl">Tinta (mes)</div></div>}
@@ -538,10 +535,10 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
       <div style={{ ...chartCard, padding: "12px 16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
           <span style={{ fontSize: 12, color: "#9aa0bc", fontWeight: 600 }}>Merma del mes vs meta máx. {META_MERMA_PCT}%</span>
-          <span style={{ fontSize: 13, color: mermaColor, fontWeight: 700 }}>{mermaPct}%</span>
+          <span style={{ fontSize: 13, color: mermaColor, fontWeight: 700 }}>{mermaPctMesShow}%</span>
         </div>
         <div style={{ background: "#22263a", borderRadius: 6, height: 9, overflow: "hidden" }}>
-          <div style={{ width: `${Math.min(100, (Number(mermaPct) / META_MERMA_PCT) * 100)}%`, height: "100%", background: mermaColor, borderRadius: 6, transition: "width .5s" }} />
+          <div style={{ width: `${Math.min(100, (mermaPctMesShow / META_MERMA_PCT) * 100)}%`, height: "100%", background: mermaColor, borderRadius: 6, transition: "width .5s" }} />
         </div>
       </div>
       {pedidosMerma.length > 0 && (
@@ -612,7 +609,7 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
 
       </>}
 
-      {seccion === 'calidad' && <>
+      {seccion === 'consumibles' && <>
       {/* ── Tinta por color ── */}
       <SubTitle icon={IcoDroplet}>Tinta por color</SubTitle>
       <div style={chartCard}>
@@ -695,10 +692,10 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
 
       </>}
 
-      {seccion === 'calidad' && <>
+      {seccion === 'finanzas' && <>
       <SubTitle icon={IcoRef}>Refacciones</SubTitle>
       <div className="stat-grid">
-        <div className="stat-card blue"><div className="stat-val">${fmt(gastoRef)}</div><div className="stat-lbl">Gasto en compras</div></div>
+        <div className="stat-card blue"><div className="stat-val">${fmt(gastoRefMes)}</div><div className="stat-lbl">Gasto en compras (mes)</div></div>
         <div className="stat-card accent"><div className="stat-val">${fmt(valorInventario)}</div><div className="stat-lbl">Valor inventario</div></div>
         <div className={`stat-card ${stockBajoDash > 0 ? "red" : "green"}`}><div className="stat-val">{stockBajoDash}</div><div className="stat-lbl">Stock bajo</div></div>
       </div>
