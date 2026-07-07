@@ -8,8 +8,10 @@ import { sendPush } from '../lib/push';
 import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV, UMBRAL_MERMA } from '../lib/constants';
 import { sendWhatsApp } from '../utils/whatsapp';
-import { IcoOperador } from './Icons';
+import { IcoOperador, IcoPalette, IcoRuler, IcoProd, IcoRoll, IcoClipboard, IcoCamera, IcoCheck, IcoFal } from './Icons';
 import NotifBell from './NotifBell';
+
+const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
 export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, onSalir }) {
   const [ahora, setAhora] = useState(new Date());
@@ -299,7 +301,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
         {/* Lista de pedidos */}
         {!pedidoSel && vista !== "colores" && (
           <>
-            <button className="btn btn-ghost btn-sm btn-block" style={{ marginBottom: 12 }} onClick={() => setVista("colores")}>🎨 Carta de colores</button>
+            <button className="btn btn-ghost btn-sm btn-block" style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }} onClick={() => setVista("colores")}><Ico icon={IcoPalette} /> Carta de colores</button>
             <h2 style={{ color: "#4a9eff", fontSize: 13, margin: "12px 0 8px", textTransform: "uppercase", letterSpacing: ".08em" }}>▶ En proceso</h2>
             {pedidosEnProceso.length === 0
               ? <p style={{ color: "#555", fontSize: 13, marginBottom: 16 }}>Sin pedidos en proceso.</p>
@@ -311,11 +313,11 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                     <div style={{ fontSize: 19, fontWeight: 700, color: "#fff", marginBottom: 4 }}>{p.cliente}</div>
                     {al && <span style={{ fontSize: 12, fontWeight: 700, color: al.color, whiteSpace: "nowrap" }}>{al.txt}</span>}
                   </div>
-                  <div style={{ color: "#c9922a", fontSize: 16, fontWeight: 700, marginBottom: 6 }}>📏 {p.medida}</div>
+                  <div style={{ color: "#c9922a", fontSize: 16, fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoRuler} size={15} /> {p.medida}</div>
                   <div style={{ display: "flex", gap: 8, fontSize: 13, color: "#aaa", flexWrap: "wrap", alignItems: "center" }}>
-                    <span>📦 {p.cajas} cajas</span>
-                    {p.rollos_totales && <span>🧻 {p.rollos_totales} piezas/rollos</span>}
-                    <span>🎨 {p.tipo}</span>
+                    <span><Ico icon={IcoProd} /> {p.cajas} cajas</span>
+                    {p.rollos_totales && <span><Ico icon={IcoRoll} /> {p.rollos_totales} piezas/rollos</span>}
+                    <span><Ico icon={IcoPalette} /> {p.tipo}</span>
                     {(p.color || p.tinta_tipo) && <ColorChip color={p.color || p.tinta_tipo} />}
                     <span style={{ color: "#555" }}>#Ped {p.num}</span>
                   </div>
@@ -325,7 +327,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
 
             {pedidosAnotados.length > 0 && (
               <>
-                <h2 style={{ color: "#ff9900", fontSize: 13, margin: "16px 0 8px", textTransform: "uppercase", letterSpacing: ".08em" }}>📋 Próximos anotados — orden de salida</h2>
+                <h2 style={{ color: "#ff9900", fontSize: 13, margin: "16px 0 8px", textTransform: "uppercase", letterSpacing: ".08em", display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoClipboard} /> Próximos anotados — orden de salida</h2>
                 {pedidosAnotados.map((p, i) => {
                   const al = alertaEntrega(p.fecha_estimada, p.status);
                   return (
@@ -349,15 +351,15 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                         {al && <span style={{ fontSize: 11, fontWeight: 700, color: al.color, whiteSpace: "nowrap", marginLeft: 6 }}>{al.txt}</span>}
                       </div>
                       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13 }}>
-                        <span style={{ color: "#c9922a", fontWeight: 700 }}>📏 {p.medida}</span>
-                        <span style={{ color: "#aaa" }}>🎨 {p.tipo}</span>
+                        <span style={{ color: "#c9922a", fontWeight: 700 }}><Ico icon={IcoRuler} /> {p.medida}</span>
+                        <span style={{ color: "#aaa" }}><Ico icon={IcoPalette} /> {p.tipo}</span>
                         {(p.color || p.tinta_tipo) && <ColorChip color={p.color || p.tinta_tipo} />}
-                        <span style={{ color: "#aaa" }}>📦 {p.cajas} cajas</span>
-                        {p.rollos_caja && <span style={{ color: "#aaa" }}>🧻 {p.rollos_caja} rollos/caja</span>}
-                        {p.rollos_totales && <span style={{ color: "#aaa" }}>🧮 {p.rollos_totales} piezas/rollos</span>}
+                        <span style={{ color: "#aaa" }}><Ico icon={IcoProd} /> {p.cajas} cajas</span>
+                        {p.rollos_caja && <span style={{ color: "#aaa" }}><Ico icon={IcoRoll} /> {p.rollos_caja} rollos/caja</span>}
+                        {p.rollos_totales && <span style={{ color: "#aaa" }}><Ico icon={IcoRoll} /> {p.rollos_totales} piezas/rollos</span>}
                       </div>
                       {p.fecha_solicitud && <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>Solicitud: {p.fecha_solicitud}</div>}
-                      {p.cliche_url && <div style={{ fontSize: 11, color: "#ff9900", marginTop: 4 }}>📷 Ver diseño →</div>}
+                      {p.cliche_url && <div style={{ fontSize: 11, color: "#ff9900", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><Ico icon={IcoCamera} /> Ver diseño →</div>}
                     </div>
                   </div>
                   );
@@ -371,7 +373,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
         {!pedidoSel && vista === "colores" && (
           <>
             <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setVista(null)}>← Volver</button>
-            <h2 style={{ color: "#c9922a", fontSize: 13, margin: "0 0 12px", textTransform: "uppercase", letterSpacing: ".08em" }}>🎨 Carta de colores — combinaciones</h2>
+            <h2 style={{ color: "#c9922a", fontSize: 13, margin: "0 0 12px", textTransform: "uppercase", letterSpacing: ".08em", display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoPalette} /> Carta de colores — combinaciones</h2>
             {combinaciones.map(c => (
               <div key={c.titulo} style={card}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 4 }}>{c.titulo}</div>
@@ -408,7 +410,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
             </div>
             {pedidoSel.cliche_url && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, color: "#aaa", marginBottom: 6 }}>📷 Cliché</div>
+                <div style={{ fontSize: 12, color: "#aaa", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}><Ico icon={IcoCamera} /> Cliché</div>
                 <ClicheImg src={pedidoSel.cliche_url} style={{ width: "100%", borderRadius: 10, border: "1px solid #2a2d3a" }} />
               </div>
             )}
@@ -428,7 +430,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
               const rollosMP     = Math.ceil(rollosExacto);
               return (
                 <div style={{ background: "#0e1a2e", border: "1px solid #1e3a5f", borderRadius: 12, padding: "14px 16px", marginBottom: 14, textAlign: "center" }}>
-                  <div style={{ fontSize: 11, color: "#4a9eff", fontWeight: 700, letterSpacing: ".07em", marginBottom: 8 }}>🧻 ROLLOS MP A UTILIZAR</div>
+                  <div style={{ fontSize: 11, color: "#4a9eff", fontWeight: 700, letterSpacing: ".07em", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Ico icon={IcoRoll} /> ROLLOS MP A UTILIZAR</div>
                   <div style={{ fontSize: 52, fontWeight: 900, color: "#4a9eff", lineHeight: 1 }}>{rollosMP}</div>
                   <div style={{ fontSize: 12, color: "#3a3f5a", marginTop: 4 }}>{rollosExacto.toFixed(2)} exacto</div>
                 </div>
@@ -457,8 +459,8 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                       <div style={{ fontSize: 36, fontWeight: 900, color: "#4be87a", fontVariantNumeric: "tabular-nums" }}>{elapsed}</div>
                     </div>
                   )}
-                  <button className="btn btn-primary btn-block" style={{ marginBottom: 10, padding: 16, fontSize: 16 }} onClick={() => setVista("calc")}>✅ Finalizar pedido</button>
-                  <button className="btn btn-danger btn-block" style={{ padding: 16, fontSize: 16 }} onClick={() => setVista("falla")}>⚠️ Reportar falla</button>
+                  <button className="btn btn-primary btn-block" style={{ marginBottom: 10, padding: 16, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={() => setVista("calc")}><Ico icon={IcoCheck} size={16} /> Finalizar pedido</button>
+                  <button className="btn btn-danger btn-block" style={{ padding: 16, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={() => setVista("falla")}><Ico icon={IcoFal} size={16} /> Reportar falla</button>
                 </>
               );
             })()}
@@ -501,7 +503,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
         {pedidoSel && vista === "falla" && (
           <>
             <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setVista(null)}>← Volver</button>
-            <h3 style={{ color: "#ff4d4d", marginBottom: 12 }}>⚠️ Reportar falla</h3>
+            <h3 style={{ color: "#ff4d4d", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoFal} /> Reportar falla</h3>
             <div className="form-grid">
               <div className="field">
                 <label>Componente</label>
@@ -523,8 +525,8 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                 <textarea placeholder="¿Qué ocurrió?" value={formFalla.descripcion} onChange={e => setFormFalla(f => ({ ...f, descripcion: e.target.value }))} />
               </div>
             </div>
-            <button className="btn btn-danger btn-block" onClick={guardarFalla} disabled={loading} style={{ padding: 16, fontSize: 16 }}>
-              {loading ? "Guardando…" : "⚠️ Reportar falla"}
+            <button className="btn btn-danger btn-block" onClick={guardarFalla} disabled={loading} style={{ padding: 16, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              {loading ? "Guardando…" : <><Ico icon={IcoFal} size={16} /> Reportar falla</>}
             </button>
           </>
         )}

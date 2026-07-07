@@ -5,6 +5,9 @@ import { today } from "../lib/utils";
 import { sendWhatsApp } from "../utils/whatsapp";
 import { sendPush } from "../lib/push";
 import NotifBell from "./NotifBell";
+import { IcoPalette, IcoFlask, IcoRoll, IcoProd, IcoAlertDot, IcoStore, IcoNote, IcoCal, IcoCheck, IcoPencil, IcoX, IcoEmilio, IcoRuler, IcoRef, IcoBulb, IcoOperador, IcoCamera } from "./Icons";
+
+const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
 export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], setListaMateriales, onSalir }) {
   const [toast, setToast]       = useState("");
@@ -15,6 +18,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
   const [verHistorial, setVerHistorial] = useState(false);
   const [loadingMat, setLoadingMat] = useState(null);
   const TIPO_MAT = { Tinta: "#c9922a", Solvente: "#4b8fe8", Rollos: "#4be87a", Otro: "#545a78" };
+  const TIPO_ICO = { Tinta: IcoPalette, Solvente: IcoFlask, Rollos: IcoRoll, Otro: IcoProd };
   const [formMat, setFormMat] = useState({ material: "", tipo: "Tinta", cantidad: "", unidad: "kg", urgente: false, notas: "", proveedor: "" });
   const updMat = (k, v) => setFormMat(f => ({ ...f, [k]: v }));
   const [editandoMat, setEditandoMat] = useState(null);
@@ -164,9 +168,9 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
 
       {/* ── Tabs ── */}
       <div style={{ display: "flex", borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
-        {[["pedidos","🔔 Pedidos", pendientes.length],["materiales","📦 Materiales", activos.length]].map(([k,lbl,cnt]) => (
-          <button key={k} onClick={() => setTabEmilio(k)} style={{ flex: 1, padding: "11px 0", fontSize: 13, fontWeight: 700, background: "transparent", border: "none", cursor: "pointer", color: tabEmilio === k ? "#c9922a" : "#555", borderBottom: tabEmilio === k ? "2px solid #c9922a" : "2px solid transparent", position: "relative" }}>
-            {lbl}
+        {[["pedidos",IcoEmilio,"Pedidos", pendientes.length],["materiales",IcoProd,"Materiales", activos.length]].map(([k,Icon,lbl,cnt]) => (
+          <button key={k} onClick={() => setTabEmilio(k)} style={{ flex: 1, padding: "11px 0", fontSize: 13, fontWeight: 700, background: "transparent", border: "none", cursor: "pointer", color: tabEmilio === k ? "#c9922a" : "#555", borderBottom: tabEmilio === k ? "2px solid #c9922a" : "2px solid transparent", position: "relative", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            <Ico icon={Icon} /> {lbl}
             {cnt > 0 && <span style={{ marginLeft: 6, background: k === "materiales" ? "#c9922a" : "#ff4d4d", color: "#000", fontSize: 10, fontWeight: 900, borderRadius: 20, padding: "1px 6px", verticalAlign: "middle" }}>{cnt}</span>}
           </button>
         ))}
@@ -177,7 +181,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
         {/* ── Tab Materiales ── */}
         {tabEmilio === "materiales" && (
           <div>
-            <h2 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: "#c9922a", letterSpacing: ".06em", margin: "0 0 14px" }}>📦 Materiales a pedir</h2>
+            <h2 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: "#c9922a", letterSpacing: ".06em", margin: "0 0 14px", display: "flex", alignItems: "center", gap: 8 }}><Ico icon={IcoProd} size={20} /> Materiales a pedir</h2>
 
             {/* Formulario agregar */}
             <div style={{ background: "#1a1d26", borderRadius: 12, padding: 16, marginBottom: 16, border: "1px solid #2a2d3a" }}>
@@ -187,7 +191,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                 {Object.entries(TIPO_MAT).map(([t, color]) => (
                   <button key={t} type="button" onClick={() => { updMat("tipo", t); updMat("unidad", t === "Rollos" ? "rollos" : t === "Solvente" ? "kg" : "kg"); }}
                     style={{ padding: "10px 0", borderRadius: 10, border: `2px solid ${formMat.tipo === t ? color : "#2a2d3a"}`, background: formMat.tipo === t ? color + "22" : "transparent", color: formMat.tipo === t ? color : "#555", fontWeight: 800, fontSize: 13, cursor: "pointer", transition: "all .15s" }}>
-                    {t === "Tinta" ? "🎨" : t === "Solvente" ? "🧪" : t === "Rollos" ? "🧻" : "📦"}<br/>{t}
+                    <Ico icon={TIPO_ICO[t] || IcoProd} size={16} /><br/>{t}
                   </button>
                 ))}
               </div>
@@ -209,7 +213,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#e0e0e0", cursor: "pointer" }}>
                   <input type="checkbox" checked={formMat.urgente} onChange={e => updMat("urgente", e.target.checked)} />
-                  <span style={{ color: formMat.urgente ? "#ff4d4d" : "#666" }}>🔴 Urgente</span>
+                  <span style={{ color: formMat.urgente ? "#ff4d4d" : "#666", display: "inline-flex", alignItems: "center", gap: 5 }}><Ico icon={IcoAlertDot} size={9} /> Urgente</span>
                 </label>
                 <button onClick={agregarMaterial} disabled={loadingMat === "add"} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "#c9922a", color: "#000", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
                   {loadingMat === "add" ? "…" : "Solicitar"}
@@ -222,18 +226,18 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
               ? <div style={{ textAlign: "center", padding: "24px 0", color: "#444", fontSize: 13 }}>Sin materiales pendientes.</div>
               : activos.map(m => {
                 const tipoColor = TIPO_MAT[m.tipo] || "#545a78";
-                const tipoIco   = m.tipo === "Tinta" ? "🎨" : m.tipo === "Solvente" ? "🧪" : m.tipo === "Rollos" ? "🧻" : "📦";
+                const TipoIco   = TIPO_ICO[m.tipo] || IcoProd;
                 return (
                   <div key={m.id} style={{ background: "#1a1d26", borderRadius: 14, marginBottom: 14, borderLeft: `6px solid ${m.urgente ? "#ff4d4d" : tipoColor}`, overflow: "hidden", boxShadow: `0 2px 12px ${tipoColor}18` }}>
                     {editandoMat === m.id ? (
                       <div style={{ padding: "14px 16px" }}>
-                        <div style={{ fontSize: 11, color: tipoColor, fontWeight: 700, letterSpacing: ".07em", marginBottom: 10 }}>✏ EDITANDO</div>
+                        <div style={{ fontSize: 11, color: tipoColor, fontWeight: 700, letterSpacing: ".07em", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoPencil} /> EDITANDO</div>
                         {/* Selector tipo */}
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, marginBottom: 10 }}>
                           {Object.entries(TIPO_MAT).map(([t, color]) => (
                             <button key={t} type="button" onClick={() => updEdit("tipo", t)}
                               style={{ padding: "8px 0", borderRadius: 8, border: `2px solid ${formEdit.tipo === t ? color : "#2a2d3a"}`, background: formEdit.tipo === t ? color + "22" : "transparent", color: formEdit.tipo === t ? color : "#555", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>
-                              {t === "Tinta" ? "🎨" : t === "Solvente" ? "🧪" : t === "Rollos" ? "🧻" : "📦"} {t}
+                              <Ico icon={TIPO_ICO[t] || IcoProd} /> {t}
                             </button>
                           ))}
                         </div>
@@ -255,7 +259,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#e0e0e0", cursor: "pointer" }}>
                             <input type="checkbox" checked={formEdit.urgente} onChange={e => updEdit("urgente", e.target.checked)} />
-                            <span style={{ color: formEdit.urgente ? "#ff4d4d" : "#666" }}>🔴 Urgente</span>
+                            <span style={{ color: formEdit.urgente ? "#ff4d4d" : "#666", display: "inline-flex", alignItems: "center", gap: 5 }}><Ico icon={IcoAlertDot} size={9} /> Urgente</span>
                           </label>
                           <div style={{ display: "flex", gap: 8 }}>
                             <button onClick={() => setEditandoMat(null)} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #2a2d3a", background: "transparent", color: "#666", fontSize: 12, cursor: "pointer" }}>Cancelar</button>
@@ -269,11 +273,11 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                       <div>
                         {/* Barra de tipo */}
                         <div style={{ background: tipoColor + "18", padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <span style={{ fontSize: 12, fontWeight: 800, color: tipoColor, letterSpacing: ".08em" }}>{tipoIco} {(m.tipo || "Otro").toUpperCase()}</span>
+                          <span style={{ fontSize: 12, fontWeight: 800, color: tipoColor, letterSpacing: ".08em", display: "flex", alignItems: "center", gap: 6 }}><Ico icon={TipoIco} /> {(m.tipo || "Otro").toUpperCase()}</span>
                           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                            {m.urgente && <span style={{ fontSize: 10, fontWeight: 800, color: "#ff4d4d", background: "#ff4d4d22", border: "1px solid #ff4d4d44", borderRadius: 20, padding: "2px 8px" }}>🔴 URGENTE</span>}
-                            <button onClick={() => abrirEdicion(m)} style={{ padding: "3px 9px", borderRadius: 6, border: "1px solid #2a2d3a", background: "transparent", color: "#666", fontSize: 11, cursor: "pointer" }}>✏</button>
-                            <button onClick={() => eliminarMaterial(m.id)} style={{ padding: "3px 8px", borderRadius: 6, border: "none", background: "transparent", color: "#444", fontSize: 12, cursor: "pointer" }}>✕</button>
+                            {m.urgente && <span style={{ fontSize: 10, fontWeight: 800, color: "#ff4d4d", background: "#ff4d4d22", border: "1px solid #ff4d4d44", borderRadius: 20, padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4 }}><Ico icon={IcoAlertDot} size={8} /> URGENTE</span>}
+                            <button onClick={() => abrirEdicion(m)} style={{ padding: "3px 9px", borderRadius: 6, border: "1px solid #2a2d3a", background: "transparent", color: "#666", fontSize: 11, cursor: "pointer", display: "inline-flex" }}><Ico icon={IcoPencil} size={12} /></button>
+                            <button onClick={() => eliminarMaterial(m.id)} style={{ padding: "3px 8px", borderRadius: 6, border: "none", background: "transparent", color: "#444", fontSize: 12, cursor: "pointer", display: "inline-flex" }}><Ico icon={IcoX} size={13} /></button>
                           </div>
                         </div>
                         {/* Cuerpo */}
@@ -285,13 +289,13 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                             </div>
                           )}
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
-                            {m.proveedor && <span style={{ fontSize: 12, color: "#4b8fe8" }}>🏪 {m.proveedor}</span>}
-                            {m.notas && <span style={{ fontSize: 12, color: "#666" }}>📝 {m.notas}</span>}
-                            {m.created_at && <span style={{ fontSize: 11, color: "#3a3f5a" }}>📅 {new Date(m.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</span>}
+                            {m.proveedor && <span style={{ fontSize: 12, color: "#4b8fe8", display: "inline-flex", alignItems: "center", gap: 4 }}><Ico icon={IcoStore} /> {m.proveedor}</span>}
+                            {m.notas && <span style={{ fontSize: 12, color: "#666", display: "inline-flex", alignItems: "center", gap: 4 }}><Ico icon={IcoNote} /> {m.notas}</span>}
+                            {m.created_at && <span style={{ fontSize: 11, color: "#3a3f5a", display: "inline-flex", alignItems: "center", gap: 4 }}><Ico icon={IcoCal} /> {new Date(m.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</span>}
                           </div>
                           <button onClick={() => marcarListo(m.id)} disabled={loadingMat === m.id}
-                            style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "#4be87a", color: "#000", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-                            {loadingMat === m.id ? "…" : "✓ Ya lo pedí"}
+                            style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "#4be87a", color: "#000", fontWeight: 700, fontSize: 12, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            {loadingMat === m.id ? "…" : <><Ico icon={IcoCheck} size={12} /> Ya lo pedí</>}
                           </button>
                         </div>
                       </div>
@@ -317,7 +321,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                           {(m.cantidad || m.unidad) && <div style={{ fontSize: 12, color: "#555" }}>{m.cantidad} {m.unidad}</div>}
                         </div>
                         <div style={{ textAlign: "right" }}>
-                          <div style={{ fontSize: 10, color: "#4be87a", fontWeight: 700 }}>✓ LISTO</div>
+                          <div style={{ fontSize: 10, color: "#4be87a", fontWeight: 700, display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}><Ico icon={IcoCheck} size={10} /> LISTO</div>
                           <div style={{ fontSize: 11, color: "#444" }}>{m.fecha_listo || ""}</div>
                         </div>
                       </div>
@@ -331,7 +335,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
 
         {/* ── Tab Pedidos ── */}
         {tabEmilio === "pedidos" && <>
-        <h2 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: "#ff4d4d", letterSpacing: ".06em", margin: "0 0 14px" }}>🔔 Falta dar de alta</h2>
+        <h2 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: "#ff4d4d", letterSpacing: ".06em", margin: "0 0 14px", display: "flex", alignItems: "center", gap: 8 }}><Ico icon={IcoEmilio} size={20} /> Falta dar de alta</h2>
 
         {pendientes.length === 0 && (
           <div style={{ textAlign: "center", padding: "32px 0", color: "#444", fontSize: 13 }}>
@@ -377,8 +381,9 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                   position:'absolute', left:16, top:'50%', transform:'translateY(-50%)',
                   fontSize:13, fontWeight:800, color:'#4be87a', letterSpacing:'.06em',
                   opacity: Math.min(1, (dx - 20) / 60), pointerEvents:'none',
+                  display: 'flex', alignItems: 'center', gap: 6,
                 }}>
-                  ✓ DAR DE ALTA
+                  <Ico icon={IcoCheck} /> DAR DE ALTA
                 </div>
               )}
 
@@ -386,10 +391,10 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 19, fontWeight: 700, color: "#fff" }}>{p.cliente}</div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13, marginTop: 4 }}>
-                  <span style={{ color: "#c9922a", fontWeight: 700 }}>📏 {p.medida}</span>
-                  <span style={{ color: "#aaa" }}>🎨 {p.tipo}</span>
-                  {(p.color || p.tinta_tipo) && <span style={{ color: "#aaa" }}>🖌 {p.color || p.tinta_tipo}</span>}
-                  <span style={{ color: "#aaa" }}>📦 {p.cajas} cajas</span>
+                  <span style={{ color: "#c9922a", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 5 }}><Ico icon={IcoRuler} /> {p.medida}</span>
+                  <span style={{ color: "#aaa", display: "inline-flex", alignItems: "center", gap: 5 }}><Ico icon={IcoPalette} /> {p.tipo}</span>
+                  {(p.color || p.tinta_tipo) && <span style={{ color: "#aaa", display: "inline-flex", alignItems: "center", gap: 5 }}><Ico icon={IcoPalette} /> {p.color || p.tinta_tipo}</span>}
+                  <span style={{ color: "#aaa", display: "inline-flex", alignItems: "center", gap: 5 }}><Ico icon={IcoProd} /> {p.cajas} cajas</span>
                   <span style={{ color: "#444" }}>#Ped {p.num}</span>
                 </div>
                 {p.fecha_solicitud && <div style={{ fontSize: 11, color: "#444", marginTop: 4 }}>Solicitud: {p.fecha_solicitud}</div>}
@@ -398,7 +403,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
 
               {/* ── PRODUCCIÓN ── */}
               <div style={S.section}>
-                <div style={S.secTitle}>📦 Producción</div>
+                <div style={{ ...S.secTitle, display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoProd} /> Producción</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
                   {cajasProducidas != null && (
                     <div style={S.mini}>
@@ -443,7 +448,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
 
               {/* ── INSUMOS ── */}
               <div style={S.section}>
-                <div style={S.secTitle}>🔩 Insumos</div>
+                <div style={{ ...S.secTitle, display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoRef} /> Insumos</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   {centros != null && (
                     <div style={S.mini}>
@@ -511,9 +516,9 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                 {tiempo && (
                   <div style={{ borderRadius: 8, overflow: "hidden", border: "1px solid #1e2132" }}>
                     {[
-                      { ico: "🔧", lbl: "Mant. impresora" },
-                      { ico: "💡", lbl: "Luz impresora"   },
-                      { ico: "👷", lbl: "William — operador" },
+                      { ico: IcoRef, lbl: "Mant. impresora" },
+                      { ico: IcoBulb, lbl: "Luz impresora"   },
+                      { ico: IcoOperador, lbl: "William — operador" },
                     ].map((row, i) => (
                       <div
                         key={i}
@@ -523,17 +528,17 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                           borderBottom: i < 2 ? "1px solid #1e2132" : "none",
                           background: i % 2 === 0 ? "#0d0f14" : "#0b0d12",
                         }}>
-                        <span style={{ fontSize: 13, color: "#8a90ac" }}>{row.ico} {row.lbl}</span>
+                        <span style={{ fontSize: 13, color: "#8a90ac", display: "flex", alignItems: "center", gap: 6 }}><Ico icon={row.ico} /> {row.lbl}</span>
                         <span style={{ fontSize: 16, fontWeight: 700, color: "#e0e0e0", fontVariantNumeric: "tabular-nums" }}>{tiempo} días</span>
                       </div>
                     ))}
                   </div>
                 )}
 
-                {p.notas && <div style={{ fontSize: 12, color: "#aaa", marginTop: 10 }}>📝 {p.notas}</div>}
+                {p.notas && <div style={{ fontSize: 12, color: "#aaa", marginTop: 10, display: "flex", alignItems: "center", gap: 5 }}><Ico icon={IcoNote} /> {p.notas}</div>}
                 {p.foto_producto_url && (
                   <div style={{ marginTop: 10 }}>
-                    <div style={{ fontSize: 11, color: "#555", marginBottom: 4 }}>📷 Foto del producto</div>
+                    <div style={{ fontSize: 11, color: "#555", marginBottom: 4, display: "flex", alignItems: "center", gap: 5 }}><Ico icon={IcoCamera} /> Foto del producto</div>
                     <ClicheImg src={p.foto_producto_url} style={{ width: "100%", maxWidth: 300, borderRadius: 8, border: "1px solid #2a2d3a" }} />
                   </div>
                 )}
@@ -548,8 +553,9 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                   background: loading === p.id ? "#2a2d3a" : "#4be87a",
                   color: "#000", fontSize: 15, fontWeight: 800,
                   cursor: loading === p.id ? "default" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 }}>
-                {loading === p.id ? "Guardando…" : "✓ Ya lo di de alta"}
+                {loading === p.id ? "Guardando…" : <><Ico icon={IcoCheck} size={16} /> Ya lo di de alta</>}
               </button>
 
             </div>
