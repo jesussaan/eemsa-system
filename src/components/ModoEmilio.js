@@ -3,6 +3,7 @@ import ClicheImg from './ClicheImg';
 import { supabase } from "../lib/supabase";
 import { today } from "../lib/utils";
 import { sendWhatsApp } from "../utils/whatsapp";
+import { sendPush } from "../lib/push";
 
 export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], setListaMateriales, onSalir }) {
   const [toast, setToast]       = useState("");
@@ -58,7 +59,10 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
     if (error) { showToast("❌ Error: " + error.message); setLoading(null); return; }
     setPedidos(ps => ps.map(p => p.id === id ? { ...p, ...update } : p));
     const p = pedidos.find(x => x.id === id);
-    if (p) sendWhatsApp(`✅ Pedido #${p.num} ${p.cliente} dado de alta por Emilio`);
+    if (p) {
+      sendWhatsApp(`✅ Pedido #${p.num} ${p.cliente} dado de alta por Emilio`);
+      sendPush('✅ Pedido dado de alta', `#${p.num} ${p.cliente} — dado de alta por Emilio`);
+    }
     showToast("✓ Pedido dado de alta");
     setLoading(null);
   };
