@@ -9,6 +9,7 @@ import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV, UMBRAL_MERMA } from '../lib/constants';
 import { sendWhatsApp } from '../utils/whatsapp';
 import { IcoOperador } from './Icons';
+import NotifBell from './NotifBell';
 
 export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, onSalir }) {
   const [ahora, setAhora] = useState(new Date());
@@ -287,7 +288,10 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
           <div style={{ color: "var(--blue)", fontWeight: 700, fontSize: 16, fontFamily: "var(--font-h)", letterSpacing: ".05em" }}>EEMSA · Modo Operador</div>
           <div style={{ color: "var(--green)", fontSize: 11, display: "flex", alignItems: "center", gap: 5 }}><span style={{ display: "inline-flex" }}><IcoOperador /></span> William</div>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={onSalir}>Salir</button>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          <NotifBell />
+          <button className="btn btn-ghost btn-sm" onClick={onSalir}>Salir</button>
+        </div>
       </header>
 
       <div style={{ padding: 16, maxWidth: 480, margin: "0 auto" }}>

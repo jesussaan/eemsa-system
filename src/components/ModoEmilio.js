@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { today } from "../lib/utils";
 import { sendWhatsApp } from "../utils/whatsapp";
 import { sendPush } from "../lib/push";
+import NotifBell from "./NotifBell";
 
 export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], setListaMateriales, onSalir }) {
   const [toast, setToast]       = useState("");
@@ -155,7 +156,10 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 16, color: "#e0e0e0", letterSpacing: ".06em" }}>EEMSA System</div>
           <div style={{ fontSize: 10, color: "#c9922a", fontWeight: 700, letterSpacing: ".08em" }}>MÓDULO EMILIO</div>
         </div>
-        <button onClick={onSalir} style={{ marginLeft: "auto", fontSize: 11, color: "#666", background: "transparent", border: "none", cursor: "pointer", padding: "4px 8px" }}>← Salir</button>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          <NotifBell />
+          <button onClick={onSalir} style={{ fontSize: 11, color: "#666", background: "transparent", border: "none", cursor: "pointer", padding: "4px 8px" }}>← Salir</button>
+        </div>
       </header>
 
       {/* ── Tabs ── */}
