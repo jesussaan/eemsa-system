@@ -358,6 +358,10 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
           const dx        = sw.dx || 0;
           const confirming = dx >= SWIPE_THRESHOLD;
 
+          const esperaDesde = p.fin_ts ? new Date(p.fin_ts) : p.fecha_termino ? new Date(p.fecha_termino + 'T16:00:00') : null;
+          const diasEsperando = esperaDesde ? Math.floor((Date.now() - esperaDesde.getTime()) / 86400000) : 0;
+          const bordeColor = confirming ? '#4be87a' : diasEsperando >= 2 ? '#ff4d4d' : '#3a3f5a';
+
           return (
             <div
               key={p.id}
@@ -366,7 +370,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                 transform:      `translateX(${dx}px) rotate(${dx * 0.015}deg)`,
                 transition:     sw.active ? 'none' : 'transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94), background 0.2s',
                 background:     confirming ? '#0e2a14' : '#1a1d26',
-                borderLeft:     `4px solid ${confirming ? '#4be87a' : '#ff4d4d'}`,
+                borderLeft:     `4px solid ${bordeColor}`,
                 userSelect:     'none',
                 touchAction:    'pan-y',
                 position:       'relative',
@@ -389,7 +393,14 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
 
               {/* ── Encabezado del pedido ── */}
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 19, fontWeight: 700, color: "#fff" }}>{p.cliente}</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ fontSize: 19, fontWeight: 700, color: "#fff" }}>{p.cliente}</div>
+                  {diasEsperando >= 2 && (
+                    <span style={{ fontSize: 10, fontWeight: 800, color: "#ff4d4d", background: "#ff4d4d22", border: "1px solid #ff4d4d44", borderRadius: 20, padding: "3px 9px", whiteSpace: "nowrap" }}>
+                      {diasEsperando}d esperando
+                    </span>
+                  )}
+                </div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13, marginTop: 4 }}>
                   <span style={{ color: "#c9922a", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 5 }}><Ico icon={IcoRuler} /> {p.medida}</span>
                   <span style={{ color: "#aaa", display: "inline-flex", alignItems: "center", gap: 5 }}><Ico icon={IcoPalette} /> {p.tipo}</span>
@@ -512,24 +523,19 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                   <div style={{ fontSize: 12, color: "#3a3f5a", marginBottom: 12 }}>Sin datos de tiempo suficientes</div>
                 )}
 
-                {/* Tabla: Mant. / Luz / William */}
+                {/* Desglose compacto: Mant. / Luz / William — mismo tiempo, para que no se le olvide a Emilio que aplica a los 3 */}
                 {tiempo && (
-                  <div style={{ borderRadius: 8, overflow: "hidden", border: "1px solid #1e2132" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
                     {[
-                      { ico: IcoRef, lbl: "Mant. impresora" },
-                      { ico: IcoBulb, lbl: "Luz impresora"   },
-                      { ico: IcoOperador, lbl: "William — operador" },
+                      { ico: IcoRef, lbl: "Mant." },
+                      { ico: IcoBulb, lbl: "Luz"   },
+                      { ico: IcoOperador, lbl: "William" },
                     ].map((row, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          display: "flex", justifyContent: "space-between", alignItems: "center",
-                          padding: "10px 14px",
-                          borderBottom: i < 2 ? "1px solid #1e2132" : "none",
-                          background: i % 2 === 0 ? "#0d0f14" : "#0b0d12",
-                        }}>
-                        <span style={{ fontSize: 13, color: "#8a90ac", display: "flex", alignItems: "center", gap: 6 }}><Ico icon={row.ico} /> {row.lbl}</span>
-                        <span style={{ fontSize: 16, fontWeight: 700, color: "#e0e0e0", fontVariantNumeric: "tabular-nums" }}>{tiempo} días</span>
+                      <div key={i} style={{ background: "#0d0f14", border: "1px solid #1e2132", borderRadius: 8, padding: "7px 6px", textAlign: "center" }}>
+                        <div style={{ fontSize: 9, color: "#5a6080", display: "flex", alignItems: "center", justifyContent: "center", gap: 3, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 3 }}>
+                          <Ico icon={row.ico} size={10} /> {row.lbl}
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "#e0e0e0", fontVariantNumeric: "tabular-nums" }}>{tiempo}d</div>
                       </div>
                     ))}
                   </div>
