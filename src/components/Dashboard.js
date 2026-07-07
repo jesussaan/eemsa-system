@@ -443,29 +443,21 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
       {seccion === 'finanzas' && <>
       {/* ── Tu máquina en números ── */}
       <SubTitle icon={IcoMoney}>Tu máquina en números</SubTitle>
-      <div className="stat-grid" style={{ marginBottom: 8 }}>
+      <div className="stat-grid" style={{ marginBottom: 12 }}>
         <div className="stat-card green">
           <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(valorProducidoMes))}</div>
           <div className="stat-lbl">Valor producido este mes</div>
+          {valorProducido !== valorProducidoMes && <div className="muted" style={{ marginTop: 3 }}>Total: ${fmt(Math.round(valorProducido))}</div>}
         </div>
         <div className="stat-card red">
           <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(perdidaMermaMes))}</div>
           <div className="stat-lbl">Perdido en merma este mes</div>
-        </div>
-      </div>
-      <div className="stat-grid" style={{ marginBottom: 12 }}>
-        <div className="stat-card blue">
-          <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(valorProducido))}</div>
-          <div className="stat-lbl">Valor producido total</div>
-        </div>
-        <div className="stat-card orange">
-          <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(perdidaMerma))}</div>
-          <div className="stat-lbl">Perdido en merma total</div>
+          {perdidaMerma !== perdidaMermaMes && <div className="muted" style={{ marginTop: 3 }}>Total: ${fmt(Math.round(perdidaMerma))}</div>}
         </div>
         {valorProducido > 0 && perdidaMerma > 0 && (
           <div className="stat-card accent">
             <div className="stat-val" style={{ fontSize: 18 }}>{((perdidaMerma / valorProducido) * 100).toFixed(1)}%</div>
-            <div className="stat-lbl">Merma vs producción</div>
+            <div className="stat-lbl">Merma vs producción (total)</div>
           </div>
         )}
       </div>
