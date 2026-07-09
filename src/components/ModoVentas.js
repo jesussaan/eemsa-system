@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { supabase } from "../lib/supabase";
 import { today, uid, siguienteNumPedido } from "../lib/utils";
 import { TIPOS } from "../lib/constants";
 import { sendWhatsApp, mensajePedidoNuevo } from "../utils/whatsapp";
@@ -85,8 +84,9 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
       maq:             "SIAT L36 #1",
       op:              "",
     };
-    const { data, error } = await supabase.from("pedidos").insert([nuevo]).select().single();
-    if (error) { showToast("❌ Error: " + error.message); setSaving(false); return; }
+    const res = await fetch('/api/pedidos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(nuevo) });
+    const data = await res.json();
+    if (!res.ok) { showToast("❌ Error: " + (data.error || "desconocido")); setSaving(false); return; }
     const guardado = data || nuevo;
     setPedidos(ps => [guardado, ...ps]);
     setForm({ ...FORM_INIT, num: siguienteNumPedido([guardado, ...pedidos]) });

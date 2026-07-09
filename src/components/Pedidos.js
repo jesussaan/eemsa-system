@@ -8,6 +8,11 @@ import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguiente
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT } from '../lib/constants';
 import { sendWhatsApp, mensajePedidoNuevo } from '../utils/whatsapp';
 
+const authHeaders = () => ({
+  'Content-Type': 'application/json',
+  Authorization: `Bearer ${sessionStorage.getItem('token_supervisor') || ''}`,
+});
+
 export default function Pedidos({ pedidos, setPedidos }) {
   const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", rollos_totales: "", ancho: "", largo: "", color: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_estimada: "", fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "anotado" };
   const [form, setForm] = useState(() => ({ ...formInicial, num: siguienteNumPedido(pedidos) }));
@@ -181,13 +186,16 @@ export default function Pedidos({ pedidos, setPedidos }) {
       else if (up) { cliche_url = up.path; }
     }
     const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.num, tipo: form.tipo, medida: form.medida, cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(form.rollos_totales), ancho: form.ancho, largo: form.largo, color: form.color, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
-    const { error } = await supabase.from("pedidos").insert([nuevo]);
-    if (error) { showToast("❌ Error: " + error.message); setLoading(false); return; }
-    setPedidos(p => [nuevo, ...p]);
-    setForm({ ...formInicial, num: siguienteNumPedido([nuevo, ...pedidos]) });
-    setClicheImg(null); setClichePreview(null);
-    sendWhatsApp(mensajePedidoNuevo(nuevo));
-    showToast("✓ Pedido anotado ☁️");
+    try {
+      const res = await fetch('/api/pedidos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(nuevo) });
+      const data = await res.json();
+      if (!res.ok) { showToast("❌ Error: " + (data.error || "desconocido")); setLoading(false); return; }
+      setPedidos(p => [nuevo, ...p]);
+      setForm({ ...formInicial, num: siguienteNumPedido([nuevo, ...pedidos]) });
+      setClicheImg(null); setClichePreview(null);
+      sendWhatsApp(mensajePedidoNuevo(nuevo));
+      showToast("✓ Pedido anotado ☁️");
+    } catch (e) { showToast("❌ Error: " + e.message); }
     setLoading(false);
   };
 
@@ -236,20 +244,23 @@ export default function Pedidos({ pedidos, setPedidos }) {
       if (upErr) { showToast("⚠ Foto no subida: " + upErr.message); }
       else if (up) { actualizado.cliche_url = up.path; }
     }
-    const { error } = await supabase.from("pedidos").update(actualizado).eq("id", modalPedido.id);
-    if (error) { showToast("❌ Error: " + error.message); return; }
+    const res = await fetch('/api/pedidos', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ action: 'completo', id: modalPedido.id, ...actualizado }) });
+    const data = await res.json();
+    if (!res.ok) { showToast("❌ Error: " + (data.error || "desconocido")); return; }
     setPedidos(p => p.map(x => x.id === actualizado.id ? actualizado : x));
     cerrarModal(); showToast("✓ Pedido actualizado ☁️");
   };
 
   const del = async id => {
     if (!window.confirm("¿Eliminar pedido?")) return;
-    await supabase.from("pedidos").delete().eq("id", id);
+    const res = await fetch('/api/pedidos', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
+    if (!res.ok) { showToast("❌ Error al eliminar"); return; }
     setPedidos(p => p.filter(x => x.id !== id));
   };
 
   const darDeAlta = async (id) => {
-    await supabase.from("pedidos").update({ status: "anotado" }).eq("id", id);
+    const res = await fetch('/api/pedidos', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'estado', id, status: 'anotado' }) });
+    if (!res.ok) { showToast("❌ Error al dar de alta"); return; }
     setPedidos(ps => ps.map(p => p.id === id ? { ...p, status: "anotado" } : p));
     showToast("✓ Pedido dado de alta");
   };

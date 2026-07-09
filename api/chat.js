@@ -187,7 +187,7 @@ async function ejecutarHerramienta(name, input) {
           notas: input.notas || "", status: "anotado",
           cliche_url: null, merma_pct: null
         };
-        const { error } = await supabase.from("pedidos").insert([nuevo]);
+        const { error } = await supabaseAdmin.from("pedidos").insert([nuevo]);
         if (error) return { ok: false, error: error.message };
         return { ok: true, mensaje: `Pedido #${input.num} creado para ${input.cliente} — ${input.cajas} cajas`, tablas: ["pedidos"] };
       }
@@ -204,14 +204,14 @@ async function ejecutarHerramienta(name, input) {
         if (input.fecha_termino) updates.fecha_termino = input.fecha_termino;
         if (input.notas !== undefined) updates.notas   = input.notas;
         if (Object.keys(updates).length === 0) return { ok: false, error: "No se especificó qué actualizar" };
-        const { error } = await supabase.from("pedidos").update(updates).eq("num", String(input.num_pedido));
+        const { error } = await supabaseAdmin.from("pedidos").update(updates).eq("num", String(input.num_pedido));
         if (error) return { ok: false, error: error.message };
         return { ok: true, mensaje: `Pedido #${input.num_pedido} actualizado: ${Object.keys(updates).join(", ")}`, tablas: ["pedidos"] };
       }
 
       case "registrar_merma": {
         const merma_pct = ((input.merma / input.piezas_prod) * 100).toFixed(2);
-        const { error } = await supabase.from("pedidos").update({
+        const { error } = await supabaseAdmin.from("pedidos").update({
           piezas_prod: input.piezas_prod,
           merma: input.merma,
           merma_pct
@@ -244,13 +244,13 @@ async function ejecutarHerramienta(name, input) {
           accion: input.accion || "",
           status: "abierta"
         };
-        const { error } = await supabase.from("fallas").insert([nuevo]);
+        const { error } = await supabaseAdmin.from("fallas").insert([nuevo]);
         if (error) return { ok: false, error: error.message };
         return { ok: true, mensaje: `Falla registrada: ${input.comp} en ${input.maq} — ${input.min_paro} min de paro`, tablas: ["fallas"] };
       }
 
       case "cerrar_falla": {
-        const { data: fallas } = await supabase.from("fallas").select("*").eq("status", "abierta");
+        const { data: fallas } = await supabaseAdmin.from("fallas").select("*").eq("status", "abierta");
         const term = input.descripcion_parcial.toLowerCase();
         const coincidencias = (fallas || []).filter(f =>
           f.descripcion?.toLowerCase().includes(term) ||
@@ -265,7 +265,7 @@ async function ejecutarHerramienta(name, input) {
         const falla = coincidencias[0];
         const updates = { status: "cerrada" };
         if (input.accion_correctiva) updates.accion = input.accion_correctiva;
-        await supabase.from("fallas").update(updates).eq("id", falla.id);
+        await supabaseAdmin.from("fallas").update(updates).eq("id", falla.id);
         return { ok: true, mensaje: `Falla cerrada: ${falla.comp} en ${falla.maq}`, tablas: ["fallas"] };
       }
 

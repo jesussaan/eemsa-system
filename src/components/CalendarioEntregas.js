@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { supabase } from "../lib/supabase";
 import { today } from "../lib/utils";
 import { STATUS_PED } from "../lib/constants";
 import CalendarGrid from "./CalendarGrid";
@@ -35,6 +34,11 @@ export default function CalendarioEntregas({ pedidos, setPedidos }) {
     return { bg:"#e8b84b18", border:"#e8b84b", txt:"#e8b84b", chip:"#e8b84b" };
   };
 
+  const authHeaders = () => ({
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${sessionStorage.getItem('token_supervisor') || ''}`,
+  });
+
   const asignarFecha = async (pedidoId, fecha) => {
     if (!fecha) return;
     setSaving(pedidoId);
@@ -43,8 +47,8 @@ export default function CalendarioEntregas({ pedidos, setPedidos }) {
     if (pedido?.fecha_estimada && pedido.fecha_estimada !== fecha && !pedido.fecha_original) {
       update.fecha_original = pedido.fecha_estimada;
     }
-    const { error } = await supabase.from("pedidos").update(update).eq("id", pedidoId);
-    if (!error) {
+    const res = await fetch('/api/pedidos', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ action: 'fecha', id: pedidoId, ...update }) });
+    if (res.ok) {
       setPedidos(ps => ps.map(p => p.id === pedidoId ? { ...p, ...update } : p));
       setFechaTemp(f => { const n = {...f}; delete n[pedidoId]; return n; });
     }
@@ -59,8 +63,8 @@ export default function CalendarioEntregas({ pedidos, setPedidos }) {
 
   const quitarFecha = async (pedidoId) => {
     setSaving(pedidoId);
-    const { error } = await supabase.from("pedidos").update({ fecha_estimada: null, fecha_original: null }).eq("id", pedidoId);
-    if (!error) {
+    const res = await fetch('/api/pedidos', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ action: 'fecha', id: pedidoId, fecha_estimada: null, fecha_original: null }) });
+    if (res.ok) {
       setPedidos(ps => ps.map(p => p.id === pedidoId ? { ...p, fecha_estimada: null, fecha_original: null } : p));
     }
     setSaving(null);

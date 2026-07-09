@@ -39,6 +39,11 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     setFormFalla({ comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" });
   };
 
+  const actualizarEstadoPedido = (id, campos) => fetch('/api/pedidos', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'estado', id, ...campos }),
+  });
+
   const moverPedido = async (id, dir) => {
     const idx = pedidosAnotados.findIndex(p => p.id === id);
     const otroIdx = idx + dir;
@@ -46,7 +51,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     const nuevaLista = [...pedidosAnotados];
     [nuevaLista[idx], nuevaLista[otroIdx]] = [nuevaLista[otroIdx], nuevaLista[idx]];
     const updates = nuevaLista.map((p, i) => ({ id: p.id, orden: i }));
-    await Promise.all(updates.map(u => supabase.from("pedidos").update({ orden: u.orden }).eq("id", u.id)));
+    await Promise.all(updates.map(u => actualizarEstadoPedido(u.id, { orden: u.orden })));
     setPedidos(ps => ps.map(p => {
       const u = updates.find(x => x.id === p.id);
       return u ? { ...p, orden: u.orden } : p;
@@ -55,13 +60,10 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
 
   const iniciarPedido = async () => {
     setLoading(true);
-    const update = { status: "proceso", fecha_inicio: pedidoSel.fecha_inicio || today() };
-    const { error } = await supabase.from("pedidos").update(update).eq("id", pedidoSel.id);
-    if (error) { showToast("❌ Error al iniciar pedido"); setLoading(false); return; }
-    // Guarda timestamp exacto para el cronómetro en Modo TV (requiere columna inicio_ts TEXT en Supabase)
     const ts = new Date().toISOString();
-    supabase.from("pedidos").update({ inicio_ts: ts }).eq("id", pedidoSel.id);
-    update.inicio_ts = ts;
+    const update = { status: "proceso", fecha_inicio: pedidoSel.fecha_inicio || today(), inicio_ts: ts };
+    const res = await actualizarEstadoPedido(pedidoSel.id, update);
+    if (!res.ok) { showToast("❌ Error al iniciar pedido"); setLoading(false); return; }
     setPedidos(ps => ps.map(p => p.id === pedidoSel.id ? { ...p, ...update } : p));
     setPedidoSel(p => ({ ...p, ...update }));
     showToast("▶ Pedido en proceso");
@@ -121,12 +123,9 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
       const { data: up } = await supabase.storage.from("cliches").upload(path, fotoProducto, { upsert: true });
       if (up) update.foto_producto_url = up.path;
     }
-    const { error } = await supabase.from("pedidos").update(update).eq("id", pedidoSel.id);
-    if (error) { showToast("❌ Error al finalizar pedido"); setLoading(false); return; }
-
-    const finTs = new Date().toISOString();
-    supabase.from("pedidos").update({ fin_ts: finTs }).eq("id", pedidoSel.id);
-    update.fin_ts = finTs;
+    update.fin_ts = new Date().toISOString();
+    const res = await actualizarEstadoPedido(pedidoSel.id, update);
+    if (!res.ok) { showToast("❌ Error al finalizar pedido"); setLoading(false); return; }
 
     setPedidos(ps => ps.map(p => p.id === pedidoSel.id ? { ...p, ...update } : p));
     sendWhatsApp(`📝 William anotó los datos del pedido #${pedidoSel.num} ${pedidoSel.cliente}`);
@@ -158,8 +157,8 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
       sev: formFalla.sev, op: "William",
       descripcion: formFalla.descripcion, accion: "", status: "abierta",
     };
-    const { error } = await supabase.from("fallas").insert([nueva]);
-    if (error) { showToast("❌ Error al guardar falla"); setLoading(false); return; }
+    const res = await fetch('/api/fallas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(nueva) });
+    if (!res.ok) { showToast("❌ Error al guardar falla"); setLoading(false); return; }
     setFallas(fs => [nueva, ...fs]);
     setVista(null);
     setFormFalla({ comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" });

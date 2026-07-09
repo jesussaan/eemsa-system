@@ -60,8 +60,8 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
   const darDeAlta = async (id) => {
     setLoading(id);
     const update = { status: "terminado", fecha_termino: today() };
-    const { error } = await supabase.from("pedidos").update(update).eq("id", id);
-    if (error) { showToast("❌ Error: " + error.message); setLoading(null); return; }
+    const res = await fetch('/api/pedidos', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'estado', id, ...update }) });
+    if (!res.ok) { showToast("❌ Error al dar de alta"); setLoading(null); return; }
     setPedidos(ps => ps.map(p => p.id === id ? { ...p, ...update } : p));
     const p = pedidos.find(x => x.id === id);
     if (p) {
