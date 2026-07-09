@@ -5,7 +5,7 @@ import { today } from "../lib/utils";
 import { sendWhatsApp } from "../utils/whatsapp";
 import { sendPush } from "../lib/push";
 import NotifBell from "./NotifBell";
-import { IcoPalette, IcoFlask, IcoRoll, IcoProd, IcoAlertDot, IcoStore, IcoNote, IcoCal, IcoCheck, IcoPencil, IcoX, IcoEmilio, IcoRuler, IcoRef, IcoBulb, IcoOperador, IcoCamera } from "./Icons";
+import { IcoPalette, IcoFlask, IcoRoll, IcoProd, IcoAlertDot, IcoStore, IcoNote, IcoCal, IcoCheck, IcoPencil, IcoX, IcoEmilio, IcoRef, IcoBulb, IcoOperador, IcoCamera } from "./Icons";
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
@@ -401,11 +401,13 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                     </span>
                   )}
                 </div>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13, marginTop: 4 }}>
-                  <span style={{ color: "#c9922a", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 5 }}><Ico icon={IcoRuler} /> {p.medida}</span>
-                  <span style={{ color: "#aaa", display: "inline-flex", alignItems: "center", gap: 5 }}><Ico icon={IcoPalette} /> {p.tipo}</span>
-                  {(p.color || p.tinta_tipo) && <span style={{ color: "#aaa", display: "inline-flex", alignItems: "center", gap: 5 }}><Ico icon={IcoPalette} /> {p.color || p.tinta_tipo}</span>}
-                  <span style={{ color: "#aaa", display: "inline-flex", alignItems: "center", gap: 5 }}><Ico icon={IcoProd} /> {p.cajas} cajas</span>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginTop: 6 }}>
+                  <span style={{ fontSize: 30, fontWeight: 900, color: "#c9922a", lineHeight: 1 }}>{p.medida}</span>
+                  {cajasProducidas != null && <span style={{ fontSize: 20, fontWeight: 700, color: "#4be87a" }}>{cajasProducidas.toLocaleString()} cajas</span>}
+                </div>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13, marginTop: 6 }}>
+                  <span style={{ color: "#aaa" }}>{p.tipo}</span>
+                  {(p.color || p.tinta_tipo) && <span style={{ color: "#aaa" }}>{p.color || p.tinta_tipo}</span>}
                   <span style={{ color: "#444" }}>#Ped {p.num}</span>
                 </div>
                 {p.fecha_solicitud && <div style={{ fontSize: 11, color: "#444", marginTop: 4 }}>Solicitud: {p.fecha_solicitud}</div>}
@@ -432,12 +434,14 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                     <div style={S.mini}>
                       <div style={S.miniLbl}>Rollos MP usados</div>
                       <div style={{ color: "#4b8fe8", fontWeight: 800, fontSize: 20 }}>{Number(p.rollos_usados).toFixed(2)}</div>
+                      {p.tipo && <div style={{ fontSize: 11, color: "#8a90ac", marginTop: 2 }}>{p.tipo}</div>}
                     </div>
                   )}
                   {p.tinta_kg != null && (
                     <div style={S.mini}>
                       <div style={S.miniLbl}>Tinta</div>
                       <div style={{ color: "#c9922a", fontWeight: 800, fontSize: 18 }}>{Number(p.tinta_kg).toFixed(3)} kg</div>
+                      {(p.color || p.tinta_tipo) && <div style={{ fontSize: 11, color: "#8a90ac", marginTop: 2 }}>{p.color || p.tinta_tipo}</div>}
                     </div>
                   )}
                   {p.alcohol_litros != null && (
