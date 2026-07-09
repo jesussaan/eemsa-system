@@ -15,6 +15,8 @@ export default function Fallas({ fallas, setFallas }) {
   const [filtroSev, setFiltroSev] = useState("todas");
   const [vista, setVista] = useState("lista"); // "lista" | "componente"
   const [compExpandido, setCompExpandido] = useState(null);
+  const [editandoFalla, setEditandoFalla] = useState(null);
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2200); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -36,6 +38,23 @@ export default function Fallas({ fallas, setFallas }) {
   const del = async id => { if (!window.confirm("¿Eliminar?")) return; await supabase.from("fallas").delete().eq("id", id); setFallas(f => f.filter(x => x.id !== id)); };
   const close = async id => { await supabase.from("fallas").update({ status: "cerrada" }).eq("id", id); setFallas(f => f.map(x => x.id === id ? { ...x, status: "cerrada" } : x)); };
   const sevCls = s => s === "critica" ? "b-red" : s === "moderada" ? "b-orange" : "b-green";
+
+  const guardarEdicionFalla = async () => {
+    if (!editandoFalla) return;
+    if (!editandoFalla.descripcion || !editandoFalla.min_paro) { showToast("⚠ Descripción y minutos son obligatorios"); return; }
+    setGuardandoEdicion(true);
+    const actualizado = {
+      fecha: editandoFalla.fecha, maq: editandoFalla.maq, comp: editandoFalla.comp,
+      min_paro: editandoFalla.min_paro, sev: editandoFalla.sev, op: editandoFalla.op,
+      descripcion: editandoFalla.descripcion, accion: editandoFalla.accion, status: editandoFalla.status,
+    };
+    const { error } = await supabase.from("fallas").update(actualizado).eq("id", editandoFalla.id);
+    if (error) { showToast("❌ Error: " + error.message); setGuardandoEdicion(false); return; }
+    setFallas(fs => fs.map(x => x.id === editandoFalla.id ? { ...x, ...actualizado } : x));
+    setEditandoFalla(null);
+    showToast("✓ Falla actualizada");
+    setGuardandoEdicion(false);
+  };
 
   return (
     <div>
@@ -105,7 +124,10 @@ export default function Fallas({ fallas, setFallas }) {
                     <div className="list" style={{ marginTop: 10 }}>
                       {historialComp.map(f => (
                         <div key={f.id} className="list-item">
-                          <div className="muted">{f.fecha} · {f.maq} · {f.min_paro} min · <span className={`badge ${sevCls(f.sev)}`}>{SEV[f.sev]}</span></div>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
+                            <div className="muted">{f.fecha} · {f.maq} · {f.min_paro} min · <span className={`badge ${sevCls(f.sev)}`}>{SEV[f.sev]}</span> · <span className={`badge ${f.status === "abierta" ? "b-red" : "b-green"}`}>{f.status === "abierta" ? "Abierta" : "Cerrada"}</span></div>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setEditandoFalla({ ...f })}>✏️</button>
+                          </div>
                           <div className="muted">{f.descripcion}</div>
                         </div>
                       ))}
@@ -175,6 +197,7 @@ export default function Fallas({ fallas, setFallas }) {
                 <div><strong>{f.comp}</strong> — {f.maq}<span className={`badge ${sevCls(f.sev)}`}>{SEV[f.sev]}</span><span className={`badge ${f.status === "abierta" ? "b-red" : "b-green"}`}>{f.status === "abierta" ? "Abierta" : "Cerrada"}</span></div>
                 <div style={{ display: "flex", gap: 6 }}>
                   {f.status === "abierta" && <button className="btn btn-ghost btn-sm" onClick={() => close(f.id)}>✓</button>}
+                  <button className="btn btn-ghost btn-sm" onClick={() => setEditandoFalla({ ...f })}>✏️</button>
                   <button className="btn btn-danger btn-sm" onClick={() => del(f.id)}>✕</button>
                 </div>
               </div>
@@ -186,6 +209,39 @@ export default function Fallas({ fallas, setFallas }) {
         </div>
       )}
       </>}
+
+      {editandoFalla && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div style={{ background: "#14171f", borderRadius: "16px 16px 0 0", padding: 20, width: "100%", maxWidth: 600, maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, color: "#c9922a" }}>✏️ Editar falla</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setEditandoFalla(null)}>✕</button>
+            </div>
+            <div className="form-grid">
+              <div className="field"><label>Fecha</label><input type="date" value={editandoFalla.fecha || ""} onChange={e => setEditandoFalla(x => ({ ...x, fecha: e.target.value }))} /></div>
+              <div className="field"><label>Máquina</label><select value={editandoFalla.maq || ""} onChange={e => setEditandoFalla(x => ({ ...x, maq: e.target.value }))}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>
+              <div className="field">
+                <label>Componente</label>
+                <input list="comps-list-edit" value={editandoFalla.comp || ""} onChange={e => setEditandoFalla(x => ({ ...x, comp: e.target.value }))} placeholder="Nombre del componente" />
+                <datalist id="comps-list-edit">{compsSugeridos.map(c => <option key={c} value={c} />)}</datalist>
+              </div>
+              <div className="field"><label>Minutos de paro *</label><input type="number" value={editandoFalla.min_paro || ""} onChange={e => setEditandoFalla(x => ({ ...x, min_paro: e.target.value }))} /></div>
+              <div className="field"><label>Severidad</label><select value={editandoFalla.sev || "leve"} onChange={e => setEditandoFalla(x => ({ ...x, sev: e.target.value }))}>{Object.entries(SEV).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+              <div className="field"><label>Operador</label><select value={editandoFalla.op || ""} onChange={e => setEditandoFalla(x => ({ ...x, op: e.target.value }))}><option value="">—</option>{OPERADORES.map(o => <option key={o}>{o}</option>)}</select></div>
+              <div className="field"><label>Estado</label>
+                <select value={editandoFalla.status || "abierta"} onChange={e => setEditandoFalla(x => ({ ...x, status: e.target.value }))}>
+                  <option value="abierta">Abierta</option>
+                  <option value="cerrada">Cerrada</option>
+                </select>
+              </div>
+              <div className="field full"><label>Descripción *</label><textarea value={editandoFalla.descripcion || ""} onChange={e => setEditandoFalla(x => ({ ...x, descripcion: e.target.value }))} /></div>
+              <div className="field full"><label>Acción correctiva</label><textarea value={editandoFalla.accion || ""} onChange={e => setEditandoFalla(x => ({ ...x, accion: e.target.value }))} /></div>
+            </div>
+            <button className="btn btn-primary btn-block" onClick={guardarEdicionFalla} disabled={guardandoEdicion}>{guardandoEdicion ? "Guardando…" : "💾 Guardar cambios"}</button>
+          </div>
+        </div>
+      )}
+
       {toast && <div className="toast">{toast}</div>}
 
     </div>
