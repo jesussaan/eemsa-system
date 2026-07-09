@@ -3,7 +3,6 @@ import CalculadoraProduccion from './CalculadoraProduccion';
 import ClicheImg from './ClicheImg';
 import { supabase } from '../lib/supabase';
 import { today, alertaEntrega } from '../lib/utils';
-import { calcularCosto } from '../lib/costos';
 import { sendPush } from '../lib/push';
 import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV, UMBRAL_MERMA } from '../lib/constants';
@@ -20,15 +19,6 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     return () => clearInterval(t);
   }, []);
 
-  const [costosDB, setCostosDB] = useState(null);
-  useEffect(() => {
-    supabase.from('costos').select('*').then(({ data }) => {
-      if (!data?.length) return;
-      const obj = {};
-      data.forEach(r => { obj[r.key] = Number(r.valor); });
-      setCostosDB(obj);
-    });
-  }, []);
   const pedidosEnProceso = pedidos.filter(p => p.status === "proceso");
   const pedidosAnotados = pedidos
     .filter(p => p.status === "anotado")
@@ -106,14 +96,23 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
       ? Math.max(0.5, Math.ceil((Date.now() - new Date(pedidoSel.inicio_ts).getTime()) / 86400000))
       : 1;
     if (piezas != null && piezas > 0) {
-      const costoCalc = calcularCosto({
-        rollosMP: rollosNum, tintaKg: tintaKgNum, solventeKg: solventeKgNum,
-        cajas: Number(pedidoSel.cajas || 0), piezasBuenas: piezas,
-        sticky: fin.stickyback || 0, diasProd,
-        colorKey: pedidoSel.color || pedidoSel.tinta_tipo || '',
-        tipoCentro: '2', costosDB,
-      });
-      update.costo_pieza = Number(costoCalc.porPieza.toFixed(6));
+      try {
+        const costoRes = await fetch('/api/finalizar-costo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rollosMP: rollosNum, tintaKg: tintaKgNum, solventeKg: solventeKgNum,
+            cajas: Number(pedidoSel.cajas || 0), piezasBuenas: piezas,
+            sticky: fin.stickyback || 0, diasProd,
+            colorKey: pedidoSel.color || pedidoSel.tinta_tipo || '',
+            tipoCentro: '2',
+          }),
+        });
+        if (costoRes.ok) {
+          const { costo_pieza } = await costoRes.json();
+          update.costo_pieza = costo_pieza;
+        }
+      } catch (_) {}
     }
 
     if (fotoProducto) {

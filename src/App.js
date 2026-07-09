@@ -29,9 +29,6 @@ const TABS = [
   { id: "ia",   Icon: IcoIA,   lbl: "IA" },
 ];
 
-const PIN_SUPERVISOR = process.env.REACT_APP_PIN_SUPERVISOR || "2312";
-const PIN_COTIZADOR  = process.env.REACT_APP_PIN_COTIZADOR  || "2312";
-
 export default function App() {
   const portalMatch = window.location.pathname.match(/^\/cliente\/([^/]+)\/?$/);
   if (portalMatch) return <PortalCliente token={portalMatch[1]} />;
@@ -53,6 +50,7 @@ function EemsaApp() {
   const [pinError, setPinError] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinTarget, setPinTarget] = useState("supervisor");
+  const [pinVerificando, setPinVerificando] = useState(false);
 
   const cargarTablas = async (tablas) => {
     const mapa = {
@@ -102,19 +100,30 @@ function EemsaApp() {
     return () => canales.forEach(c => supabase.removeChannel(c));
   }, []);
 
-  const handlePinDigit = (d) => {
+  const handlePinDigit = async (d) => {
     const next = pinInput + d;
     setPinError(false);
     if (next.length < 4) { setPinInput(next); return; }
-    const pinCorrecto = pinTarget === "cotizador" ? PIN_COTIZADOR : PIN_SUPERVISOR;
-    if (next === pinCorrecto) {
-      setModo(pinTarget);
-      setShowPinModal(false);
-      setPinInput("");
-    } else {
+    setPinInput("");
+    setPinVerificando(true);
+    try {
+      const res = await fetch("/api/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: next, target: pinTarget }),
+      });
+      const data = await res.json();
+      if (res.ok && data.token) {
+        sessionStorage.setItem(`token_${pinTarget}`, data.token);
+        setModo(pinTarget);
+        setShowPinModal(false);
+      } else {
+        setPinError(true);
+      }
+    } catch {
       setPinError(true);
-      setPinInput("");
     }
+    setPinVerificando(false);
   };
 
   const abrirPin = (target) => { setPinTarget(target); setShowPinModal(true); setPinInput(""); setPinError(false); };
@@ -171,7 +180,8 @@ function EemsaApp() {
               ))}
             </div>
             {pinError && <div className="pin-error">PIN incorrecto</div>}
-            <div className="pin-grid">
+            {pinVerificando && <div className="muted" style={{ textAlign: "center", marginBottom: 8 }}>Verificando…</div>}
+            <div className="pin-grid" style={{ opacity: pinVerificando ? 0.5 : 1, pointerEvents: pinVerificando ? "none" : "auto" }}>
               {[1,2,3,4,5,6,7,8,9].map(n => (
                 <button key={n} className="pin-key" onClick={() => handlePinDigit(String(n))}>{n}</button>
               ))}

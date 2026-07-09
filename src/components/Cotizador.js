@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { calcularCosto, TINTA_OPCIONES, COSTOS } from '../lib/costos';
-import { supabase } from '../lib/supabase';
 import { IcoCotizador } from './Icons';
 
 const MP_ANCHO    = 6;
@@ -71,14 +70,20 @@ export default function Cotizador({ onSalir }) {
   const [guardando,   setGuardando]   = useState(false);
   const [savedMsg,    setSavedMsg]    = useState(false);
 
+  const authHeaders = () => ({
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${sessionStorage.getItem('token_cotizador') || sessionStorage.getItem('token_supervisor') || ''}`,
+  });
+
   useEffect(() => {
-    supabase.from('costos').select('*').then(({ data }) => {
-      if (!data?.length) return;
-      const obj = {};
-      data.forEach(r => { obj[r.key] = Number(r.valor); });
-      setCostosDB(obj);
-      setEditVals(obj);
-    });
+    fetch('/api/costos', { headers: authHeaders() })
+      .then(res => res.ok ? res.json() : null)
+      .then(obj => {
+        if (!obj || !Object.keys(obj).length) return;
+        setCostosDB(obj);
+        setEditVals(obj);
+      })
+      .catch(() => {});
   }, []);
 
   const abrirEditor = () => {
@@ -88,16 +93,20 @@ export default function Cotizador({ onSalir }) {
 
   const guardarCostos = async () => {
     setGuardando(true);
-    await Promise.all(
-      Object.entries(editVals).map(([key, valor]) =>
-        supabase.from('costos').upsert({ key, valor: Number(valor) }, { onConflict: 'key' })
-      )
-    );
-    setCostosDB({ ...editVals });
+    try {
+      const res = await fetch('/api/costos', {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify(editVals),
+      });
+      if (res.ok) {
+        setCostosDB({ ...editVals });
+        setEditCostos(false);
+        setSavedMsg(true);
+        setTimeout(() => setSavedMsg(false), 2500);
+      }
+    } catch (_) {}
     setGuardando(false);
-    setEditCostos(false);
-    setSavedMsg(true);
-    setTimeout(() => setSavedMsg(false), 2500);
   };
 
   // Cálculos
