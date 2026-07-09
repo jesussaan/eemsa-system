@@ -186,6 +186,10 @@ async function ejecutarHerramienta(name, input) {
       }
 
       case "actualizar_pedido": {
+        const STATUS_VALIDOS = ["anotado", "proceso", "terminado"];
+        if (input.status && !STATUS_VALIDOS.includes(input.status)) {
+          return { ok: false, error: `Status inválido: "${input.status}". Debe ser uno de: ${STATUS_VALIDOS.join(", ")}` };
+        }
         const updates = {};
         if (input.status)        updates.status        = input.status;
         if (input.op)            updates.op             = input.op;
@@ -241,12 +245,17 @@ async function ejecutarHerramienta(name, input) {
       case "cerrar_falla": {
         const { data: fallas } = await supabase.from("fallas").select("*").eq("status", "abierta");
         const term = input.descripcion_parcial.toLowerCase();
-        const falla = fallas?.find(f =>
+        const coincidencias = (fallas || []).filter(f =>
           f.descripcion?.toLowerCase().includes(term) ||
           f.comp?.toLowerCase().includes(term) ||
           f.maq?.toLowerCase().includes(term)
         );
-        if (!falla) return { ok: false, error: `No encontré falla abierta que coincida con: "${input.descripcion_parcial}"` };
+        if (coincidencias.length === 0) return { ok: false, error: `No encontré falla abierta que coincida con: "${input.descripcion_parcial}"` };
+        if (coincidencias.length > 1) {
+          const opciones = coincidencias.map(f => `${f.comp} en ${f.maq} (${f.descripcion?.slice(0, 30) || "sin descripción"})`).join("; ");
+          return { ok: false, error: `Encontré ${coincidencias.length} fallas abiertas que coinciden con "${input.descripcion_parcial}", sé más específico: ${opciones}` };
+        }
+        const falla = coincidencias[0];
         const updates = { status: "cerrada" };
         if (input.accion_correctiva) updates.accion = input.accion_correctiva;
         await supabase.from("fallas").update(updates).eq("id", falla.id);
@@ -255,8 +264,13 @@ async function ejecutarHerramienta(name, input) {
 
       case "usar_refaccion": {
         const { data: refs } = await supabase.from("refacciones").select("*");
-        const ref = refs?.find(r => r.nombre?.toLowerCase().includes(input.nombre_parcial.toLowerCase()));
-        if (!ref) return { ok: false, error: `No encontré refacción con: "${input.nombre_parcial}"` };
+        const term = input.nombre_parcial.toLowerCase();
+        const coincidencias = (refs || []).filter(r => r.nombre?.toLowerCase().includes(term));
+        if (coincidencias.length === 0) return { ok: false, error: `No encontré refacción con: "${input.nombre_parcial}"` };
+        if (coincidencias.length > 1) {
+          return { ok: false, error: `Encontré ${coincidencias.length} refacciones que coinciden con "${input.nombre_parcial}", sé más específico: ${coincidencias.map(r => r.nombre).join(", ")}` };
+        }
+        const ref = coincidencias[0];
         const nuevoStock = Number(ref.stock) - 1;
         if (nuevoStock < 0) return { ok: false, error: `Sin stock disponible de "${ref.nombre}" (stock actual: 0)` };
         await supabase.from("refacciones").update({ stock: nuevoStock }).eq("id", ref.id);
@@ -265,8 +279,14 @@ async function ejecutarHerramienta(name, input) {
 
       case "agregar_stock_refaccion": {
         const { data: refs } = await supabase.from("refacciones").select("*");
-        const ref = refs?.find(r => r.nombre?.toLowerCase().includes(input.nombre_parcial.toLowerCase()));
-        if (!ref) return { ok: false, error: `No encontré refacción con: "${input.nombre_parcial}"` };
+        const term = input.nombre_parcial.toLowerCase();
+        const coincidencias = (refs || []).filter(r => r.nombre?.toLowerCase().includes(term));
+        if (coincidencias.length === 0) return { ok: false, error: `No encontré refacción con: "${input.nombre_parcial}"` };
+        if (coincidencias.length > 1) {
+          return { ok: false, error: `Encontré ${coincidencias.length} refacciones que coinciden con "${input.nombre_parcial}", sé más específico: ${coincidencias.map(r => r.nombre).join(", ")}` };
+        }
+        const ref = coincidencias[0];
+        if (!(Number(input.cantidad) > 0)) return { ok: false, error: "La cantidad a agregar debe ser un número positivo" };
         const nuevoStock = Number(ref.stock) + Number(input.cantidad);
         await supabase.from("refacciones").update({ stock: nuevoStock }).eq("id", ref.id);
         return { ok: true, mensaje: `Stock de "${ref.nombre}" incrementado: ${ref.stock} → ${nuevoStock}`, tablas: ["refacciones"] };
@@ -288,6 +308,7 @@ async function ejecutarHerramienta(name, input) {
       }
 
       case "registrar_compra": {
+        if (!(Number(input.monto) >= 0)) return { ok: false, error: "El monto debe ser un número mayor o igual a 0" };
         const nuevo = {
           id: uid(), created: today(),
           nombre: input.nombre, monto: input.monto,

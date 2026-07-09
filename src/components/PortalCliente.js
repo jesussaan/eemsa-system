@@ -95,7 +95,8 @@ export default function PortalCliente({ token }) {
       if (error || !cli) { setEstado("invalido"); return; }
       setCliente(cli);
 
-      const { data: peds } = await supabase.rpc("portal_get_pedidos", { p_token: token });
+      const { data: peds, error: errorPeds } = await supabase.rpc("portal_get_pedidos", { p_token: token });
+      if (errorPeds) { setEstado("error"); return; }
 
       setPedidos(peds || []);
       setEstado("ok");
@@ -118,6 +119,16 @@ export default function PortalCliente({ token }) {
         <div style={{ width: 44, height: 44, color: "var(--muted)", marginBottom: 14 }}><IcoLock /></div>
         <div style={{ fontFamily: "var(--font-h)", fontSize: 18, fontWeight: 700, color: "var(--text)" }}>Link no válido</div>
         <div className="muted" style={{ marginTop: 6 }}>Verifica el enlace o solicita uno nuevo a EEMSA.</div>
+      </div>
+    );
+  }
+
+  if (estado === "error") {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg)", textAlign: "center", padding: 24 }}>
+        <div style={{ fontFamily: "var(--font-h)", fontSize: 18, fontWeight: 700, color: "var(--text)" }}>No pudimos cargar tus pedidos</div>
+        <div className="muted" style={{ marginTop: 6, marginBottom: 16 }}>Puede ser tu conexión. Intenta de nuevo en un momento.</div>
+        <button className="btn btn-primary btn-sm" onClick={() => window.location.reload()}>Reintentar</button>
       </div>
     );
   }

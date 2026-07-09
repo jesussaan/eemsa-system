@@ -14,10 +14,20 @@ const estilos = `
   .pie { margin-top: 20px; font-size: 11px; color: #aaa; text-align: center; }
 `;
 
-const fila = (lbl, val) => val ? `<div class="fila"><span class="lbl">${lbl}</span><span class="val">${val}</span></div>` : '';
+const escapeHtml = (s) => String(s)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;');
+
+const fila = (lbl, val) => val ? `<div class="fila"><span class="lbl">${escapeHtml(lbl)}</span><span class="val">${escapeHtml(val)}</span></div>` : '';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
+
+  if (process.env.CHAT_API_SECRET && req.headers['x-chat-secret'] !== process.env.CHAT_API_SECRET) {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
 
   const { tipo, datos } = req.body;
   let subject = '', html = '';
@@ -43,7 +53,7 @@ export default async function handler(req, res) {
   } else if (tipo === 'pedidos_vencidos') {
     subject = `⚠️ ${datos.pedidos.length} pedido(s) vencido(s) — EEMSA`;
     const filas = datos.pedidos.map(p =>
-      `<div class="fila"><span class="lbl">#${p.num} — ${p.cliente}</span><span class="val" style="color:#ff4d4d">${Math.abs(p.dias)} día(s) vencido</span></div>`
+      `<div class="fila"><span class="lbl">#${escapeHtml(p.num)} — ${escapeHtml(p.cliente)}</span><span class="val" style="color:#ff4d4d">${Math.abs(p.dias)} día(s) vencido</span></div>`
     ).join('');
     html = `<style>${estilos}</style>
     <div class="card">

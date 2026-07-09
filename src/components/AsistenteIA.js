@@ -31,7 +31,12 @@ export default function AsistenteIA({ onRefrescar }) {
     setLoading(false);
   };
 
-  const formatMsg = (txt) => (txt || "")
+  const escapeHtml = (s) => s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  const formatMsg = (txt) => escapeHtml(txt || "")
     .replace(/\n/g, "<br>")
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.*?)\*/g, "<em>$1</em>");

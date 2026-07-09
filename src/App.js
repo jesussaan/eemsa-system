@@ -47,6 +47,7 @@ function EemsaApp() {
   const [prodDiaria, setProdDiaria] = useState([]);
   const [listaMateriales, setListaMateriales] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [errorCarga, setErrorCarga] = useState(null);
   const [modo, setModo] = useState(null); // null | "operador" | "supervisor"
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
@@ -62,10 +63,13 @@ function EemsaApp() {
       prod_diaria:      (d) => setProdDiaria(d),
       lista_materiales: (d) => setListaMateriales(d),
     };
+    const fallidas = [];
     await Promise.all(tablas.map(async t => {
-      const { data } = await supabase.from(t).select("*");
+      const { data, error } = await supabase.from(t).select("*");
+      if (error) { fallidas.push(t); return; }
       if (data && mapa[t]) mapa[t](data);
     }));
+    setErrorCarga(fallidas.length ? `No se pudo cargar: ${fallidas.join(", ")}. Revisa tu conexión y recarga la página.` : null);
   };
 
   useEffect(() => {
@@ -126,6 +130,11 @@ function EemsaApp() {
     <div className="mode-screen">
       <img src="/logo192.png" alt="EEMSA" className="mode-logo" />
       <div className="mode-tagline">Control SIAT L36 · Calidad · Innovación</div>
+      {errorCarga && (
+        <div style={{ background: "rgba(232,75,75,0.12)", border: "1px solid rgba(232,75,75,0.4)", color: "#ff9b9b", borderRadius: 10, padding: "10px 16px", fontSize: 12, maxWidth: 300, textAlign: "center", marginBottom: 16 }}>
+          ⚠ {errorCarga}
+        </div>
+      )}
       <div className="mode-buttons">
         <button className="mode-btn mode-btn-op" onClick={() => setModo("operador")}>
           <span style={{ display: "inline-flex", fontSize: 20 }}><IcoOperador /></span> Modo Operador
@@ -229,6 +238,11 @@ function EemsaApp() {
           <button onClick={() => setModo(null)} style={{ fontSize: 11, color: "#aaa", background: "transparent", border: "none", cursor: "pointer", padding: "4px 8px" }}>← Salir</button>
         </div>
       </header>
+      {errorCarga && (
+        <div style={{ background: "rgba(232,75,75,0.12)", borderBottom: "1px solid rgba(232,75,75,0.4)", color: "#ff9b9b", padding: "8px 16px", fontSize: 12, textAlign: "center" }}>
+          ⚠ {errorCarga}
+        </div>
+      )}
       <main className="main">
         {tab === "dash" && <Dashboard pedidos={pedidos} fallas={fallas} refacciones={refs} proveedores={proveedores} prodDiaria={prodDiaria} />}
         {tab === "ped"  && <Pedidos pedidos={pedidos} setPedidos={setPedidos} />}
