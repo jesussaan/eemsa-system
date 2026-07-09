@@ -5,6 +5,13 @@ const supabase = createClient(
   process.env.REACT_APP_SUPABASE_KEY
 );
 
+// refacciones/proveedores ya no aceptan escritura de la anon key (RLS) —
+// estas herramientas usan la service key para seguir funcionando.
+const supabaseAdmin = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
+
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -263,7 +270,7 @@ async function ejecutarHerramienta(name, input) {
       }
 
       case "usar_refaccion": {
-        const { data: refs } = await supabase.from("refacciones").select("*");
+        const { data: refs } = await supabaseAdmin.from("refacciones").select("*");
         const term = input.nombre_parcial.toLowerCase();
         const coincidencias = (refs || []).filter(r => r.nombre?.toLowerCase().includes(term));
         if (coincidencias.length === 0) return { ok: false, error: `No encontré refacción con: "${input.nombre_parcial}"` };
@@ -273,12 +280,12 @@ async function ejecutarHerramienta(name, input) {
         const ref = coincidencias[0];
         const nuevoStock = Number(ref.stock) - 1;
         if (nuevoStock < 0) return { ok: false, error: `Sin stock disponible de "${ref.nombre}" (stock actual: 0)` };
-        await supabase.from("refacciones").update({ stock: nuevoStock }).eq("id", ref.id);
+        await supabaseAdmin.from("refacciones").update({ stock: nuevoStock }).eq("id", ref.id);
         return { ok: true, mensaje: `Stock de "${ref.nombre}" actualizado: ${ref.stock} → ${nuevoStock}${nuevoStock <= Number(ref.stock_min || 1) ? " ⚠ STOCK BAJO" : ""}`, tablas: ["refacciones"] };
       }
 
       case "agregar_stock_refaccion": {
-        const { data: refs } = await supabase.from("refacciones").select("*");
+        const { data: refs } = await supabaseAdmin.from("refacciones").select("*");
         const term = input.nombre_parcial.toLowerCase();
         const coincidencias = (refs || []).filter(r => r.nombre?.toLowerCase().includes(term));
         if (coincidencias.length === 0) return { ok: false, error: `No encontré refacción con: "${input.nombre_parcial}"` };
@@ -288,7 +295,7 @@ async function ejecutarHerramienta(name, input) {
         const ref = coincidencias[0];
         if (!(Number(input.cantidad) > 0)) return { ok: false, error: "La cantidad a agregar debe ser un número positivo" };
         const nuevoStock = Number(ref.stock) + Number(input.cantidad);
-        await supabase.from("refacciones").update({ stock: nuevoStock }).eq("id", ref.id);
+        await supabaseAdmin.from("refacciones").update({ stock: nuevoStock }).eq("id", ref.id);
         return { ok: true, mensaje: `Stock de "${ref.nombre}" incrementado: ${ref.stock} → ${nuevoStock}`, tablas: ["refacciones"] };
       }
 
@@ -302,7 +309,7 @@ async function ejecutarHerramienta(name, input) {
           fecha: today(),
           notas: input.notas || ""
         };
-        const { error } = await supabase.from("refacciones").insert([nuevo]);
+        const { error } = await supabaseAdmin.from("refacciones").insert([nuevo]);
         if (error) return { ok: false, error: error.message };
         return { ok: true, mensaje: `Refacción "${input.nombre}" agregada al inventario (stock: ${nuevo.stock})`, tablas: ["refacciones"] };
       }
@@ -318,7 +325,7 @@ async function ejecutarHerramienta(name, input) {
           direccion: input.direccion || "",
           imagen_url: ""
         };
-        const { error } = await supabase.from("proveedores").insert([nuevo]);
+        const { error } = await supabaseAdmin.from("proveedores").insert([nuevo]);
         if (error) return { ok: false, error: error.message };
         return { ok: true, mensaje: `Compra registrada: $${input.monto} en ${input.nombre} — ${input.que_compro}`, tablas: ["proveedores"] };
       }

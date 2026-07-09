@@ -33,6 +33,10 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
   const [filtroProveedorQuejas, setFiltroProveedorQuejas] = useState("");
   const [descargandoQuejaId, setDescargandoQuejaId] = useState(null);
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2200); };
+  const authHeaders = () => ({
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${sessionStorage.getItem('token_supervisor') || ''}`,
+  });
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const updP = (k, v) => setFormProv(f => ({ ...f, [k]: v }));
   const updQ = (k, v) => setFormQueja(f => ({ ...f, [k]: v }));
@@ -280,36 +284,51 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
     setLoading(true);
     let imagen_url = "";
     if (imagen) { const { data } = await supabase.storage.from("refacciones").upload(`tickets/${uid()}_${imagen.name}`, imagen); if (data) { const { data: url } = supabase.storage.from("refacciones").getPublicUrl(data.path); imagen_url = url.publicUrl; } }
-    const nuevo = { id: uid(), created: today(), nombre: formProv.nombre, telefono: formProv.telefono, direccion: formProv.direccion, monto: formProv.monto, fecha: formProv.fecha, que_compro: formProv.que_compro, categoria: formProv.categoria || null, imagen_url };
-    const { error } = await supabase.from("proveedores").insert([nuevo]);
-    if (error) { showToast("❌ Error: " + error.message); setLoading(false); return; }
-    setProveedores(p => [nuevo, ...p]);
-    setFormProv({ nombre: "", telefono: "", direccion: "", monto: "", fecha: today(), que_compro: "", categoria: "" });
-    setImagen(null); setPreview(null);
-    showToast("✓ Compra guardada ☁️");
+    try {
+      const res = await fetch('/api/proveedores', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ nombre: formProv.nombre, telefono: formProv.telefono, direccion: formProv.direccion, monto: formProv.monto, fecha: formProv.fecha, que_compro: formProv.que_compro, categoria: formProv.categoria || null, imagen_url }),
+      });
+      const nuevo = await res.json();
+      if (!res.ok) { showToast("❌ Error: " + (nuevo.error || "desconocido")); setLoading(false); return; }
+      setProveedores(p => [nuevo, ...p]);
+      setFormProv({ nombre: "", telefono: "", direccion: "", monto: "", fecha: today(), que_compro: "", categoria: "" });
+      setImagen(null); setPreview(null);
+      showToast("✓ Compra guardada ☁️");
+    } catch (e) { showToast("❌ Error: " + e.message); }
     setLoading(false);
   };
 
   const saveRef = async () => {
     if (!form.nombre || !form.costo) { showToast("⚠ Nombre y costo obligatorios"); return; }
     setLoading(true);
-    const nuevo = { id: uid(), created: today(), nombre: form.nombre, costo: form.costo, maq: form.maq, proveedor: form.proveedor, fecha: form.fecha, notas: form.notas, stock: form.stock, stock_min: form.stock_min !== "" ? Number(form.stock_min) : 1 };
-    const { error } = await supabase.from("refacciones").insert([nuevo]);
-    if (error) { showToast("❌ Error: " + error.message); setLoading(false); return; }
-    setRefs(r => [nuevo, ...r]);
-    setForm(f => ({ ...f, nombre: "", costo: "", proveedor: "", notas: "", stock: "1", stock_min: "1" }));
-    showToast("✓ Refacción guardada ☁️");
+    try {
+      const res = await fetch('/api/refacciones', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ nombre: form.nombre, costo: form.costo, maq: form.maq, proveedor: form.proveedor, fecha: form.fecha, notas: form.notas, stock: form.stock, stock_min: form.stock_min }),
+      });
+      const nuevo = await res.json();
+      if (!res.ok) { showToast("❌ Error: " + (nuevo.error || "desconocido")); setLoading(false); return; }
+      setRefs(r => [nuevo, ...r]);
+      setForm(f => ({ ...f, nombre: "", costo: "", proveedor: "", notas: "", stock: "1", stock_min: "1" }));
+      showToast("✓ Refacción guardada ☁️");
+    } catch (e) { showToast("❌ Error: " + e.message); }
     setLoading(false);
   };
 
-  const delRef = async id => { if (!window.confirm("¿Eliminar?")) return; await supabase.from("refacciones").delete().eq("id", id); setRefs(r => r.filter(x => x.id !== id)); };
+  const delRef = async id => {
+    if (!window.confirm("¿Eliminar?")) return;
+    const res = await fetch('/api/refacciones', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
+    if (!res.ok) { showToast("❌ Error al eliminar"); return; }
+    setRefs(r => r.filter(x => x.id !== id));
+  };
   const ajustarStock = async (r) => {
     const cantidad = parseInt(cantidadAjuste, 10);
     if (isNaN(cantidad) || cantidad === 0) { showToast("⚠ Ingresa una cantidad válida"); return; }
     const nuevoStock = Number(r.stock || 0) + cantidad;
     if (nuevoStock < 0) { showToast("⚠ Stock no puede ser negativo"); return; }
-    const { error } = await supabase.from("refacciones").update({ stock: nuevoStock }).eq("id", r.id);
-    if (error) { showToast("❌ Error al actualizar"); return; }
+    const res = await fetch('/api/refacciones', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ id: r.id, stock: nuevoStock }) });
+    if (!res.ok) { showToast("❌ Error al actualizar"); return; }
     setRefs(refs => refs.map(x => x.id === r.id ? { ...x, stock: nuevoStock } : x));
     setAjustandoId(null); setCantidadAjuste("");
     showToast(`✓ Stock: ${nuevoStock} unidades`);
@@ -321,8 +340,8 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
   const usarRef = async (r) => {
     const nuevoStock = Number(r.stock) - 1;
     if (nuevoStock < 0) { showToast("⚠ Sin stock disponible"); return; }
-    const { error } = await supabase.from("refacciones").update({ stock: nuevoStock }).eq("id", r.id);
-    if (error) { showToast("❌ Error al actualizar"); return; }
+    const res = await fetch('/api/refacciones', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ id: r.id, stock: nuevoStock }) });
+    if (!res.ok) { showToast("❌ Error al actualizar"); return; }
     setRefs(refs => refs.map(x => x.id === r.id ? { ...x, stock: nuevoStock } : x));
     showToast(`✓ Stock actualizado: ${nuevoStock} restantes`);
     const min = r.stock_min ?? 1;
@@ -330,7 +349,12 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
       sendWhatsApp(`⚠️ Stock bajo: ${r.nombre} — quedan ${nuevoStock} unidades (mín: ${min})`);
     }
   };
-  const delCompra = async id => { if (!window.confirm("¿Eliminar?")) return; await supabase.from("proveedores").delete().eq("id", id); setProveedores(p => p.filter(x => x.id !== id)); };
+  const delCompra = async id => {
+    if (!window.confirm("¿Eliminar?")) return;
+    const res = await fetch('/api/proveedores', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
+    if (!res.ok) { showToast("❌ Error al eliminar"); return; }
+    setProveedores(p => p.filter(x => x.id !== id));
+  };
 
   const guardarCompra = async () => {
     if (!modalCompra) return;
@@ -343,8 +367,9 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
       que_compro: modalCompra.que_compro || null,
       categoria:  modalCompra.categoria || null,
     };
-    const { error } = await supabase.from("proveedores").update(actualizado).eq("id", modalCompra.id);
-    if (error) { showToast("❌ Error: " + error.message); return; }
+    const res = await fetch('/api/proveedores', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ id: modalCompra.id, ...actualizado }) });
+    const data = await res.json();
+    if (!res.ok) { showToast("❌ Error: " + (data.error || "desconocido")); return; }
     setProveedores(ps => ps.map(p => p.id === modalCompra.id ? { ...p, ...actualizado } : p));
     setModalCompra(null);
     showToast("✓ Compra actualizada");
