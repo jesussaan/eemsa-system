@@ -7,6 +7,7 @@ import { today, fmt, diasHabilesRestantes, estadoPlazo } from '../lib/utils';
 import { META_CAJAS, META_MERMA_PCT } from '../lib/constants';
 import { notificar } from '../lib/notificaciones';
 import { exportarExcel } from '../lib/exportExcel';
+import { analizarComponentes } from '../lib/mantenimiento';
 import { IcoDash, IcoFal, IcoMoney, IcoCompare, IcoTrendUp, IcoTrophy, IcoDroplet, IcoTapeRoll, IcoRef } from './Icons';
 
 const SECCIONES = [
@@ -66,6 +67,8 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
   const pedidosMerma = pedidos.filter(p => p.status === "terminado" && p.merma_pct !== null && p.merma_pct !== "").slice(-10).map(p => ({ lbl: String(p.cliente).slice(0, 6), val: Number(p.merma_pct) }));
   const pedConTiempo = pedidos.filter(p => p.status === "terminado" && p.fecha_inicio && p.fecha_termino);
   const tiempoPromedio = pedConTiempo.length > 0 ? Math.round(pedConTiempo.reduce((s, p) => s + (new Date(p.fecha_termino + "T12:00:00") - new Date(p.fecha_inicio + "T12:00:00")) / 86400000 + 1, 0) / pedConTiempo.length) : null;
+  const componentesVencidos = analizarComponentes(fallas).filter(c => c.vencido);
+
   const fallasPorComp = [
     { comp: "Rodillo anilox", lbl: "Anilox" }, { comp: "Sistema de tintas", lbl: "Tintas" },
     { comp: "Cliché/portacliché", lbl: "Cliché" }, { comp: "Motor principal", lbl: "Motor" },
@@ -435,6 +438,24 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
                 </div>
               );
             })}
+          </div>
+        </>
+      )}
+
+      {/* ── Mantenimiento preventivo ── */}
+      {componentesVencidos.length > 0 && (
+        <>
+          <SubTitle icon={IcoRef}>Mantenimiento preventivo</SubTitle>
+          <div className="list" style={{ marginBottom: 20 }}>
+            {componentesVencidos.map(c => (
+              <div key={c.comp} className="list-item" style={{ borderLeft: "3px solid var(--red)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div><strong>{c.comp}</strong> — {c.maquinas.join(", ")}</div>
+                  <span className="badge b-red">Vencido {Math.abs(c.diasRestantes)}d</span>
+                </div>
+                <div className="muted">Falla en promedio cada ~{c.promedioIntervalo} días · van {c.diasDesdeUltima} desde la última</div>
+              </div>
+            ))}
           </div>
         </>
       )}

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { uid, today } from '../lib/utils';
 import { sendPush } from '../lib/push';
 import { MAQUINAS, OPERADORES, COMPS, SEV } from '../lib/constants';
+import { analizarComponentes } from '../lib/mantenimiento';
 
 export default function Fallas({ fallas, setFallas }) {
   const [form, setForm] = useState({ fecha: today(), maq: "SIAT L36 #1", comp: "Rodillo anilox", min_paro: "", sev: "leve", op: "", descripcion: "", accion: "", status: "abierta" });
@@ -12,6 +13,8 @@ export default function Fallas({ fallas, setFallas }) {
   const [filtroStatus, setFiltroStatus] = useState("abiertas");
   const [filtroMaq, setFiltroMaq] = useState("todas");
   const [filtroSev, setFiltroSev] = useState("todas");
+  const [vista, setVista] = useState("lista"); // "lista" | "componente"
+  const [compExpandido, setCompExpandido] = useState(null);
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2200); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -60,6 +63,62 @@ export default function Fallas({ fallas, setFallas }) {
       <button className="btn btn-primary btn-block" onClick={save} disabled={loading}>{loading ? "Guardando…" : "+ Registrar falla"}</button>
       <h3 className="sub-title" style={{ marginTop: 20 }}>Historial</h3>
 
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        <button className={`btn btn-sm ${vista === "lista" ? "btn-primary" : "btn-ghost"}`} onClick={() => setVista("lista")}>Lista</button>
+        <button className={`btn btn-sm ${vista === "componente" ? "btn-primary" : "btn-ghost"}`} onClick={() => setVista("componente")}>Por Componente</button>
+      </div>
+
+      {vista === "componente" && (() => {
+        const analisis = analizarComponentes(fallas);
+        if (analisis.length === 0) return <p className="empty">Sin fallas registradas todavía.</p>;
+        return (
+          <div style={{ display: "grid", gap: 12 }}>
+            {analisis.map(c => {
+              const expandido = compExpandido === c.comp;
+              const historialComp = fallas.filter(f => (f.comp || "Sin componente") === c.comp).sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+              return (
+                <div key={c.comp} style={{ background: "var(--card)", borderRadius: "var(--r-md)", borderLeft: c.vencido ? "4px solid var(--red)" : "4px solid var(--border-light)", padding: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 17, fontWeight: 800, color: "var(--text)" }}>{c.comp}</div>
+                      <div className="muted" style={{ marginTop: 2 }}>{c.maquinas.join(", ") || "—"}</div>
+                    </div>
+                    {c.abiertas > 0 && <span className="badge b-red">{c.abiertas} abierta{c.abiertas !== 1 ? "s" : ""}</span>}
+                  </div>
+                  <div style={{ display: "flex", gap: 14, marginTop: 10, flexWrap: "wrap", fontSize: 13 }}>
+                    <span className="muted">{c.totalFallas} falla{c.totalFallas !== 1 ? "s" : ""}</span>
+                    <span className="muted">{c.minParoTotal} min de paro total</span>
+                  </div>
+                  {c.prediccionDisponible ? (
+                    <div style={{ marginTop: 10, background: c.vencido ? "var(--red-dim)" : "var(--surface)", border: `1px solid ${c.vencido ? "rgba(232,75,75,0.3)" : "var(--border)"}`, borderRadius: "var(--r-sm)", padding: "8px 12px", fontSize: 12 }}>
+                      {c.vencido
+                        ? <span style={{ color: "var(--red)", fontWeight: 700 }}>⚠ Posible falla — vencido hace {Math.abs(c.diasRestantes)} día{Math.abs(c.diasRestantes) !== 1 ? "s" : ""} (cada ~{c.promedioIntervalo}d)</span>
+                        : <span className="muted">Cada ~{c.promedioIntervalo} días · van {c.diasDesdeUltima} desde la última · ~{c.diasRestantes} días para la siguiente</span>}
+                    </div>
+                  ) : (
+                    <div className="muted" style={{ marginTop: 8, fontSize: 11 }}>Necesita al menos 3 fallas para estimar un patrón (lleva {c.totalFallas}).</div>
+                  )}
+                  <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={() => setCompExpandido(expandido ? null : c.comp)}>
+                    {expandido ? "▲ Ocultar historial" : `▼ Ver historial (${historialComp.length})`}
+                  </button>
+                  {expandido && (
+                    <div className="list" style={{ marginTop: 10 }}>
+                      {historialComp.map(f => (
+                        <div key={f.id} className="list-item">
+                          <div className="muted">{f.fecha} · {f.maq} · {f.min_paro} min · <span className={`badge ${sevCls(f.sev)}`}>{SEV[f.sev]}</span></div>
+                          <div className="muted">{f.descripcion}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
+      {vista === "lista" && <>
       {/* Filtro estado */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
         {[["abiertas", "🔴 Abiertas"], ["cerradas", "🟢 Cerradas"], ["todas", "Todas"]].map(([k, lbl]) => (
@@ -126,6 +185,7 @@ export default function Fallas({ fallas, setFallas }) {
           ))}
         </div>
       )}
+      </>}
       {toast && <div className="toast">{toast}</div>}
 
     </div>
