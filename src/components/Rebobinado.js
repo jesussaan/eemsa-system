@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { uid, today, siguienteNumPedido } from '../lib/utils';
-import { REBOB_CLIENTE, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, calcularPiezasTeoricas } from '../lib/constants';
+import { REBOB_CLIENTE, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, calcularPiezasTeoricas } from '../lib/constants';
 import { IcoCheck } from './Icons';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
 export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
   const formInicial = {
-    ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0], tipo: REBOB_TIPOS[0],
+    ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0], adhesivo: REBOB_TIPOS[0], material: REBOB_MATERIALES[0],
     piezas: "", merma: "", fecha_inicio: today(), fecha_termino: today(), notas: "",
   };
   const [form, setForm] = useState(formInicial);
@@ -20,7 +20,8 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
   const piezasTeoricas = calcularPiezasTeoricas(form.ancho, form.largoPieza);
   const piezasReal = Number(form.piezas) || 0;
   const diferencia = form.piezas !== "" ? piezasReal - piezasTeoricas : null;
-  const cajasCalc = piezasReal > 0 ? Math.ceil(piezasReal / REBOB_PIEZAS_POR_CAJA) : 0;
+  const piezasPorCaja = REBOB_PIEZAS_POR_CAJA[form.ancho] || 1;
+  const cajasCalc = piezasReal > 0 ? Math.ceil(piezasReal / piezasPorCaja) : 0;
   const mermaNum = form.merma !== "" ? Number(form.merma) : null;
   const mermaPct = mermaNum != null && piezasReal > 0 ? ((mermaNum / piezasReal) * 100).toFixed(2) : null;
 
@@ -30,8 +31,11 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
     const nuevo = {
       id: uid(), created: today(),
       cliente: REBOB_CLIENTE, num: siguienteNumPedido(pedidos),
-      tipo: form.tipo, medida: `${form.ancho} x ${form.largoPieza}m`,
-      cajas: cajasCalc, piezas_prod: form.piezas, op: REBOB_OPERADOR_EQUIPO,
+      // tipo = material del rollo (Transparente/Canela), color = adhesivo (Hotmelt/Acrílico):
+      // asi la tarjeta de Modo Emilio los muestra en el encabezado y bajo "Rollos MP usados"
+      // sin tocar su logica, igual que con los pedidos normales de cliente.
+      tipo: form.material, color: form.adhesivo, medida: `${form.ancho} x ${form.largoPieza}m`,
+      cajas: cajasCalc, piezas_prod: form.piezas, rollos_usados: 1, op: REBOB_OPERADOR_EQUIPO,
       merma: mermaNum, merma_pct: mermaPct,
       fecha_solicitud: today(), fecha_inicio: form.fecha_inicio, fecha_termino: form.fecha_termino,
       notas: form.notas || `Teórico: ${piezasTeoricas} pzas (${vueltas} vueltas x ${form.ancho})`,
@@ -41,7 +45,7 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
     const data = await res.json();
     if (!res.ok) { showToast("❌ Error: " + (data.error || "desconocido")); setLoading(false); return; }
     setPedidos(ps => [nuevo, ...ps]);
-    setForm(f => ({ ...formInicial, ancho: f.ancho, largoPieza: f.largoPieza, tipo: f.tipo }));
+    setForm(f => ({ ...formInicial, ancho: f.ancho, largoPieza: f.largoPieza, adhesivo: f.adhesivo, material: f.material }));
     showToast("✓ Registrado — ya aparece en Modo Emilio para dar de alta");
     setLoading(false);
   };
@@ -83,10 +87,11 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
 
       <h3 className="sub-title">Registrar lo que salió</h3>
       <div className="form-grid">
-        <div className="field"><label>Tipo *</label><select value={form.tipo} onChange={e => upd("tipo", e.target.value)}>{REBOB_TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
+        <div className="field"><label>Rollo (material) *</label><select value={form.material} onChange={e => upd("material", e.target.value)}>{REBOB_MATERIALES.map(m => <option key={m}>{m}</option>)}</select></div>
+        <div className="field"><label>Adhesivo *</label><select value={form.adhesivo} onChange={e => upd("adhesivo", e.target.value)}>{REBOB_TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
         <div className="field"><label>Operador</label><input readOnly value={REBOB_OPERADOR_EQUIPO} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
         <div className="field"><label>Piezas reales *</label><input type="number" value={form.piezas} onChange={e => upd("piezas", e.target.value)} placeholder={String(piezasTeoricas)} /></div>
-        <div className="field"><label>Cajas (automático, {REBOB_PIEZAS_POR_CAJA}/caja)</label><input readOnly value={form.piezas ? `${cajasCalc} cajas` : "—"} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
+        <div className="field"><label>Cajas (automático, {piezasPorCaja}/caja)</label><input readOnly value={form.piezas ? `${cajasCalc} cajas` : "—"} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
         <div className="field"><label>Merma (piezas)</label><input type="number" value={form.merma} onChange={e => upd("merma", e.target.value)} placeholder="0" /></div>
         <div className="field"><label>% Merma</label><input readOnly value={mermaPct != null ? `${mermaPct}%` : "—"} style={{ background: "#1a2744", color: mermaPct > 3 ? "#ff4d4d" : "#4be87a" }} /></div>
         <div className="field"><label>Fecha inicio</label><input type="date" value={form.fecha_inicio} onChange={e => upd("fecha_inicio", e.target.value)} /></div>
@@ -107,7 +112,7 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
       {historial.length === 0 ? <p className="empty">Sin registros todavía.</p> : historial.map(p => (
         <div key={p.id} className="list-item" style={{ marginTop: 4 }}>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <div><strong>#{p.num}</strong> · {p.tipo} · {p.medida}</div>
+            <div><strong>#{p.num}</strong> · {p.tipo} · {p.color} · {p.medida}</div>
             <span className={`badge ${p.status === "terminado" ? "b-green" : "b-orange"}`}>{p.status === "terminado" ? "Terminado" : "Falta dar de alta"}</span>
           </div>
           <div className="muted">{p.cajas} cajas · {p.piezas_prod} piezas · {p.op}</div>
