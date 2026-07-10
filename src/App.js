@@ -137,35 +137,42 @@ function EemsaApp() {
 
   if (!modo) return (
     <div className="mode-screen">
-      <img src="/logo192.png" alt="EEMSA" className="mode-logo" />
-      <div className="mode-tagline">Control SIAT L36 · Calidad · Innovación</div>
-      {errorCarga && (
-        <div style={{ background: "rgba(232,75,75,0.12)", border: "1px solid rgba(232,75,75,0.4)", color: "#ff9b9b", borderRadius: 10, padding: "10px 16px", fontSize: 12, maxWidth: 300, textAlign: "center", marginBottom: 16 }}>
-          ⚠ {errorCarga}
+      <div className="mode-glow" aria-hidden="true" />
+      <div className="mode-top">EEMSA System</div>
+
+      <div className="mode-hero">
+        <img src="/logo192.png" alt="EEMSA" className="mode-logo" />
+        <div className="mode-tagline">Control SIAT L36 · Calidad · Innovación</div>
+        {errorCarga && (
+          <div style={{ background: "rgba(232,75,75,0.12)", border: "1px solid rgba(232,75,75,0.4)", color: "#ff9b9b", borderRadius: 10, padding: "10px 16px", fontSize: 12, maxWidth: 300, textAlign: "center", marginBottom: 16 }}>
+            ⚠ {errorCarga}
+          </div>
+        )}
+        <div className="mode-buttons">
+          <button className="mode-btn mode-btn-op" onClick={() => setModo("operador")}>
+            <span style={{ display: "inline-flex", fontSize: 20 }}><IcoOperador /></span> Modo Operador
+          </button>
+          <button className="mode-btn mode-btn-ven" onClick={() => setModo("ventas")}>
+            <span style={{ display: "inline-flex", fontSize: 20 }}><IcoVentas /></span> Módulo Ventas
+          </button>
+          <button className="mode-btn mode-btn-emi" onClick={() => setModo("emilio")}>
+            <span style={{ display: "inline-flex", fontSize: 20 }}><IcoEmilio /></span> Modo Emilio
+          </button>
+          <button className="mode-btn mode-btn-sup" onClick={() => abrirPin("supervisor")}>
+            <span style={{ display: "inline-flex", fontSize: 20 }}><IcoDash /></span> Modo Supervisor
+            <span className="mode-btn-lock" style={{ display: "inline-flex" }}><IcoLock /></span>
+          </button>
+          <button className="mode-btn mode-btn-tv" onClick={() => setModo("tv")}>
+            <span style={{ display: "inline-flex", fontSize: 20 }}><IcoTV /></span> Modo TV
+          </button>
+          <button className="mode-btn mode-btn-cot" onClick={() => abrirPin("cotizador")}>
+            <span style={{ display: "inline-flex", fontSize: 20 }}><IcoCotizador /></span> Cotizador
+            <span className="mode-btn-lock" style={{ display: "inline-flex" }}><IcoLock /></span>
+          </button>
         </div>
-      )}
-      <div className="mode-buttons">
-        <button className="mode-btn mode-btn-op" onClick={() => setModo("operador")}>
-          <span style={{ display: "inline-flex", fontSize: 20 }}><IcoOperador /></span> Modo Operador
-        </button>
-        <button className="mode-btn mode-btn-ven" onClick={() => setModo("ventas")}>
-          <span style={{ display: "inline-flex", fontSize: 20 }}><IcoVentas /></span> Módulo Ventas
-        </button>
-        <button className="mode-btn mode-btn-emi" onClick={() => setModo("emilio")}>
-          <span style={{ display: "inline-flex", fontSize: 20 }}><IcoEmilio /></span> Modo Emilio
-        </button>
-        <button className="mode-btn mode-btn-sup" onClick={() => abrirPin("supervisor")}>
-          <span style={{ display: "inline-flex", fontSize: 20 }}><IcoDash /></span> Modo Supervisor
-          <span className="mode-btn-lock" style={{ display: "inline-flex" }}><IcoLock /></span>
-        </button>
-        <button className="mode-btn mode-btn-tv" onClick={() => setModo("tv")}>
-          <span style={{ display: "inline-flex", fontSize: 20 }}><IcoTV /></span> Modo TV
-        </button>
-        <button className="mode-btn mode-btn-cot" onClick={() => abrirPin("cotizador")}>
-          <span style={{ display: "inline-flex", fontSize: 20 }}><IcoCotizador /></span> Cotizador
-          <span className="mode-btn-lock" style={{ display: "inline-flex" }}><IcoLock /></span>
-        </button>
       </div>
+
+      <div className="mode-bottom">Asesoría · Calidad · Innovación</div>
 
       {showPinModal && (
         <div className="pin-overlay">
