@@ -4,17 +4,18 @@ import autoTable from 'jspdf-autotable';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart as ReBarChart, Bar, XAxis, YAxis } from 'recharts';
 import BarChart from './BarChart';
 import { today, fmt, diasHabilesRestantes, estadoPlazo } from '../lib/utils';
-import { META_CAJAS, META_MERMA_PCT } from '../lib/constants';
+import { META_CAJAS, META_MERMA_PCT, REBOB_CLIENTE, REBOB_COLOR } from '../lib/constants';
 import { notificar } from '../lib/notificaciones';
 import { exportarExcel } from '../lib/exportExcel';
 import { analizarComponentes } from '../lib/mantenimiento';
-import { IcoDash, IcoFal, IcoMoney, IcoCompare, IcoTrendUp, IcoTrophy, IcoDroplet, IcoTapeRoll, IcoRef } from './Icons';
+import { IcoDash, IcoFal, IcoMoney, IcoCompare, IcoTrendUp, IcoTrophy, IcoDroplet, IcoTapeRoll, IcoRef, IcoRoll } from './Icons';
 
 const SECCIONES = [
   { id: 'resumen',    lbl: 'Resumen',    Icon: IcoDash },
   { id: 'produccion', lbl: 'Producción', Icon: IcoTrendUp },
   { id: 'finanzas',   lbl: 'Finanzas',   Icon: IcoMoney },
   { id: 'consumibles', lbl: 'Consumibles', Icon: IcoDroplet },
+  { id: 'rebobinado', lbl: 'Rebobinado', Icon: IcoRoll },
 ];
 const SubTitle = ({ icon: Icon, children }) => (
   <h3 className="sub-title"><span style={{ display: 'inline-flex', fontSize: 14 }}><Icon /></span>{children}</h3>
@@ -31,21 +32,26 @@ const ChartTip = ({ active, payload }) => {
   );
 };
 
-export default function Dashboard({ pedidos, fallas, refacciones, proveedores, prodDiaria }) {
+export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, proveedores, prodDiaria }) {
+  // Rebobinado es produccion de stock, no pedidos de cliente reales -- se
+  // excluye de Resumen/Produccion/Finanzas/Consumibles y tiene su propia
+  // pestana con sus propias metricas (ver mas abajo).
+  const pedidos = pedidosProp.filter(p => p.cliente !== REBOB_CLIENTE);
+  const pedidosRebobinado = pedidosProp.filter(p => p.cliente === REBOB_CLIENTE);
   const [seccion, setSeccion] = useState('resumen');
   useEffect(() => {
     const hoy = today();
     const yaAvisado = localStorage.getItem('vencidos_avisado');
     if (yaAvisado === hoy) return;
-    const vencidos = pedidos
-      .filter(p => p.status !== "terminado" && p.fecha_solicitud)
+    const vencidos = pedidosProp
+      .filter(p => p.cliente !== REBOB_CLIENTE && p.status !== "terminado" && p.fecha_solicitud)
       .map(p => ({ ...p, dias: diasHabilesRestantes(p.fecha_solicitud) }))
       .filter(p => p.dias < 0);
     if (vencidos.length > 0) {
       notificar('pedidos_vencidos', { pedidos: vencidos.map(p => ({ num: p.num, cliente: p.cliente, dias: p.dias })) });
       localStorage.setItem('vencidos_avisado', hoy);
     }
-  }, [pedidos]);
+  }, [pedidosProp]);
   const activos = pedidos.filter(p => p.status !== "terminado").length;
   const fallasAbiertas = fallas.filter(f => f.status === "abierta").length;
   const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) * Number(r.stock || 1)), 0);
@@ -148,6 +154,27 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
     });
     return Object.entries(map).map(([tipo, d]) => ({ tipo, ...d })).sort((a, b) => b.rollos - a.rollos);
   })();
+
+  // ── Rebobinado (stock, separado de los pedidos de cliente) ──
+  const rebPendientes = pedidosRebobinado.filter(p => p.status === "pendiente").length;
+  const rebPiezasTotal = pedidosRebobinado.reduce((s, p) => s + Number(p.piezas_prod || 0), 0);
+  const rebCajasTotal = pedidosRebobinado.reduce((s, p) => s + Number(p.cajas || 0), 0);
+  const rebConMerma = pedidosRebobinado.filter(p => p.merma_pct != null && p.merma_pct !== "");
+  const rebMermaPctProm = rebConMerma.length ? (rebConMerma.reduce((s, p) => s + Number(p.merma_pct), 0) / rebConMerma.length).toFixed(1) : null;
+  const rebPorGrupo = (campo) => {
+    const map = {};
+    pedidosRebobinado.forEach(p => {
+      const k = p[campo] || "Sin dato";
+      if (!map[k]) map[k] = { piezas: 0, cajas: 0, pedidos: 0 };
+      map[k].piezas += Number(p.piezas_prod || 0);
+      map[k].cajas  += Number(p.cajas || 0);
+      map[k].pedidos += 1;
+    });
+    return Object.entries(map).map(([k, d]) => ({ k, ...d })).sort((a, b) => b.piezas - a.piezas);
+  };
+  const rebPorMaterial = rebPorGrupo('tipo');
+  const rebPorAdhesivo = rebPorGrupo('color');
+  const rebRecientes = [...pedidosRebobinado].sort((a, b) => (b.created || "").localeCompare(a.created || "")).slice(0, 10);
 
   const generarPDF = () => {
     const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -681,6 +708,91 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
         }
       </div>
 
+      </>}
+
+      {seccion === 'rebobinado' && <>
+      <div className="stat-grid" style={{ marginBottom: 20 }}>
+        <div className="stat-card accent"><div className="stat-val">{rebPiezasTotal.toLocaleString()}</div><div className="stat-lbl">Piezas totales</div></div>
+        <div className="stat-card blue"><div className="stat-val">{rebCajasTotal.toLocaleString()}</div><div className="stat-lbl">Cajas totales</div></div>
+        <div className={`stat-card ${rebMermaPctProm != null && rebMermaPctProm > META_MERMA_PCT ? "red" : "green"}`}><div className="stat-val">{rebMermaPctProm != null ? `${rebMermaPctProm}%` : "—"}</div><div className="stat-lbl">Merma promedio</div></div>
+        <div className={`stat-card ${rebPendientes > 0 ? "orange" : "green"}`}><div className="stat-val">{rebPendientes}</div><div className="stat-lbl">Falta dar de alta</div></div>
+      </div>
+
+      <SubTitle icon={IcoRoll}>Por material del rollo</SubTitle>
+      <div style={chartCard}>
+        {rebPorMaterial.length === 0
+          ? <div style={{ textAlign: 'center', color: '#3a3f5a', fontSize: 13, padding: '12px 0' }}>Sin datos aún — se llena al registrar en Modo Rebobinado</div>
+          : <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #22263a' }}>
+                    {['Material','Registros','Cajas','Piezas'].map(h => (
+                      <th key={h} style={{ padding: '6px 10px', color: '#545a78', fontWeight: 600, textAlign: h === 'Material' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rebPorMaterial.map((r, i) => (
+                    <tr key={r.k} style={{ borderBottom: '1px solid #13161e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                      <td style={{ padding: '8px 10px', color: '#e0e0e0', fontWeight: 600 }}>{r.k}</td>
+                      <td style={{ padding: '8px 10px', color: '#545a78', textAlign: 'right' }}>{r.pedidos}</td>
+                      <td style={{ padding: '8px 10px', color: '#4b8fe8', textAlign: 'right', fontWeight: 700 }}>{r.cajas.toLocaleString()}</td>
+                      <td style={{ padding: '8px 10px', color: REBOB_COLOR, textAlign: 'right', fontWeight: 700 }}>{r.piezas.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+        }
+      </div>
+
+      <SubTitle icon={IcoDroplet}>Por adhesivo</SubTitle>
+      <div style={chartCard}>
+        {rebPorAdhesivo.length === 0
+          ? <div style={{ textAlign: 'center', color: '#3a3f5a', fontSize: 13, padding: '12px 0' }}>Sin datos aún</div>
+          : <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #22263a' }}>
+                    {['Adhesivo','Registros','Cajas','Piezas'].map(h => (
+                      <th key={h} style={{ padding: '6px 10px', color: '#545a78', fontWeight: 600, textAlign: h === 'Adhesivo' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rebPorAdhesivo.map((r, i) => (
+                    <tr key={r.k} style={{ borderBottom: '1px solid #13161e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                      <td style={{ padding: '8px 10px', color: '#e0e0e0', fontWeight: 600 }}>{r.k}</td>
+                      <td style={{ padding: '8px 10px', color: '#545a78', textAlign: 'right' }}>{r.pedidos}</td>
+                      <td style={{ padding: '8px 10px', color: '#4b8fe8', textAlign: 'right', fontWeight: 700 }}>{r.cajas.toLocaleString()}</td>
+                      <td style={{ padding: '8px 10px', color: REBOB_COLOR, textAlign: 'right', fontWeight: 700 }}>{r.piezas.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+        }
+      </div>
+
+      {rebRecientes.length > 0 && (
+        <>
+          <SubTitle icon={IcoTapeRoll}>Últimos registros</SubTitle>
+          <div className="list" style={{ marginBottom: 20 }}>
+            {rebRecientes.map(p => (
+              <div key={p.id} className="list-item" style={{ borderLeft: `3px solid ${REBOB_COLOR}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div><strong>#{p.num}</strong> — {p.tipo} · {p.color}</div>
+                  <span className={`badge ${p.status === "terminado" ? "b-green" : "b-orange"}`}>{p.status === "terminado" ? "Terminado" : "Falta dar de alta"}</span>
+                </div>
+                <div className="muted">{p.medida} · {p.cajas} cajas · {Number(p.piezas_prod || 0).toLocaleString()} piezas</div>
+                {p.merma_pct != null && p.merma_pct !== "" && (
+                  <div className="muted">Merma: <span style={{ color: Number(p.merma_pct) > META_MERMA_PCT ? "#ff4d4d" : "#4be87a", fontWeight: 600 }}>{p.merma_pct}%</span></div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
       </>}
 
       {seccion === 'resumen' && <>
