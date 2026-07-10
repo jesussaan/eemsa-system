@@ -2,6 +2,9 @@ import { useState } from "react";
 import ClicheImg from './ClicheImg';
 import { uid, today } from '../lib/utils';
 import { OPERADORES, META_CAJAS } from '../lib/constants';
+import { IcoCheck } from './Icons';
+
+const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
 const authHeaders = () => ({
   'Content-Type': 'application/json',
@@ -76,7 +79,7 @@ export default function Produccion({ prodDiaria, setProdDiaria, pedidos }) {
         {form.cajas_dia && (<div className="field"><label>Total del día</label><input value={`${cajasHoyConNuevo} cajas ${metaCumplida ? "✅ Meta cumplida" : `(faltan ${META_CAJAS - cajasHoyConNuevo})`}`} readOnly style={{ background: "#1a2744", color: metaCumplida ? "#4be87a" : "#c9922a" }} /></div>)}
         <div className="field full"><label>Observaciones</label><textarea value={form.notas} onChange={e => upd("notas", e.target.value)} placeholder="Incidencias, velocidad, ajustes…" /></div>
       </div>
-      <button className="btn btn-primary btn-block" onClick={save} disabled={loading}>{loading ? "Guardando…" : "✅ Registrar producción"}</button>
+      <button className="btn btn-primary btn-block" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }} onClick={save} disabled={loading}>{loading ? "Guardando…" : <><Ico icon={IcoCheck} size={15} /> Registrar producción</>}</button>
       <h3 className="sub-title" style={{ marginTop: 20 }}>Historial (últimos 14 días)</h3>
       {fechas.length === 0 ? <p className="empty">Sin registros.</p> : (
         <div>

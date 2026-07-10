@@ -5,6 +5,9 @@ import { supabase } from '../lib/supabase';
 import { uid, today, fmt } from '../lib/utils';
 import { MAQUINAS } from '../lib/constants';
 import { sendWhatsApp } from '../utils/whatsapp';
+import { IcoPlus } from './Icons';
+
+const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
 export default function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
   const [subTab, setSubTab] = useState("compras");
@@ -442,7 +445,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
               </select>
             </div>
           </div>
-          <button className="btn btn-primary btn-block" onClick={saveCompra} disabled={loading}>{loading ? "Guardando…" : "+ Registrar compra"}</button>
+          <button className="btn btn-primary btn-block" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }} onClick={saveCompra} disabled={loading}>{loading ? "Guardando…" : <><Ico icon={IcoPlus} size={15} /> Registrar compra</>}</button>
           <h3 className="sub-title" style={{ marginTop: 20 }}>Historial de compras</h3>
           {/* Navegador de mes */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1a1d26", borderRadius: 10, padding: "8px 12px", marginBottom: 10 }}>

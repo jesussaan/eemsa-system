@@ -32,6 +32,7 @@ export const IcoStore = () => (<svg viewBox="0 0 24 24" {...S}><path d="M3 9l1.5
 export const IcoNote = () => (<svg viewBox="0 0 24 24" {...S}><path d="M6 3h9l5 5v13a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M15 3v5h5"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>);
 export const IcoBulb = () => (<svg viewBox="0 0 24 24" {...S}><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 00-3.5 10.9c.6.45 1 1.15 1 1.9V17h5v-1.2c0-.75.4-1.45 1-1.9A6 6 0 0012 3z"/></svg>);
 export const IcoCheck = () => (<svg viewBox="0 0 24 24" {...S}><polyline points="4 12.5 9.5 18 20 5"/></svg>);
+export const IcoPlus  = () => (<svg viewBox="0 0 24 24" {...S}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>);
 export const IcoPencil = () => (<svg viewBox="0 0 24 24" {...S}><path d="M4 20l1-4.5L16.5 4 20 7.5 8.5 19 4 20z"/><line x1="14" y1="6" x2="18" y2="10"/></svg>);
 export const IcoX = () => (<svg viewBox="0 0 24 24" {...S}><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>);
 export const IcoPalette = () => (<svg viewBox="0 0 24 24" {...S}><path d="M12 3a9 8 0 100 16c1.2 0 1.6-.9.9-1.7-.5-.6-.2-1.6.7-1.6H15a4 4 0 004-4c0-4.9-3.1-8.7-7-8.7z"/><circle cx="8" cy="11" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="11" r="1" fill="currentColor" stroke="none"/></svg>);

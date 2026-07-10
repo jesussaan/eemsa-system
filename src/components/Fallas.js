@@ -3,6 +3,9 @@ import { uid, today } from '../lib/utils';
 import { sendPush } from '../lib/push';
 import { MAQUINAS, OPERADORES, COMPS, SEV } from '../lib/constants';
 import { analizarComponentes } from '../lib/mantenimiento';
+import { IcoPlus } from './Icons';
+
+const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
 export default function Fallas({ fallas, setFallas }) {
   const [form, setForm] = useState({ fecha: today(), maq: "SIAT L36 #1", comp: "Rodillo anilox", min_paro: "", sev: "leve", op: "", descripcion: "", accion: "", status: "abierta" });
@@ -96,7 +99,7 @@ export default function Fallas({ fallas, setFallas }) {
         <div className="field full"><label>Descripción *</label><textarea value={form.descripcion} onChange={e => upd("descripcion", e.target.value)} placeholder="¿Qué ocurrió?" /></div>
         <div className="field full"><label>Acción correctiva</label><textarea value={form.accion} onChange={e => upd("accion", e.target.value)} placeholder="¿Cómo se resolvió?" /></div>
       </div>
-      <button className="btn btn-primary btn-block" onClick={save} disabled={loading}>{loading ? "Guardando…" : "+ Registrar falla"}</button>
+      <button className="btn btn-primary btn-block" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }} onClick={save} disabled={loading}>{loading ? "Guardando…" : <><Ico icon={IcoPlus} size={15} /> Registrar falla</>}</button>
       <h3 className="sub-title" style={{ marginTop: 20 }}>Historial</h3>
 
       <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
