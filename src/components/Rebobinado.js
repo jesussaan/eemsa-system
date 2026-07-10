@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { uid, today, siguienteNumPedido } from '../lib/utils';
-import { REBOB_CLIENTE, REBOB_OPERADORES, REBOB_TIPOS, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, calcularPiezasTeoricas } from '../lib/constants';
+import { REBOB_CLIENTE, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, calcularPiezasTeoricas } from '../lib/constants';
 import { IcoCheck } from './Icons';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
 export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
   const formInicial = {
-    ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0], tipo: REBOB_TIPOS[0], op: REBOB_OPERADORES[0],
-    cajas: "", piezas: "", fecha_inicio: today(), fecha_termino: today(), notas: "",
+    ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0], tipo: REBOB_TIPOS[0],
+    piezas: "", fecha_inicio: today(), fecha_termino: today(), notas: "",
   };
   const [form, setForm] = useState(formInicial);
   const [toast, setToast] = useState("");
@@ -20,15 +20,16 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
   const piezasTeoricas = calcularPiezasTeoricas(form.ancho, form.largoPieza);
   const piezasReal = Number(form.piezas) || 0;
   const diferencia = form.piezas !== "" ? piezasReal - piezasTeoricas : null;
+  const cajasCalc = piezasReal > 0 ? Math.ceil(piezasReal / REBOB_PIEZAS_POR_CAJA) : 0;
 
   const save = async () => {
-    if (!form.cajas || !form.piezas) { showToast("⚠ Llena cajas y piezas"); return; }
+    if (!form.piezas) { showToast("⚠ Llena piezas reales"); return; }
     setLoading(true);
     const nuevo = {
       id: uid(), created: today(),
       cliente: REBOB_CLIENTE, num: siguienteNumPedido(pedidos),
       tipo: form.tipo, medida: `${form.ancho} x ${form.largoPieza}m`,
-      cajas: form.cajas, piezas_prod: form.piezas, op: form.op,
+      cajas: cajasCalc, piezas_prod: form.piezas, op: REBOB_OPERADOR_EQUIPO,
       fecha_solicitud: today(), fecha_inicio: form.fecha_inicio, fecha_termino: form.fecha_termino,
       notas: form.notas || `Teórico: ${piezasTeoricas} pzas (${vueltas} vueltas x ${form.ancho})`,
       status: "pendiente",
@@ -37,7 +38,7 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
     const data = await res.json();
     if (!res.ok) { showToast("❌ Error: " + (data.error || "desconocido")); setLoading(false); return; }
     setPedidos(ps => [nuevo, ...ps]);
-    setForm(f => ({ ...formInicial, ancho: f.ancho, largoPieza: f.largoPieza, tipo: f.tipo, op: f.op }));
+    setForm(f => ({ ...formInicial, ancho: f.ancho, largoPieza: f.largoPieza, tipo: f.tipo }));
     showToast("✓ Registrado — ya aparece en Modo Emilio para dar de alta");
     setLoading(false);
   };
@@ -80,9 +81,9 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
       <h3 className="sub-title">Registrar lo que salió</h3>
       <div className="form-grid">
         <div className="field"><label>Tipo *</label><select value={form.tipo} onChange={e => upd("tipo", e.target.value)}>{REBOB_TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
-        <div className="field"><label>Operador</label><select value={form.op} onChange={e => upd("op", e.target.value)}>{REBOB_OPERADORES.map(o => <option key={o}>{o}</option>)}</select></div>
-        <div className="field"><label>Cajas *</label><input type="number" value={form.cajas} onChange={e => upd("cajas", e.target.value)} placeholder="0" /></div>
+        <div className="field"><label>Operador</label><input readOnly value={REBOB_OPERADOR_EQUIPO} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
         <div className="field"><label>Piezas reales *</label><input type="number" value={form.piezas} onChange={e => upd("piezas", e.target.value)} placeholder={String(piezasTeoricas)} /></div>
+        <div className="field"><label>Cajas (automático, {REBOB_PIEZAS_POR_CAJA}/caja)</label><input readOnly value={form.piezas ? `${cajasCalc} cajas` : "—"} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
         <div className="field"><label>Fecha inicio</label><input type="date" value={form.fecha_inicio} onChange={e => upd("fecha_inicio", e.target.value)} /></div>
         <div className="field"><label>Fecha término</label><input type="date" value={form.fecha_termino} onChange={e => upd("fecha_termino", e.target.value)} /></div>
         {diferencia !== null && (

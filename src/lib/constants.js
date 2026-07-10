@@ -11,12 +11,15 @@ export const UMBRAL_MERMA = 3;
 
 // Rebobinado de stock: jumbos de 1615mm x 8000m que se cortan en rollos angostos.
 export const REBOB_CLIENTE = "Stock · Rebobinado";
-export const REBOB_OPERADORES = ["José", "Alfredo"];
+export const REBOB_COLOR = "#3ecfc0";
+export const REBOB_OPERADORES = ["José", "Alfredo"]; // usado en Fallas (quien reporta)
+export const REBOB_OPERADOR_EQUIPO = "José y Alfredo"; // operan la rebobinadora juntos
 export const REBOB_TIPOS = ["Hotmelt", "Acrílico"];
 export const REBOB_LARGO_JUMBO_M = 8000;
 export const REBOB_PIEZAS_POR_VUELTA = { '2"': 33, '3"': 22 };
 export const REBOB_ANCHOS = Object.keys(REBOB_PIEZAS_POR_VUELTA);
 export const REBOB_LARGOS_PIEZA = [96, 147];
+export const REBOB_PIEZAS_POR_CAJA = 36;
 export const calcularPiezasTeoricas = (ancho, largoPieza) => {
   const piezasPorVuelta = REBOB_PIEZAS_POR_VUELTA[ancho] || 0;
   const largo = Number(largoPieza) || 0;

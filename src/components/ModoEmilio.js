@@ -5,6 +5,7 @@ import { sendWhatsApp } from "../utils/whatsapp";
 import { sendPush } from "../lib/push";
 import NotifBell from "./NotifBell";
 import { IcoPalette, IcoFlask, IcoRoll, IcoProd, IcoAlertDot, IcoStore, IcoNote, IcoCal, IcoCheck, IcoPencil, IcoX, IcoEmilio, IcoRef, IcoBulb, IcoOperador, IcoCamera } from "./Icons";
+import { REBOB_CLIENTE, REBOB_COLOR } from "../lib/constants";
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
@@ -361,7 +362,8 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
 
           const esperaDesde = p.fin_ts ? new Date(p.fin_ts) : p.fecha_termino ? new Date(p.fecha_termino + 'T16:00:00') : null;
           const diasEsperando = esperaDesde ? Math.floor((Date.now() - esperaDesde.getTime()) / 86400000) : 0;
-          const bordeColor = confirming ? '#4be87a' : diasEsperando >= 2 ? '#ff4d4d' : '#3a3f5a';
+          const esRebobinado = p.cliente === REBOB_CLIENTE;
+          const bordeColor = confirming ? '#4be87a' : esRebobinado ? REBOB_COLOR : diasEsperando >= 2 ? '#ff4d4d' : '#3a3f5a';
 
           return (
             <div
