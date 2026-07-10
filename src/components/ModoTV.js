@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { today } from '../lib/utils';
-import { META_CAJAS } from '../lib/constants';
+import { META_CAJAS, REBOB_CLIENTE } from '../lib/constants';
 
-export default function ModoTV({ pedidos, fallas, prodDiaria = [], onSalir }) {
+export default function ModoTV({ pedidos: pedidosProp, fallas, prodDiaria = [], onSalir }) {
+  // El pizarron de piso es de la SIAT L36 -- el stock de la rebobinadora no cuenta aqui.
+  const pedidos = pedidosProp.filter(p => p.cliente !== REBOB_CLIENTE);
   const [hora, setHora] = useState(new Date());
 
   useEffect(() => {
