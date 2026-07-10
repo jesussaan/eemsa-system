@@ -1,8 +1,12 @@
 import { useState } from "react";
 import ClicheImg from './ClicheImg';
-import { supabase } from '../lib/supabase';
 import { uid, today } from '../lib/utils';
 import { OPERADORES, META_CAJAS } from '../lib/constants';
+
+const authHeaders = () => ({
+  'Content-Type': 'application/json',
+  Authorization: `Bearer ${sessionStorage.getItem('token_supervisor') || ''}`,
+});
 
 export default function Produccion({ prodDiaria, setProdDiaria, pedidos }) {
   const formInicial = { fecha: today(), num_pedido: "", cajas_dia: "", op: "William", notas: "" };
@@ -20,8 +24,9 @@ export default function Produccion({ prodDiaria, setProdDiaria, pedidos }) {
     if (!form.num_pedido || !form.cajas_dia) { showToast("⚠ Llena pedido y cajas"); return; }
     setLoading(true);
     const nuevo = { id: uid(), created: today(), fecha: form.fecha, num_pedido: form.num_pedido, cajas_dia: form.cajas_dia, op: form.op, notas: form.notas };
-    const { error } = await supabase.from("prod_diaria").insert([nuevo]);
-    if (error) { showToast("❌ Error: " + error.message); setLoading(false); return; }
+    const res = await fetch('/api/prod-diaria', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
+    const data = await res.json();
+    if (!res.ok) { showToast("❌ Error: " + (data.error || "desconocido")); setLoading(false); return; }
     setProdDiaria(p => [nuevo, ...p]);
     setForm(f => ({ ...f, num_pedido: "", cajas_dia: "", notas: "" }));
     showToast("✓ Producción registrada ☁️");
@@ -30,7 +35,7 @@ export default function Produccion({ prodDiaria, setProdDiaria, pedidos }) {
 
   const del = async id => {
     if (!window.confirm("¿Eliminar registro?")) return;
-    await supabase.from("prod_diaria").delete().eq("id", id);
+    await fetch('/api/prod-diaria', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
     setProdDiaria(p => p.filter(x => x.id !== id));
   };
 

@@ -229,7 +229,7 @@ async function ejecutarHerramienta(name, input) {
           op: input.op || "William",
           notas: input.notas || ""
         };
-        const { error } = await supabase.from("prod_diaria").insert([nuevo]);
+        const { error } = await supabaseAdmin.from("prod_diaria").insert([nuevo]);
         if (error) return { ok: false, error: error.message };
         return { ok: true, mensaje: `Producción registrada: ${input.cajas_dia} cajas del pedido #${input.num_pedido}`, tablas: ["prod_diaria"] };
       }

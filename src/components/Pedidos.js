@@ -33,8 +33,10 @@ export default function Pedidos({ pedidos, setPedidos }) {
   const formRef = useRef(null);
 
   useEffect(() => {
-    supabase.from('plantillas').select('*').order('created_at', { ascending: false })
-      .then(({ data }) => { if (data) setPlantillas(data); });
+    fetch('/api/plantillas', { headers: authHeaders() })
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setPlantillas(data || []))
+      .catch(() => {});
   }, []);
 
   const aplicarPlantilla = (pl) => {
@@ -67,8 +69,9 @@ export default function Pedidos({ pedidos, setPedidos }) {
       rollos_caja: form.rollos_caja ? Number(form.rollos_caja) : null,
       color: form.color || null, notas: form.notas || null,
     };
-    const { data, error } = await supabase.from('plantillas').insert([nueva]).select().single();
-    if (error) { showToast("❌ Error: " + error.message); return; }
+    const res = await fetch('/api/plantillas', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nueva) });
+    const data = await res.json();
+    if (!res.ok) { showToast("❌ Error: " + (data.error || "desconocido")); return; }
     setPlantillas(p => [data, ...p]);
     setNombrePlantilla("");
     setShowGuardarPl(false);
@@ -76,7 +79,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
   };
 
   const eliminarPlantilla = async (id) => {
-    await supabase.from('plantillas').delete().eq('id', id);
+    await fetch('/api/plantillas', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
     setPlantillas(p => p.filter(x => x.id !== id));
   };
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
