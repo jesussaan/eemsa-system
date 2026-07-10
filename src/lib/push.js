@@ -34,7 +34,7 @@ export const unsubscribePush = async () => {
 
 export const sendPush = (title, body, url = '/') => {
   if (!process.env.REACT_APP_VAPID_PUBLIC_KEY) return;
-  fetch('/api/push-send', {
+  fetch('/api/notificar?via=push', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

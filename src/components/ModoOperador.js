@@ -99,7 +99,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
       : 1;
     if (piezas != null && piezas > 0) {
       try {
-        const costoRes = await fetch('/api/finalizar-costo', {
+        const costoRes = await fetch('/api/costos?action=calcular', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -224,7 +224,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
       const imagenes = [];
       if (imagenesQueja.length) {
         const paths = imagenesQueja.map(file => `${folio}/${uid()}_${file.name}`);
-        const resFirmas = await fetch('/api/quejas-mp-upload-url', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ paths }) });
+        const resFirmas = await fetch('/api/quejas-mp?action=upload-url', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ paths }) });
         const { firmas, error: errFirmas } = await resFirmas.json();
         if (!resFirmas.ok) throw new Error(errFirmas || 'Error al preparar subida de imágenes');
         for (let i = 0; i < imagenesQueja.length; i++) {
@@ -290,7 +290,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
     let imagen_url = "";
     if (imagen) { const { data } = await supabase.storage.from("refacciones").upload(`tickets/${uid()}_${imagen.name}`, imagen); if (data) { const { data: url } = supabase.storage.from("refacciones").getPublicUrl(data.path); imagen_url = url.publicUrl; } }
     try {
-      const res = await fetch('/api/proveedores', {
+      const res = await fetch('/api/refacciones?tabla=proveedores', {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({ nombre: formProv.nombre, telefono: formProv.telefono, direccion: formProv.direccion, monto: formProv.monto, fecha: formProv.fecha, que_compro: formProv.que_compro, categoria: formProv.categoria || null, imagen_url }),
       });
@@ -356,7 +356,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
   };
   const delCompra = async id => {
     if (!window.confirm("¿Eliminar?")) return;
-    const res = await fetch('/api/proveedores', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
+    const res = await fetch('/api/refacciones?tabla=proveedores', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
     if (!res.ok) { showToast("❌ Error al eliminar"); return; }
     setProveedores(p => p.filter(x => x.id !== id));
   };
@@ -372,7 +372,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
       que_compro: modalCompra.que_compro || null,
       categoria:  modalCompra.categoria || null,
     };
-    const res = await fetch('/api/proveedores', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ id: modalCompra.id, ...actualizado }) });
+    const res = await fetch('/api/refacciones?tabla=proveedores', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ id: modalCompra.id, ...actualizado }) });
     const data = await res.json();
     if (!res.ok) { showToast("❌ Error: " + (data.error || "desconocido")); return; }
     setProveedores(ps => ps.map(p => p.id === modalCompra.id ? { ...p, ...actualizado } : p));
