@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { uid, today } from '../lib/utils';
 import { sendPush } from '../lib/push';
-import { MAQUINAS, OPERADORES, COMPS, SEV } from '../lib/constants';
+import { MAQUINAS, OPERADORES, COMPS, COMPS_REBOBINADORA, REBOB_OPERADORES, SEV } from '../lib/constants';
 import { analizarComponentes } from '../lib/mantenimiento';
 import { IcoPlus } from './Icons';
 
@@ -43,7 +43,10 @@ export default function Fallas({ fallas, setFallas }) {
     setLoading(false);
   };
 
-  const compsSugeridos = [...new Set([...COMPS, ...fallas.map(f => f.comp).filter(Boolean)])];
+  const esRebobinadora = form.maq === "Rebobinadora";
+  const compsBase = esRebobinadora ? COMPS_REBOBINADORA : COMPS;
+  const operadoresBase = esRebobinadora ? REBOB_OPERADORES : OPERADORES;
+  const compsSugeridos = [...new Set([...compsBase, ...fallas.filter(f => f.maq === form.maq).map(f => f.comp).filter(Boolean)])];
 
   const del = async id => {
     if (!window.confirm("¿Eliminar?")) return;
@@ -87,7 +90,7 @@ export default function Fallas({ fallas, setFallas }) {
       <h3 className="sub-title">Registrar falla</h3>
       <div className="form-grid">
         <div className="field"><label>Fecha</label><input type="date" value={form.fecha} onChange={e => upd("fecha", e.target.value)} /></div>
-        <div className="field"><label>Máquina</label><select value={form.maq} onChange={e => upd("maq", e.target.value)}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>
+        <div className="field"><label>Máquina</label><select value={form.maq} onChange={e => { const maq = e.target.value; const base = maq === "Rebobinadora" ? COMPS_REBOBINADORA : COMPS; setForm(f => ({ ...f, maq, comp: base[0], op: "" })); }}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>
         <div className="field">
           <label>Componente</label>
           <input list="comps-list" value={form.comp} onChange={e => upd("comp", e.target.value)} placeholder="Escribe o elige un componente" />
@@ -95,7 +98,7 @@ export default function Fallas({ fallas, setFallas }) {
         </div>
         <div className="field"><label>Minutos de paro *</label><input type="number" value={form.min_paro} onChange={e => upd("min_paro", e.target.value)} placeholder="30" /></div>
         <div className="field"><label>Severidad</label><select value={form.sev} onChange={e => upd("sev", e.target.value)}>{Object.entries(SEV).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
-        <div className="field"><label>Operador</label><select value={form.op} onChange={e => upd("op", e.target.value)}><option value="">—</option>{OPERADORES.map(o => <option key={o}>{o}</option>)}</select></div>
+        <div className="field"><label>Operador</label><select value={form.op} onChange={e => upd("op", e.target.value)}><option value="">—</option>{operadoresBase.map(o => <option key={o}>{o}</option>)}</select></div>
         <div className="field full"><label>Descripción *</label><textarea value={form.descripcion} onChange={e => upd("descripcion", e.target.value)} placeholder="¿Qué ocurrió?" /></div>
         <div className="field full"><label>Acción correctiva</label><textarea value={form.accion} onChange={e => upd("accion", e.target.value)} placeholder="¿Cómo se resolvió?" /></div>
       </div>

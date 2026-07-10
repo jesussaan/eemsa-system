@@ -528,13 +528,13 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                   <div style={{ fontSize: 12, color: "#3a3f5a", marginBottom: 12 }}>Sin datos de tiempo suficientes</div>
                 )}
 
-                {/* Desglose compacto: Mant. / Luz / William — mismo tiempo, para que no se le olvide a Emilio que aplica a los 3 */}
+                {/* Desglose compacto: Mant. / Luz / operador — mismo tiempo, para que no se le olvide a Emilio que aplica a los 3 */}
                 {tiempo && (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
                     {[
                       { ico: IcoRef, lbl: "Mant." },
                       { ico: IcoBulb, lbl: "Luz"   },
-                      { ico: IcoOperador, lbl: "William" },
+                      { ico: IcoOperador, lbl: p.op || "Operador" },
                     ].map((row, i) => (
                       <div key={i} style={{ background: "#0d0f14", border: "1px solid #1e2132", borderRadius: 8, padding: "7px 6px", textAlign: "center" }}>
                         <div style={{ fontSize: 9, color: "#5a6080", display: "flex", alignItems: "center", justifyContent: "center", gap: 3, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 3 }}>
