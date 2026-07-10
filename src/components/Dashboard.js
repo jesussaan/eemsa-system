@@ -432,7 +432,7 @@ export default function Dashboard({ pedidos, fallas, refacciones, proveedores, p
                     {ep && <span className={`badge ${ep.cls}`}>{ep.txt}</span>}
                   </div>
                   <div className="muted">{p.tipo} · {p.medida} · {p.cajas} cajas</div>
-                  {p.merma_pct !== undefined && p.merma_pct !== "" && (
+                  {p.merma_pct !== undefined && p.merma_pct !== null && p.merma_pct !== "" && (
                     <div className="muted">Merma: <span style={{ color: Number(p.merma_pct) > META_MERMA_PCT ? "#ff4d4d" : "#4be87a", fontWeight: 600 }}>{p.merma_pct}%</span></div>
                   )}
                 </div>
