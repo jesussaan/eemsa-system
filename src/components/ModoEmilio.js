@@ -53,9 +53,13 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
     setSwipes(s => ({ ...s, [id]: { startX: 0, startY: 0, dx: 0, active: false } }));
   };
 
-  const pendientes = pedidos
-    .filter(p => p.status === "pendiente")
+  const pendientesImpresora = pedidos
+    .filter(p => p.status === "pendiente" && p.cliente !== REBOB_CLIENTE)
     .sort((a, b) => (a.fecha_solicitud || "").localeCompare(b.fecha_solicitud || ""));
+  const pendientesRebobinado = pedidos
+    .filter(p => p.status === "pendiente" && p.cliente === REBOB_CLIENTE)
+    .sort((a, b) => (a.fecha_solicitud || "").localeCompare(b.fecha_solicitud || ""));
+  const pendientes = tabEmilio === "rebobinado" ? pendientesRebobinado : pendientesImpresora;
 
   const darDeAlta = async (id) => {
     setLoading(id);
@@ -170,10 +174,14 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
 
       {/* ── Tabs ── */}
       <div style={{ display: "flex", borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
-        {[["pedidos",IcoEmilio,"Pedidos", pendientes.length],["materiales",IcoProd,"Materiales", activos.length]].map(([k,Icon,lbl,cnt]) => (
-          <button key={k} onClick={() => setTabEmilio(k)} style={{ flex: 1, padding: "11px 0", fontSize: 13, fontWeight: 700, background: "transparent", border: "none", cursor: "pointer", color: tabEmilio === k ? "#c9922a" : "#555", borderBottom: tabEmilio === k ? "2px solid #c9922a" : "2px solid transparent", position: "relative", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+        {[
+          ["pedidos", IcoEmilio, "SIAT L36", pendientesImpresora.length, "#c9922a", "#ff4d4d"],
+          ["rebobinado", IcoRoll, "Rebobinado", pendientesRebobinado.length, REBOB_COLOR, REBOB_COLOR],
+          ["materiales", IcoProd, "Materiales", activos.length, "#c9922a", "#c9922a"],
+        ].map(([k, Icon, lbl, cnt, activeColor, badgeColor]) => (
+          <button key={k} onClick={() => setTabEmilio(k)} style={{ flex: 1, padding: "11px 0", fontSize: 13, fontWeight: 700, background: "transparent", border: "none", cursor: "pointer", color: tabEmilio === k ? activeColor : "#555", borderBottom: tabEmilio === k ? `2px solid ${activeColor}` : "2px solid transparent", position: "relative", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             <Ico icon={Icon} /> {lbl}
-            {cnt > 0 && <span style={{ marginLeft: 6, background: k === "materiales" ? "#c9922a" : "#ff4d4d", color: "#000", fontSize: 10, fontWeight: 900, borderRadius: 20, padding: "1px 6px", verticalAlign: "middle" }}>{cnt}</span>}
+            {cnt > 0 && <span style={{ marginLeft: 6, background: badgeColor, color: "#000", fontSize: 10, fontWeight: 900, borderRadius: 20, padding: "1px 6px", verticalAlign: "middle" }}>{cnt}</span>}
           </button>
         ))}
       </div>
@@ -335,9 +343,11 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
           </div>
         )}
 
-        {/* ── Tab Pedidos ── */}
-        {tabEmilio === "pedidos" && <>
-        <h2 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: "#ff4d4d", letterSpacing: ".06em", margin: "0 0 14px", display: "flex", alignItems: "center", gap: 8 }}><Ico icon={IcoEmilio} size={20} /> Falta dar de alta</h2>
+        {/* ── Tab Pedidos (SIAT L36 o Rebobinado) ── */}
+        {(tabEmilio === "pedidos" || tabEmilio === "rebobinado") && <>
+        <h2 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: tabEmilio === "rebobinado" ? REBOB_COLOR : "#ff4d4d", letterSpacing: ".06em", margin: "0 0 14px", display: "flex", alignItems: "center", gap: 8 }}>
+          <Ico icon={tabEmilio === "rebobinado" ? IcoRoll : IcoEmilio} size={20} /> Falta dar de alta {tabEmilio === "rebobinado" ? "— Rebobinado" : "— SIAT L36"}
+        </h2>
 
         {pendientes.length === 0 && (
           <div style={{ textAlign: "center", padding: "32px 0", color: "#444", fontSize: 13 }}>
