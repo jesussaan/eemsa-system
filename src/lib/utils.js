@@ -1,5 +1,18 @@
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 
+// Sube un archivo a Supabase Storage vía signed URL (pedida al servidor) en
+// vez de con la anon key directo -- misma forma de retorno {data, error}
+// que supabase.storage.from(bucket).upload() para poder sustituirlo igual.
+export const subirConUrlFirmada = async (supabase, bucket, path, file, headers = { 'Content-Type': 'application/json' }) => {
+  const res = await fetch('/api/storage-upload-url', { method: 'POST', headers, body: JSON.stringify({ bucket, paths: [path] }) });
+  const body = await res.json();
+  if (!res.ok) return { data: null, error: { message: body.error || 'Error al preparar subida' } };
+  const { token } = body.firmas[0];
+  const { error } = await supabase.storage.from(bucket).uploadToSignedUrl(path, token, file);
+  if (error) return { data: null, error };
+  return { data: { path }, error: null };
+};
+
 export const siguienteNumPedido = (pedidos) => {
   const max = pedidos.reduce((m, p) => {
     const n = parseInt(p.num, 10);

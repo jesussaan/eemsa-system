@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import ClicheImg from './ClicheImg';
 import CalculadoraProduccion from './CalculadoraProduccion';
 import { supabase } from '../lib/supabase';
-import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido } from '../lib/utils';
+import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada } from '../lib/utils';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT } from '../lib/constants';
 import { sendWhatsApp, mensajePedidoNuevo } from '../utils/whatsapp';
 
@@ -184,7 +184,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
     const n = (v) => v === "" ? null : Number(v);
     let cliche_url = "";
     if (clicheImg) {
-      const { data: up, error: upErr } = await supabase.storage.from("cliches").upload(`${uid()}_${clicheImg.name}`, clicheImg);
+      const { data: up, error: upErr } = await subirConUrlFirmada(supabase, "cliches", `${uid()}_${clicheImg.name}`, clicheImg);
       if (upErr) { showToast("⚠ Foto no subida: " + upErr.message); }
       else if (up) { cliche_url = up.path; }
     }
@@ -243,7 +243,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
       foto_producto_url: modalPedido.foto_producto_url || null,
     };
     if (modalClicheImg) {
-      const { data: up, error: upErr } = await supabase.storage.from("cliches").upload(`${uid()}_${modalClicheImg.name}`, modalClicheImg);
+      const { data: up, error: upErr } = await subirConUrlFirmada(supabase, "cliches", `${uid()}_${modalClicheImg.name}`, modalClicheImg);
       if (upErr) { showToast("⚠ Foto no subida: " + upErr.message); }
       else if (up) { actualizado.cliche_url = up.path; }
     }

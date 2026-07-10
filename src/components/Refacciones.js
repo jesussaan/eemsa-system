@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../lib/supabase';
-import { uid, today, fmt } from '../lib/utils';
+import { uid, today, fmt, subirConUrlFirmada } from '../lib/utils';
 import { MAQUINAS } from '../lib/constants';
 import { sendWhatsApp } from '../utils/whatsapp';
 import { IcoPlus } from './Icons';
@@ -291,7 +291,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
     if (!formProv.nombre || !formProv.monto) { showToast("⚠ Nombre y monto obligatorios"); return; }
     setLoading(true);
     let imagen_url = "";
-    if (imagen) { const { data } = await supabase.storage.from("refacciones").upload(`tickets/${uid()}_${imagen.name}`, imagen); if (data) { const { data: url } = supabase.storage.from("refacciones").getPublicUrl(data.path); imagen_url = url.publicUrl; } }
+    if (imagen) { const { data } = await subirConUrlFirmada(supabase, "refacciones", `tickets/${uid()}_${imagen.name}`, imagen, authHeaders()); if (data) { const { data: url } = supabase.storage.from("refacciones").getPublicUrl(data.path); imagen_url = url.publicUrl; } }
     try {
       const res = await fetch('/api/refacciones?tabla=proveedores', {
         method: 'POST', headers: authHeaders(),

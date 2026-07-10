@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import CalculadoraProduccion from './CalculadoraProduccion';
 import ClicheImg from './ClicheImg';
 import { supabase } from '../lib/supabase';
-import { today, alertaEntrega } from '../lib/utils';
+import { today, alertaEntrega, subirConUrlFirmada } from '../lib/utils';
 import { sendPush } from '../lib/push';
 import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV, UMBRAL_MERMA } from '../lib/constants';
@@ -120,7 +120,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     if (fotoProducto) {
       const ext = fotoProducto.name.split('.').pop();
       const path = `producto_${pedidoSel.id}_${Date.now()}.${ext}`;
-      const { data: up } = await supabase.storage.from("cliches").upload(path, fotoProducto, { upsert: true });
+      const { data: up } = await subirConUrlFirmada(supabase, "cliches", path, fotoProducto);
       if (up) update.foto_producto_url = up.path;
     }
     update.fin_ts = new Date().toISOString();
