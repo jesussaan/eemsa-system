@@ -5,7 +5,7 @@ import { IcoCheck } from './Icons';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
-export default function Rebobinado({ pedidos, setPedidos }) {
+export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
   const formInicial = {
     ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0], tipo: REBOB_TIPOS[0], op: REBOB_OPERADORES[0],
     cajas: "", piezas: "", fecha_inicio: today(), fecha_termino: today(), notas: "",
@@ -45,7 +45,17 @@ export default function Rebobinado({ pedidos, setPedidos }) {
   const historial = pedidos.filter(p => p.cliente === REBOB_CLIENTE).sort((a, b) => (b.created || "").localeCompare(a.created || ""));
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--bg)" }}>
+      <header style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--surface)", borderBottom: "2px solid var(--teal)", position: "sticky", top: 0, zIndex: 10 }}>
+        <img src="/logo192.png" alt="EEMSA" style={{ height: 36, width: "auto" }} />
+        <div>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 16, color: "#e0e0e0", letterSpacing: ".06em" }}>EEMSA System</div>
+          <div style={{ fontSize: 10, color: "var(--teal)", fontWeight: 700, letterSpacing: ".08em" }}>MODO REBOBINADO</div>
+        </div>
+        <button onClick={onSalir} style={{ marginLeft: "auto", fontSize: 11, color: "#666", background: "transparent", border: "none", cursor: "pointer", padding: "4px 8px" }}>← Salir</button>
+      </header>
+
+      <main style={{ flex: 1, padding: "16px 16px 82px", maxWidth: 640, margin: "0 auto", width: "100%" }}>
       <h2 className="sec-title">Rebobinado</h2>
 
       <h3 className="sub-title">Calculadora de rendimiento</h3>
@@ -99,6 +109,7 @@ export default function Rebobinado({ pedidos, setPedidos }) {
       ))}
 
       {toast && <div className="toast">{toast}</div>}
+      </main>
     </div>
   );
 }

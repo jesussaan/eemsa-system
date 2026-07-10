@@ -18,14 +18,12 @@ import CalendarioEntregas from "./components/CalendarioEntregas";
 import PortalCliente from "./components/PortalCliente";
 import NotifBell from "./components/NotifBell";
 import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoLock, IcoOperador, IcoVentas, IcoEmilio, IcoTV, IcoCotizador, IcoSpinner, IcoRoll } from "./components/Icons";
-import { REBOB_CLIENTE } from "./lib/constants";
 
 const TABS = [
   { id: "dash", Icon: IcoDash, lbl: "Dashboard" },
   { id: "ped",  Icon: IcoPed,  lbl: "Pedidos" },
   { id: "cal",  Icon: IcoCal,  lbl: "Agenda" },
   { id: "prod", Icon: IcoProd, lbl: "Producción" },
-  { id: "reb",  Icon: IcoRoll, lbl: "Rebobinado" },
   { id: "ref",  Icon: IcoRef,  lbl: "Refacc." },
   { id: "fal",  Icon: IcoFal,  lbl: "Fallas" },
   { id: "cli",  Icon: IcoCli,  lbl: "Clientes" },
@@ -161,6 +159,9 @@ function EemsaApp() {
           <button className="mode-btn mode-btn-emi" onClick={() => setModo("emilio")}>
             <span style={{ display: "inline-flex", fontSize: 20 }}><IcoEmilio /></span> Modo Emilio
           </button>
+          <button className="mode-btn mode-btn-reb" onClick={() => setModo("rebobinado")}>
+            <span style={{ display: "inline-flex", fontSize: 20 }}><IcoRoll /></span> Modo Rebobinado
+          </button>
           <button className="mode-btn mode-btn-sup" onClick={() => abrirPin("supervisor")}>
             <span style={{ display: "inline-flex", fontSize: 20 }}><IcoDash /></span> Modo Supervisor
             <span className="mode-btn-lock" style={{ display: "inline-flex" }}><IcoLock /></span>
@@ -223,6 +224,13 @@ function EemsaApp() {
     />
   );
 
+  if (modo === "rebobinado") return (
+    <Rebobinado
+      pedidos={pedidos} setPedidos={setPedidos}
+      onSalir={() => setModo(null)}
+    />
+  );
+
   if (modo === "emilio") return (
     <ModoEmilio
       pedidos={pedidos} setPedidos={setPedidos}
@@ -268,7 +276,6 @@ function EemsaApp() {
         {tab === "ped"  && <Pedidos pedidos={pedidos} setPedidos={setPedidos} />}
         {tab === "cal"  && <CalendarioEntregas pedidos={pedidos} setPedidos={setPedidos} />}
         {tab === "prod" && <Produccion prodDiaria={prodDiaria} setProdDiaria={setProdDiaria} pedidos={pedidos} />}
-        {tab === "reb"  && <Rebobinado pedidos={pedidos} setPedidos={setPedidos} />}
         {tab === "ref"  && <Refacciones refs={refs} setRefs={setRefs} proveedores={proveedores} setProveedores={setProveedores} />}
         {tab === "fal"  && <Fallas fallas={fallas} setFallas={setFallas} />}
         {tab === "cli"  && <Clientes pedidos={pedidos} />}
@@ -279,7 +286,6 @@ function EemsaApp() {
           const badge = t.id === "fal" ? fallas.filter(f => f.status === "abierta").length
                       : t.id === "ref" ? refs.filter(r => { const min = r.stock_min ?? 1; return min > 0 && Number(r.stock || 0) <= min; }).length
                       : t.id === "ped" ? pedidos.filter(p => p.status === "pendiente").length
-                      : t.id === "reb" ? pedidos.filter(p => p.cliente === REBOB_CLIENTE && p.status === "pendiente").length
                       : 0;
           return (
             <button key={t.id} className={`tab-btn ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>

@@ -17,6 +17,7 @@
   --red: #e84b4b; --red-dim: rgba(232,75,75,0.10);
   --orange: #e8894b; --orange-dim: rgba(232,137,75,0.10);
   --violet: #9b6fe8; --violet-dim: rgba(155,111,232,0.10);
+  --teal: #3ecfc0; --teal-dim: rgba(62,207,192,0.10);
   --text: #e8ecf4;
   --text-2: #9aa0bc;
   --muted: #545a78;
@@ -318,6 +319,8 @@ textarea { resize: vertical; min-height: 68px; }
 .mode-btn-tv:hover { background: var(--violet-dim); box-shadow: 0 6px 22px rgba(155,111,232,0.22); }
 .mode-btn-cot { border-color: rgba(232,137,75,0.35); color: var(--orange); box-shadow: 0 2px 12px rgba(232,137,75,0.12); }
 .mode-btn-cot:hover { background: var(--orange-dim); box-shadow: 0 6px 22px rgba(232,137,75,0.22); }
+.mode-btn-reb { border-color: rgba(62,207,192,0.35); color: var(--teal); box-shadow: 0 2px 12px rgba(62,207,192,0.12); }
+.mode-btn-reb:hover { background: var(--teal-dim); box-shadow: 0 6px 22px rgba(62,207,192,0.22); }
 .mode-btn-lock { margin-left: auto; opacity: .55; }
 .mode-btn-lock svg { width: 16px; height: 16px; display: block; }
 
