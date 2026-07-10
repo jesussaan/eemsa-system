@@ -10,14 +10,13 @@ import Rebobinado from "./components/Rebobinado";
 import Clientes from "./components/Clientes";
 import AsistenteIA from "./components/AsistenteIA";
 import ModoOperador from "./components/ModoOperador"
-import ModoTV from "./components/ModoTV"
 import ModoVentas from "./components/ModoVentas";
 import ModoEmilio from "./components/ModoEmilio";
 import Cotizador from "./components/Cotizador";
 import CalendarioEntregas from "./components/CalendarioEntregas";
 import PortalCliente from "./components/PortalCliente";
 import NotifBell from "./components/NotifBell";
-import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoLock, IcoOperador, IcoVentas, IcoEmilio, IcoTV, IcoCotizador, IcoSpinner, IcoRoll } from "./components/Icons";
+import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoLock, IcoOperador, IcoVentas, IcoEmilio, IcoCotizador, IcoSpinner, IcoRoll } from "./components/Icons";
 
 const TABS = [
   { id: "dash", Icon: IcoDash, lbl: "Dashboard" },
@@ -166,9 +165,6 @@ function EemsaApp() {
             <span style={{ display: "inline-flex", fontSize: 20 }}><IcoDash /></span> Modo Supervisor
             <span className="mode-btn-lock" style={{ display: "inline-flex" }}><IcoLock /></span>
           </button>
-          <button className="mode-btn mode-btn-tv" onClick={() => setModo("tv")}>
-            <span style={{ display: "inline-flex", fontSize: 20 }}><IcoTV /></span> Modo TV
-          </button>
           <button className="mode-btn mode-btn-cot" onClick={() => abrirPin("cotizador")}>
             <span style={{ display: "inline-flex", fontSize: 20 }}><IcoCotizador /></span> Cotizador
             <span className="mode-btn-lock" style={{ display: "inline-flex" }}><IcoLock /></span>
@@ -241,15 +237,6 @@ function EemsaApp() {
 
   if (modo === "cotizador") return (
     <Cotizador onSalir={() => setModo(null)} />
-  );
-
-  if (modo === "tv") return (
-    <ModoTV
-      pedidos={pedidos}
-      fallas={fallas}
-      prodDiaria={prodDiaria}
-      onSalir={() => setModo(null)}
-    />
   );
 
   // modo === "supervisor"

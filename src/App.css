@@ -315,8 +315,6 @@ textarea { resize: vertical; min-height: 68px; }
 .mode-btn-emi:hover { background: var(--red-dim);  box-shadow: 0 6px 22px rgba(232,75,75,0.22); }
 .mode-btn-sup { border-color: rgba(232,184,75,0.35); color: var(--accent); box-shadow: 0 2px 12px rgba(232,184,75,0.12); }
 .mode-btn-sup:hover { background: var(--accent-dim); box-shadow: 0 6px 22px rgba(232,184,75,0.22); }
-.mode-btn-tv { border-color: rgba(155,111,232,0.35); color: var(--violet); box-shadow: 0 2px 12px rgba(155,111,232,0.12); }
-.mode-btn-tv:hover { background: var(--violet-dim); box-shadow: 0 6px 22px rgba(155,111,232,0.22); }
 .mode-btn-cot { border-color: rgba(232,137,75,0.35); color: var(--orange); box-shadow: 0 2px 12px rgba(232,137,75,0.12); }
 .mode-btn-cot:hover { background: var(--orange-dim); box-shadow: 0 6px 22px rgba(232,137,75,0.22); }
 .mode-btn-reb { border-color: rgba(62,207,192,0.35); color: var(--teal); box-shadow: 0 2px 12px rgba(62,207,192,0.12); }
