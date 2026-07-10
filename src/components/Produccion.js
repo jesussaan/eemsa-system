@@ -1,7 +1,7 @@
 import { useState } from "react";
 import ClicheImg from './ClicheImg';
 import { uid, today } from '../lib/utils';
-import { OPERADORES, META_CAJAS } from '../lib/constants';
+import { OPERADORES, META_CAJAS, REBOB_CLIENTE } from '../lib/constants';
 import { IcoCheck } from './Icons';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
@@ -11,7 +11,9 @@ const authHeaders = () => ({
   Authorization: `Bearer ${sessionStorage.getItem('token_supervisor') || ''}`,
 });
 
-export default function Produccion({ prodDiaria, setProdDiaria, pedidos }) {
+export default function Produccion({ prodDiaria, setProdDiaria, pedidos: pedidosProp }) {
+  // Rebobinado no tiene produccion diaria (no es un pedido de cliente).
+  const pedidos = pedidosProp.filter(p => p.cliente !== REBOB_CLIENTE);
   const formInicial = { fecha: today(), num_pedido: "", cajas_dia: "", op: "William", notas: "" };
   const [form, setForm] = useState(formInicial);
   const [toast, setToast] = useState("");

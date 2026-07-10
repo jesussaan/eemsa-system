@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { today, uid, siguienteNumPedido } from "../lib/utils";
-import { TIPOS } from "../lib/constants";
+import { TIPOS, REBOB_CLIENTE } from "../lib/constants";
 import { sendWhatsApp, mensajePedidoNuevo } from "../utils/whatsapp";
 import Clientes from "./Clientes";
 import CalendarGrid from "./CalendarGrid";
@@ -48,7 +48,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
 
   const mesStr  = `${mes.y}-${String(mes.m+1).padStart(2,"0")}`;
 
-  const pedActivos = pedidos.filter(p => p.status !== "terminado");
+  const pedActivos = pedidos.filter(p => p.status !== "terminado" && p.cliente !== REBOB_CLIENTE);
   const conFecha   = pedActivos.filter(p => p.fecha_estimada).sort((a,b) => a.fecha_estimada.localeCompare(b.fecha_estimada));
   const proximos   = conFecha.filter(p => p.fecha_estimada >= hoy).slice(0, 10);
 

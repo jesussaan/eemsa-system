@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { today } from "../lib/utils";
-import { STATUS_PED } from "../lib/constants";
+import { STATUS_PED, REBOB_CLIENTE } from "../lib/constants";
 import CalendarGrid from "./CalendarGrid";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
-export default function CalendarioEntregas({ pedidos, setPedidos }) {
+export default function CalendarioEntregas({ pedidos: pedidosProp, setPedidos }) {
+  // Rebobinado es stock, no tiene agenda de entregas.
+  const pedidos = pedidosProp.filter(p => p.cliente !== REBOB_CLIENTE);
   const hoy = today();
   const init = () => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; };
   const [mes, setMes]             = useState(init);
