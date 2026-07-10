@@ -1,22 +1,32 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import "./App.css";
 import { supabase } from "./lib/supabase";
-import Dashboard from "./components/Dashboard";
-import Pedidos from "./components/Pedidos";
-import Produccion from "./components/Produccion";
-import Refacciones from "./components/Refacciones";
-import Fallas from "./components/Fallas";
-import Rebobinado from "./components/Rebobinado";
-import Clientes from "./components/Clientes";
-import AsistenteIA from "./components/AsistenteIA";
-import ModoOperador from "./components/ModoOperador"
-import ModoVentas from "./components/ModoVentas";
-import ModoEmilio from "./components/ModoEmilio";
-import Cotizador from "./components/Cotizador";
-import CalendarioEntregas from "./components/CalendarioEntregas";
-import PortalCliente from "./components/PortalCliente";
 import NotifBell from "./components/NotifBell";
 import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoLock, IcoOperador, IcoVentas, IcoEmilio, IcoCotizador, IcoSpinner, IcoRoll } from "./components/Icons";
+
+// Cada pantalla se carga solo cuando se visita, en vez de todas juntas en el
+// bundle inicial (Dashboard/Refacciones/etc. cargan jspdf, recharts, xlsx...).
+const Dashboard = lazy(() => import("./components/Dashboard"));
+const Pedidos = lazy(() => import("./components/Pedidos"));
+const Produccion = lazy(() => import("./components/Produccion"));
+const Refacciones = lazy(() => import("./components/Refacciones"));
+const Fallas = lazy(() => import("./components/Fallas"));
+const Rebobinado = lazy(() => import("./components/Rebobinado"));
+const Clientes = lazy(() => import("./components/Clientes"));
+const AsistenteIA = lazy(() => import("./components/AsistenteIA"));
+const ModoOperador = lazy(() => import("./components/ModoOperador"));
+const ModoVentas = lazy(() => import("./components/ModoVentas"));
+const ModoEmilio = lazy(() => import("./components/ModoEmilio"));
+const Cotizador = lazy(() => import("./components/Cotizador"));
+const CalendarioEntregas = lazy(() => import("./components/CalendarioEntregas"));
+const PortalCliente = lazy(() => import("./components/PortalCliente"));
+
+const PantallaCargando = () => (
+  <div className="loading-screen">
+    <div className="loading-icon"><IcoSpinner /></div>
+    <div className="loading-text">CARGANDO EEMSA SYSTEM…</div>
+  </div>
+);
 
 const TABS = [
   { id: "dash", Icon: IcoDash, lbl: "Dashboard" },
@@ -31,7 +41,7 @@ const TABS = [
 
 export default function App() {
   const portalMatch = window.location.pathname.match(/^\/cliente\/([^/]+)\/?$/);
-  if (portalMatch) return <PortalCliente token={portalMatch[1]} />;
+  if (portalMatch) return <Suspense fallback={<PantallaCargando />}><PortalCliente token={portalMatch[1]} /></Suspense>;
   return <EemsaApp />;
 }
 
@@ -206,37 +216,47 @@ function EemsaApp() {
   );
 
   if (modo === "operador") return (
-    <ModoOperador
-      pedidos={pedidos} setPedidos={setPedidos}
-      fallas={fallas} setFallas={setFallas}
-      onSalir={() => setModo(null)}
-    />
+    <Suspense fallback={<PantallaCargando />}>
+      <ModoOperador
+        pedidos={pedidos} setPedidos={setPedidos}
+        fallas={fallas} setFallas={setFallas}
+        onSalir={() => setModo(null)}
+      />
+    </Suspense>
   );
 
   if (modo === "ventas") return (
-    <ModoVentas
-      pedidos={pedidos} setPedidos={setPedidos}
-      onSalir={() => setModo(null)}
-    />
+    <Suspense fallback={<PantallaCargando />}>
+      <ModoVentas
+        pedidos={pedidos} setPedidos={setPedidos}
+        onSalir={() => setModo(null)}
+      />
+    </Suspense>
   );
 
   if (modo === "rebobinado") return (
-    <Rebobinado
-      pedidos={pedidos} setPedidos={setPedidos}
-      onSalir={() => setModo(null)}
-    />
+    <Suspense fallback={<PantallaCargando />}>
+      <Rebobinado
+        pedidos={pedidos} setPedidos={setPedidos}
+        onSalir={() => setModo(null)}
+      />
+    </Suspense>
   );
 
   if (modo === "emilio") return (
-    <ModoEmilio
-      pedidos={pedidos} setPedidos={setPedidos}
-      listaMateriales={listaMateriales} setListaMateriales={setListaMateriales}
-      onSalir={() => setModo(null)}
-    />
+    <Suspense fallback={<PantallaCargando />}>
+      <ModoEmilio
+        pedidos={pedidos} setPedidos={setPedidos}
+        listaMateriales={listaMateriales} setListaMateriales={setListaMateriales}
+        onSalir={() => setModo(null)}
+      />
+    </Suspense>
   );
 
   if (modo === "cotizador") return (
-    <Cotizador onSalir={() => setModo(null)} />
+    <Suspense fallback={<PantallaCargando />}>
+      <Cotizador onSalir={() => setModo(null)} />
+    </Suspense>
   );
 
   // modo === "supervisor"
@@ -259,14 +279,16 @@ function EemsaApp() {
         </div>
       )}
       <main className="main">
-        {tab === "dash" && <Dashboard pedidos={pedidos} fallas={fallas} refacciones={refs} proveedores={proveedores} prodDiaria={prodDiaria} />}
-        {tab === "ped"  && <Pedidos pedidos={pedidos} setPedidos={setPedidos} />}
-        {tab === "cal"  && <CalendarioEntregas pedidos={pedidos} setPedidos={setPedidos} />}
-        {tab === "prod" && <Produccion prodDiaria={prodDiaria} setProdDiaria={setProdDiaria} pedidos={pedidos} />}
-        {tab === "ref"  && <Refacciones refs={refs} setRefs={setRefs} proveedores={proveedores} setProveedores={setProveedores} />}
-        {tab === "fal"  && <Fallas fallas={fallas} setFallas={setFallas} />}
-        {tab === "cli"  && <Clientes pedidos={pedidos} />}
-        {tab === "ia"   && <AsistenteIA onRefrescar={cargarTablas} />}
+        <Suspense fallback={<PantallaCargando />}>
+          {tab === "dash" && <Dashboard pedidos={pedidos} fallas={fallas} refacciones={refs} proveedores={proveedores} prodDiaria={prodDiaria} />}
+          {tab === "ped"  && <Pedidos pedidos={pedidos} setPedidos={setPedidos} />}
+          {tab === "cal"  && <CalendarioEntregas pedidos={pedidos} setPedidos={setPedidos} />}
+          {tab === "prod" && <Produccion prodDiaria={prodDiaria} setProdDiaria={setProdDiaria} pedidos={pedidos} />}
+          {tab === "ref"  && <Refacciones refs={refs} setRefs={setRefs} proveedores={proveedores} setProveedores={setProveedores} />}
+          {tab === "fal"  && <Fallas fallas={fallas} setFallas={setFallas} />}
+          {tab === "cli"  && <Clientes pedidos={pedidos} />}
+          {tab === "ia"   && <AsistenteIA onRefrescar={cargarTablas} />}
+        </Suspense>
       </main>
       <nav className="tab-bar">
         {TABS.map(t => {
