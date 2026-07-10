@@ -222,22 +222,28 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
     try {
       const folio = await generarFolioQueja();
       const imagenes = [];
-      for (const file of imagenesQueja) {
-        const path = `${folio}/${uid()}_${file.name}`;
-        const { data, error } = await supabase.storage.from("quejas").upload(path, file);
-        if (error) throw error;
-        imagenes.push(data.path);
+      if (imagenesQueja.length) {
+        const paths = imagenesQueja.map(file => `${folio}/${uid()}_${file.name}`);
+        const resFirmas = await fetch('/api/quejas-mp-upload-url', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ paths }) });
+        const { firmas, error: errFirmas } = await resFirmas.json();
+        if (!resFirmas.ok) throw new Error(errFirmas || 'Error al preparar subida de imágenes');
+        for (let i = 0; i < imagenesQueja.length; i++) {
+          const { path, token } = firmas[i];
+          const { error } = await supabase.storage.from("quejas").uploadToSignedUrl(path, token, imagenesQueja[i]);
+          if (error) throw error;
+          imagenes.push(path);
+        }
       }
       const nuevo = {
         folio, fecha: formQueja.fecha, proveedor: formQueja.proveedor, lote: formQueja.lote, material: formQueja.material,
         cantidad_afectada: formQueja.cantidad_afectada, factura_remision: formQueja.factura_remision,
         detectado_por: formQueja.detectado_por, accion_solicitada: formQueja.accion_solicitada,
         descripcion: formQueja.descripcion, elaboro: formQueja.elaboro, autorizo: formQueja.autorizo,
-        imagenes, estatus: "Abierta",
+        imagenes,
       };
-      const { data: inserted, error } = await supabase.from("quejas_mp").insert([nuevo]).select();
-      if (error) throw error;
-      const guardada = inserted[0];
+      const res = await fetch('/api/quejas-mp', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
+      const guardada = await res.json();
+      if (!res.ok) throw new Error(guardada.error || 'Error al guardar');
       if (quejasCargadas) setQuejas(q => [guardada, ...q]);
       showToast(`✓ Queja ${folio} guardada`);
       await descargarQueja(guardada, imagenesQueja);
@@ -250,16 +256,15 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
   };
 
   const actualizarEstatusQueja = async (id, estatus) => {
-    const { error } = await supabase.from("quejas_mp").update({ estatus }).eq("id", id);
-    if (error) { showToast("❌ Error al actualizar estatus"); return; }
+    const res = await fetch('/api/quejas-mp', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ id, estatus }) });
+    if (!res.ok) { showToast("❌ Error al actualizar estatus"); return; }
     setQuejas(q => q.map(x => x.id === id ? { ...x, estatus } : x));
   };
 
   const eliminarQueja = async (q) => {
     if (!window.confirm(`¿Eliminar la queja ${q.folio}? Esta acción no se puede deshacer.`)) return;
-    const { error } = await supabase.from("quejas_mp").delete().eq("id", q.id);
-    if (error) { showToast("❌ Error al eliminar"); return; }
-    if (q.imagenes && q.imagenes.length) await supabase.storage.from("quejas").remove(q.imagenes);
+    const res = await fetch('/api/quejas-mp', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id: q.id }) });
+    if (!res.ok) { showToast("❌ Error al eliminar"); return; }
     setQuejas(qs => qs.filter(x => x.id !== q.id));
     showToast(`✓ Queja ${q.folio} eliminada`);
   };

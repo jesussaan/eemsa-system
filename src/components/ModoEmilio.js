@@ -1,6 +1,5 @@
 import { useState } from "react";
 import ClicheImg from './ClicheImg';
-import { supabase } from "../lib/supabase";
 import { today } from "../lib/utils";
 import { sendWhatsApp } from "../utils/whatsapp";
 import { sendPush } from "../lib/push";
@@ -100,9 +99,10 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
   const agregarMaterial = async () => {
     if (!formMat.material.trim()) { showToast("⚠ Escribe el material"); return; }
     setLoadingMat("add");
-    const payload = { material: formMat.material.trim(), tipo: formMat.tipo, cantidad: formMat.cantidad || null, unidad: formMat.unidad, urgente: formMat.urgente, notas: formMat.notas || null, proveedor: formMat.proveedor || null, status: "pendiente" };
-    const { data, error } = await supabase.from("lista_materiales").insert([payload]).select().single();
-    if (error) { showToast("❌ Error: " + error.message); setLoadingMat(null); return; }
+    const payload = { material: formMat.material.trim(), tipo: formMat.tipo, cantidad: formMat.cantidad || null, unidad: formMat.unidad, urgente: formMat.urgente, notas: formMat.notas || null, proveedor: formMat.proveedor || null };
+    const res = await fetch('/api/lista-materiales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) { showToast("❌ Error: " + (data.error || "")); setLoadingMat(null); return; }
     setListaMateriales(p => [data, ...p]);
     setFormMat({ material: "", tipo: "Tinta", cantidad: "", unidad: "kg", urgente: false, notas: "", proveedor: "" });
     showToast("✓ Material agregado");
@@ -112,15 +112,15 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
   const marcarListo = async (id) => {
     setLoadingMat(id);
     const update = { status: "listo", fecha_listo: today() };
-    const { error } = await supabase.from("lista_materiales").update(update).eq("id", id);
-    if (error) { showToast("❌ Error"); setLoadingMat(null); return; }
+    const res = await fetch('/api/lista-materiales', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'listo', id, fecha_listo: update.fecha_listo }) });
+    if (!res.ok) { showToast("❌ Error"); setLoadingMat(null); return; }
     setListaMateriales(p => p.map(m => m.id === id ? { ...m, ...update } : m));
     showToast("✓ Marcado como listo");
     setLoadingMat(null);
   };
 
   const eliminarMaterial = async (id) => {
-    await supabase.from("lista_materiales").delete().eq("id", id);
+    await fetch('/api/lista-materiales', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
     setListaMateriales(p => p.filter(m => m.id !== id));
   };
 
@@ -132,8 +132,9 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
   const guardarEdicion = async (id) => {
     setLoadingMat("edit_" + id);
     const update = { material: formEdit.material.trim(), tipo: formEdit.tipo, cantidad: formEdit.cantidad || null, unidad: formEdit.unidad, urgente: formEdit.urgente, notas: formEdit.notas || null, proveedor: formEdit.proveedor || null };
-    const { error } = await supabase.from("lista_materiales").update(update).eq("id", id);
-    if (error) { showToast("❌ Error: " + error.message); setLoadingMat(null); return; }
+    const res = await fetch('/api/lista-materiales', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'editar', id, ...update }) });
+    const data = await res.json();
+    if (!res.ok) { showToast("❌ Error: " + (data.error || "")); setLoadingMat(null); return; }
     setListaMateriales(p => p.map(m => m.id === id ? { ...m, ...update } : m));
     setEditandoMat(null);
     showToast("✓ Guardado");
