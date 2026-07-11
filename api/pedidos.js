@@ -12,7 +12,7 @@ const supabase = createClient(
 // de solicitud, etc.) solo se cambia con action="completo" + token.
 const CAMPOS_ESTADO = [
   'status', 'fecha_inicio', 'fecha_termino', 'inicio_ts', 'fin_ts', 'orden',
-  'piezas_prod', 'merma', 'merma_pct', 'rollos_usados', 'tinta_kg', 'tinta_kg2',
+  'piezas_prod', 'merma', 'merma_pct', 'rollos_usados', 'rollos_caja', 'tinta_kg', 'tinta_kg2',
   'alcohol_litros', 'stickyback', 'foto_producto_url', 'costo_pieza', 'notas',
 ];
 

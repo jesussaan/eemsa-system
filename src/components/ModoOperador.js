@@ -85,6 +85,10 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     if (piezas != null) update.piezas_prod = piezas;
     if (mermaNum != null) update.merma = mermaNum;
     if (mermaPct != null) update.merma_pct = mermaPct;
+    // Si el pedido no traia "rollos por caja" desde que se anoto, se guarda
+    // el que se uso en la calculadora -- sin esto, "Cajas producidas" nunca
+    // se puede calcular en Modo Emilio.
+    if (!pedidoSel.rollos_caja && fin.rollos_caja) update.rollos_caja = Number(fin.rollos_caja);
     if (fin.rollos_usados != null && fin.rollos_usados !== "") update.rollos_usados = Number(fin.rollos_usados);
     if (fin.tinta_kg != null && fin.tinta_kg !== "") update.tinta_kg = Number(fin.tinta_kg);
     if (fin.tinta_kg2 != null && fin.tinta_kg2 !== "") update.tinta_kg2 = Number(fin.tinta_kg2);
@@ -485,6 +489,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                   inline
                   onConfirmar={(res) => finalizarPedido({
                     piezas_prod:    res.piezasProd  != null ? String(res.piezasProd)  : "",
+                    rollos_caja:    res.rollosCaja   || "",
                     merma:          res.mermaReal   != null ? String(res.mermaReal)   : "",
                     mermaPct:       res.mermaPct,
                     rollos_usados:  res.rollosExacto != null ? res.rollosExacto.toFixed(2) : "",

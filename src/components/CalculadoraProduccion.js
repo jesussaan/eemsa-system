@@ -157,7 +157,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
           <div className="field full" style={{ borderTop: '1px solid #1e2132', paddingTop: 14, marginTop: 4 }}>
             <div style={{ fontSize: 11, color: '#4be87a', fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>DATOS REALES DE LA CORRIDA</div>
           </div>
-          <div className="field"><label>Piezas producidas</label><input type="number" placeholder="1800" value={piezasProd} onChange={e => setPiezasProd(e.target.value)} /></div>
+          <div className="field"><label>Piezas producidas *</label><input type="number" placeholder="1800" value={piezasProd} onChange={e => setPiezasProd(e.target.value)} /></div>
           <div className="field"><label>Merma real (piezas)</label><input type="number" placeholder="0" value={mermaReal} onChange={e => setMermaReal(e.target.value)} /></div>
           {mermaPct !== null && (
             <div className="field"><label>% Merma real</label><input readOnly value={mermaPct + "%"} style={{ background: "#1a2744", color: Number(mermaPct) > 3 ? "#ff4d4d" : "#4be87a" }} /></div>
@@ -231,20 +231,29 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
       )}
 
       {/* Botón confirmar */}
-      {onConfirmar && (
-        <button
-          className="btn btn-primary btn-block"
-          disabled={!listo}
-          style={{ padding: '14px 0', fontSize: 15, marginTop: 16, opacity: listo ? 1 : 0.4 }}
-          onClick={() => onConfirmar({
-            rollosMP, rollosExacto, tintaKg, tintaKg2: tieneColor2 ? tintaKg2 : null, solventeKg,
-            piezasProd:  piezasProd !== "" ? Number(piezasProd) : null,
-            mermaReal:   mermaReal  !== "" ? Number(mermaReal)  : null,
-            mermaPct, stickyback,
-          })}
-        >
-          ✅ Confirmar y enviar a Emilio
-        </button>
+      {onConfirmar && (() => {
+        const faltaPiezas = !piezasProd || Number(piezasProd) <= 0;
+        return (
+          <button
+            className="btn btn-primary btn-block"
+            disabled={!listo || faltaPiezas}
+            style={{ padding: '14px 0', fontSize: 15, marginTop: 16, opacity: (listo && !faltaPiezas) ? 1 : 0.4 }}
+            onClick={() => onConfirmar({
+              rollosMP, rollosExacto, tintaKg, tintaKg2: tieneColor2 ? tintaKg2 : null, solventeKg,
+              rollosCaja:  rollosCajaN,
+              piezasProd:  piezasProd !== "" ? Number(piezasProd) : null,
+              mermaReal:   mermaReal  !== "" ? Number(mermaReal)  : null,
+              mermaPct, stickyback,
+            })}
+          >
+            ✅ Confirmar y enviar a Emilio
+          </button>
+        );
+      })()}
+      {onConfirmar && !piezasProd && listo && (
+        <div style={{ textAlign: 'center', color: '#ff9900', fontSize: 12, marginTop: 8 }}>
+          Falta "Piezas producidas" para poder enviar a Emilio
+        </div>
       )}
     </div>
   );
