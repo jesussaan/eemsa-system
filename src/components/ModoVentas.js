@@ -12,7 +12,7 @@ const IcoAgenda = () => (<svg viewBox="0 0 24 24" {...S}><rect x="3" y="4" width
 const IcoNuevo  = () => (<svg viewBox="0 0 24 24" {...S}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>);
 const IcoCli    = () => (<svg viewBox="0 0 24 24" {...S}><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>);
 
-const FORM_INIT = { cliente:"", num:"", tipo:"Blanca", medida:"", cajas:"", rollos_caja:"", rollos_totales:"", tinta_tipo:"", notas:"" };
+const FORM_INIT = { cliente:"", num:"", tipo:"Blanca", medida:"", cajas:"", rollos_caja:"", rollos_totales:"", tinta_tipo:"", color2:"", notas:"" };
 
 const STATUS_LBL = { pendiente:"Pendiente", anotado:"Anotado", proceso:"En proceso", terminado:"Terminado" };
 
@@ -41,6 +41,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
       rollos_caja:    p.rollos_caja ? String(p.rollos_caja) : "",
       rollos_totales: p.rollos_totales ? String(p.rollos_totales) : "",
       tinta_tipo:     p.tinta_tipo || "",
+      color2:         p.color2 || "",
       notas:          "",
     }));
     showToast("✓ Datos pre-llenados — revisa y guarda");
@@ -78,6 +79,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
       rollos_caja:     form.rollos_caja ? Number(form.rollos_caja) : null,
       rollos_totales:  form.rollos_totales ? Number(form.rollos_totales) : null,
       tinta_tipo:      form.tinta_tipo.trim() || null,
+      color2:          form.color2.trim() || null,
       fecha_solicitud: form.fecha_solicitud || hoy,
       notas:           form.notas.trim() || null,
       status:          "anotado",
@@ -273,6 +275,11 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
               <div>
                 <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Tinta</label>
                 <input value={form.tinta_tipo} onChange={e=>upd("tinta_tipo",e.target.value)} placeholder="Ej: Roja UV, Azul PMS…" style={inputStyle} />
+              </div>
+
+              <div>
+                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>2do color (opcional)</label>
+                <input value={form.color2} onChange={e=>upd("color2",e.target.value)} placeholder="Solo si el pedido lleva 2 tintas" style={inputStyle} />
               </div>
 
               <div>
