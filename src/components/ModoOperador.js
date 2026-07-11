@@ -87,11 +87,13 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     if (mermaPct != null) update.merma_pct = mermaPct;
     if (fin.rollos_usados != null && fin.rollos_usados !== "") update.rollos_usados = Number(fin.rollos_usados);
     if (fin.tinta_kg != null && fin.tinta_kg !== "") update.tinta_kg = Number(fin.tinta_kg);
+    if (fin.tinta_kg2 != null && fin.tinta_kg2 !== "") update.tinta_kg2 = Number(fin.tinta_kg2);
     if (fin.alcohol_litros != null && fin.alcohol_litros !== "") update.alcohol_litros = Number(fin.alcohol_litros);
     if (fin.stickyback != null) update.stickyback = Number(fin.stickyback);
 
     // Calcular costo automáticamente sin mostrar a William
     const tintaKgNum   = fin.tinta_kg     ? Number(fin.tinta_kg)     : 0;
+    const tintaKg2Num  = fin.tinta_kg2    ? Number(fin.tinta_kg2)    : 0;
     const solventeKgNum= fin.alcohol_litros ? Number(fin.alcohol_litros) : 0;
     const rollosNum    = fin.rollos_usados ? Number(fin.rollos_usados) : 0;
     const diasProd     = pedidoSel.inicio_ts
@@ -107,6 +109,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
             cajas: Number(pedidoSel.cajas || 0), piezasBuenas: piezas,
             sticky: fin.stickyback || 0, diasProd,
             colorKey: pedidoSel.color || pedidoSel.tinta_tipo || '',
+            tintaKg2: tintaKg2Num, colorKey2: pedidoSel.color2 || '',
             tipoCentro: '2',
           }),
         });
@@ -404,6 +407,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                 <div style={miniCard}><div style={miniLbl}>Tipo</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{pedidoSel.tipo}</div></div>
                 <div style={miniCard}><div style={miniLbl}>Máquina</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{pedidoSel.maq}</div></div>
                 {(pedidoSel.color || pedidoSel.tinta_tipo) && <div style={miniCard}><div style={miniLbl}>Tinta / Color</div><div style={{ marginTop: 4 }}><ColorChip color={pedidoSel.color || pedidoSel.tinta_tipo} /></div></div>}
+                {pedidoSel.color2 && <div style={miniCard}><div style={miniLbl}>2do color</div><div style={{ marginTop: 4 }}><ColorChip color={pedidoSel.color2} /></div></div>}
               </div>
             </div>
             {pedidoSel.cliche_url && (
@@ -485,6 +489,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                     mermaPct:       res.mermaPct,
                     rollos_usados:  res.rollosExacto != null ? res.rollosExacto.toFixed(2) : "",
                     tinta_kg:       res.tintaKg     != null ? res.tintaKg.toFixed(3)  : "",
+                    tinta_kg2:      res.tintaKg2    != null ? res.tintaKg2.toFixed(3) : "",
                     alcohol_litros: res.solventeKg  != null ? res.solventeKg.toFixed(3) : "",
                     notas:          res.notas       || "",
                     stickyback:     res.stickyback,

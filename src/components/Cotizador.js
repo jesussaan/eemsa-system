@@ -59,6 +59,10 @@ export default function Cotizador({ onSalir }) {
   const [diseno,     setDiseno]     = useState('normal');
   const [colorKey,   setColorKey]   = useState('naranja');
   const [tipoCentro, setTipoCentro] = useState('2');
+  const [mostrarColor2,       setMostrarColor2]       = useState(false);
+  const [portaliche2,  setPortaliche2]  = useState('30.9');
+  const [diseno2,      setDiseno2]      = useState('normal');
+  const [colorKey2,    setColorKey2]    = useState('azul');
   const [stickyback, setStickyback] = useState(null);
   const [diasProd,   setDiasProd]   = useState(0.5);
   const [margen,     setMargen]     = useState(30);
@@ -133,12 +137,25 @@ export default function Cotizador({ onSalir }) {
   const impresiones     = piezasTotal > 0 && clicheLargo > 0
     ? (piezasTotal * largoRealCm) / (clicheLargo * PISTAS) : 0;
   const tintaKg    = (impresiones * inkPerImpresion * INK_DENSITY * TRANSFER) / 1000;
-  const solventeKg = cajasN > 0 ? (tintaKg * 0.5) + 0.600 : 0;
+
+  // 2do color (opcional): mismas piezas de la corrida, pero su propio
+  // portacliche y diseno/cobertura -- se calcula igual que el color 1.
+  const clicheLargo2      = parseFloat(portaliche2);
+  const cobertura2        = DISENOS.find(d => d.key === diseno2)?.cob || 0.275;
+  const clicheArea2       = CLICHE_W * clicheLargo2;
+  const inkPerImpresion2  = clicheArea2 * BCM_RATE * cobertura2;
+  const impresiones2      = mostrarColor2 && piezasTotal > 0 && clicheLargo2 > 0
+    ? (piezasTotal * largoRealCm) / (clicheLargo2 * PISTAS) : 0;
+  const tintaKg2   = mostrarColor2 ? (impresiones2 * inkPerImpresion2 * INK_DENSITY * TRANSFER) / 1000 : 0;
+
+  const tintaKgTotal = tintaKg + tintaKg2;
+  const solventeKg = cajasN > 0 ? (tintaKgTotal * 0.5) + 0.600 : 0;
 
   const listo = anchoN > 0 && largoN > 0 && cajasN > 0 && rollosCajaN > 0;
 
   const costo = listo ? calcularCosto({
-    rollosMP, tintaKg, solventeKg,
+    rollosMP, tintaKg, tintaKg2, colorKey2: mostrarColor2 ? colorKey2 : '',
+    solventeKg,
     cajas: cajasN, piezasBuenas,
     sticky: stickyback || 0,
     diasProd, colorKey, tipoCentro,
@@ -288,6 +305,44 @@ export default function Cotizador({ onSalir }) {
             </div>
           </div>
 
+          {/* 2do color (opcional) -- pedidos a 2 tintas, mismas piezas, cada
+              color con su propio portacliche y diseno/cobertura. */}
+          {!mostrarColor2 ? (
+            <button type="button" onClick={() => setMostrarColor2(true)}
+              style={{ background: 'transparent', border: '1px dashed #2a2d3a', borderRadius: 8, color: '#9aa0bc', fontSize: 12, fontWeight: 700, padding: '8px 12px', cursor: 'pointer', width: '100%', marginBottom: 4 }}>
+              + Agregar 2do color
+            </button>
+          ) : (
+            <div style={{ background: '#0d0f14', borderRadius: 10, padding: 12, border: '1px solid #2a2d3a', marginBottom: 4 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ fontSize: 10, color: '#9aa0bc', fontWeight: 700, letterSpacing: 1 }}>2DO COLOR</div>
+                <button type="button" onClick={() => setMostrarColor2(false)}
+                  style={{ background: 'transparent', border: 'none', color: '#545a78', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+              </div>
+              <div className="form-grid" style={{ marginBottom: 10 }}>
+                <div className="field"><label>Portacliché</label>
+                  <select value={portaliche2} onChange={e => setPortaliche2(e.target.value)}>
+                    {PORTALICHES.map(p => <option key={p.largo} value={p.largo}>{p.label}</option>)}
+                  </select>
+                </div>
+                <div className="field"><label>Diseño</label>
+                  <select value={diseno2} onChange={e => setDiseno2(e.target.value)}>
+                    {DISENOS.map(d => <option key={d.key} value={d.key}>{d.label} ({Math.round(d.cob * 100)}%)</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ fontSize: 10, color: '#545a78', marginBottom: 6 }}>Color de tinta</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[...TINTA_OPCIONES, { key: '', label: 'Otro', color: '#9aa0bc' }].map(t => (
+                  <button key={t.key} type="button" onClick={() => setColorKey2(t.key)}
+                    style={{ padding: '5px 12px', borderRadius: 20, border: `1.5px solid ${colorKey2 === t.key ? t.color : '#2a2d3a'}`, background: colorKey2 === t.key ? t.color + '22' : 'transparent', color: colorKey2 === t.key ? t.color : '#555', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* % Ganancia */}
           <div>
             <div style={{ fontSize: 10, color: '#545a78', marginBottom: 5 }}>% Ganancia</div>
@@ -306,8 +361,8 @@ export default function Cotizador({ onSalir }) {
                 <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 2 }}>enteros: {rollosMP}</div>
               </div>
               <div style={{ background: 'rgba(201,146,42,0.1)', border: '1px solid rgba(201,146,42,0.25)', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
-                <div style={{ fontSize: 10, color: '#c9922a', fontWeight: 700, marginBottom: 4 }}>TINTA</div>
-                <div style={{ fontSize: 26, fontWeight: 900, color: '#c9922a', lineHeight: 1 }}>{tintaKg.toFixed(2)}</div>
+                <div style={{ fontSize: 10, color: '#c9922a', fontWeight: 700, marginBottom: 4 }}>TINTA{mostrarColor2 ? ' (2 colores)' : ''}</div>
+                <div style={{ fontSize: 26, fontWeight: 900, color: '#c9922a', lineHeight: 1 }}>{tintaKgTotal.toFixed(2)}</div>
                 <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 2 }}>kg</div>
               </div>
               <div style={{ background: 'rgba(75,143,232,0.06)', border: '1px solid rgba(75,143,232,0.15)', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
@@ -321,7 +376,7 @@ export default function Cotizador({ onSalir }) {
               <div style={{ fontSize: 11, color: '#9aa0bc', fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>DESGLOSE DE COSTOS</div>
               {[
                 [`MP (${rollosMP} rollos)`,                          costo.mp],
-                [`Tinta (${tintaKg.toFixed(3)} kg)`,                costo.tinta],
+                [mostrarColor2 ? `Tinta (${tintaKg.toFixed(3)} + ${tintaKg2.toFixed(3)} kg, 2 colores)` : `Tinta (${tintaKg.toFixed(3)} kg)`, costo.tinta],
                 [`Solvente (${solventeKg.toFixed(3)} kg)`,          costo.solvente],
                 [`Cajas (${cajasN})`,                                costo.cajas],
                 [`Centros ${tipoCentro}" (${piezasBuenas} pzas)`,   costo.centros],

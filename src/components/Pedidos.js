@@ -14,7 +14,7 @@ const authHeaders = () => ({
 });
 
 export default function Pedidos({ pedidos, setPedidos }) {
-  const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", rollos_totales: "", ancho: "", largo: "", color: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_estimada: "", fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "anotado" };
+  const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", rollos_totales: "", ancho: "", largo: "", color: "", color2: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_estimada: "", fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "anotado" };
   const [form, setForm] = useState(() => ({ ...formInicial, num: siguienteNumPedido(pedidos) }));
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
@@ -188,7 +188,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
       if (upErr) { showToast("⚠ Foto no subida: " + upErr.message); }
       else if (up) { cliche_url = up.path; }
     }
-    const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.num, tipo: form.tipo, medida: form.medida, cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(form.rollos_totales), ancho: form.ancho, largo: form.largo, color: form.color, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
+    const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.num, tipo: form.tipo, medida: form.medida, cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(form.rollos_totales), ancho: form.ancho, largo: form.largo, color: form.color, color2: form.color2 || null, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
     try {
       const res = await fetch('/api/pedidos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(nuevo) });
       const data = await res.json();
@@ -236,6 +236,8 @@ export default function Pedidos({ pedidos, setPedidos }) {
       rollos_usados: n2(modalPedido.rollos_usados),
       tinta_tipo: modalPedido.tinta_tipo || null,
       tinta_kg: n2(modalPedido.tinta_kg),
+      color2: modalPedido.color2 || null,
+      tinta_kg2: n2(modalPedido.tinta_kg2),
       alcohol_litros: n2(modalPedido.alcohol_litros),
       notas_consumo: modalPedido.notas_consumo || null,
       color_cinta: modalPedido.color_cinta || null,
@@ -353,6 +355,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
         <div className="field"><label>Ancho (pulg)</label><input value={form.ancho} onChange={e => upd("ancho", e.target.value)} placeholder='2"' /></div>
         <div className="field"><label>Largo (m)</label><input type="number" value={form.largo} onChange={e => upd("largo", e.target.value)} placeholder="100" /></div>
         <div className="field"><label>Color impresión</label><input value={form.color} onChange={e => upd("color", e.target.value)} placeholder="Rojo PMS 485" /></div>
+        <div className="field"><label>2do color (opcional)</label><input value={form.color2} onChange={e => upd("color2", e.target.value)} placeholder="Solo si el pedido lleva 2 tintas" /></div>
         <div className="field full"><label>📷 Foto del cliché</label><input type="file" accept="image/*" onChange={e => { const f = e.target.files[0]; if (!f) return; setClicheImg(f); setClichePreview(URL.createObjectURL(f)); }} />{clichePreview && <img src={clichePreview} alt="cliché" style={{ width: "100%", maxWidth: 260, marginTop: 8, borderRadius: 8, border: "1px solid #2a2d3a" }} />}</div>
         <div className="field"><label>Máquina</label><select value={form.maq} onChange={e => upd("maq", e.target.value)}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>
         <div className="field"><label>Operador</label><select value={form.op} onChange={e => upd("op", e.target.value)}>{OPERADORES.map(o => <option key={o}>{o}</option>)}</select></div>
@@ -456,6 +459,8 @@ export default function Pedidos({ pedidos, setPedidos }) {
                 <div className="field"><label>Rollos usados</label><input type="number" step="0.5" value={modalPedido.rollos_usados || ""} onChange={e => setModalPedido(m => ({ ...m, rollos_usados: e.target.value }))} placeholder="36" /></div>
                 <div className="field"><label>Tipo de tinta</label><input value={modalPedido.tinta_tipo || ""} onChange={e => setModalPedido(m => ({ ...m, tinta_tipo: e.target.value }))} placeholder="Roja UV, Azul PMS…" /></div>
                 <div className="field"><label>Tinta usada (kg)</label><input type="number" step="0.01" value={modalPedido.tinta_kg || ""} onChange={e => setModalPedido(m => ({ ...m, tinta_kg: e.target.value }))} placeholder="0.5" /></div>
+                <div className="field"><label>2do color (opcional)</label><input value={modalPedido.color2 || ""} onChange={e => setModalPedido(m => ({ ...m, color2: e.target.value }))} placeholder="Solo si el pedido lleva 2 tintas" /></div>
+                <div className="field"><label>Tinta 2do color (kg)</label><input type="number" step="0.01" value={modalPedido.tinta_kg2 || ""} onChange={e => setModalPedido(m => ({ ...m, tinta_kg2: e.target.value }))} placeholder="0.5" /></div>
                 <div className="field"><label>Alcohol (litros)</label><input type="number" step="0.01" value={modalPedido.alcohol_litros || ""} onChange={e => setModalPedido(m => ({ ...m, alcohol_litros: e.target.value }))} placeholder="1.0" /></div>
                 <div className="field full"><label>Otros insumos / notas</label><input value={modalPedido.notas_consumo || ""} onChange={e => setModalPedido(m => ({ ...m, notas_consumo: e.target.value }))} placeholder="Cliché nuevo, solvente, etc." /></div>
               </div>

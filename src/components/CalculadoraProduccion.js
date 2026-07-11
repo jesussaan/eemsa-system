@@ -31,6 +31,12 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const [diseno,     setDiseno]     = useState('normal');
   const [clicheNA,   setClicheNA]   = useState(false);
 
+  // 2do color: el pedido ya lo declaro (Pedidos.js), mismas piezas de la
+  // corrida pero su propio portacliche y diseno/cobertura.
+  const tieneColor2   = !!pedidoInicial?.color2;
+  const [portaliche2, setPortaliche2] = useState('30.9');
+  const [diseno2,     setDiseno2]     = useState('normal');
+
   // Datos reales (flujo finalizar)
   const [piezasProd, setPiezasProd] = useState('');
   const [mermaReal,  setMermaReal]  = useState('');
@@ -63,7 +69,17 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
     ? (piezasTotal * largoRealCm) / (clicheLargo * PISTAS) : 0;
   const tintaCm3 = impresiones * inkPerImpresion;
   const tintaKg  = clicheNA ? 0 : (tintaCm3 * INK_DENSITY * TRANSFER) / 1000;
-  const solventeKg = clicheNA ? 0 : (tintaKg * 0.5) + 0.600;
+
+  const clicheLargo2     = parseFloat(portaliche2);
+  const cobertura2       = DISENOS.find(d => d.key === diseno2)?.cob || 0.275;
+  const clicheArea2      = CLICHE_W * clicheLargo2;
+  const inkPerImpresion2 = clicheArea2 * BCM_RATE * cobertura2;
+  const impresiones2     = tieneColor2 && piezasTotal > 0 && clicheLargo2 > 0
+    ? (piezasTotal * largoRealCm) / (clicheLargo2 * PISTAS) : 0;
+  const tintaKg2 = tieneColor2 && !clicheNA ? (impresiones2 * inkPerImpresion2 * INK_DENSITY * TRANSFER) / 1000 : 0;
+
+  const tintaKgTotal = tintaKg + tintaKg2;
+  const solventeKg = clicheNA ? 0 : (tintaKgTotal * 0.5) + 0.600;
 
   const listo = anchoN > 0 && largoN > 0 && cajasN > 0 && rollosCajaN > 0;
 
@@ -117,6 +133,24 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
           </div>
         )}
 
+        {tieneColor2 && !clicheNA && (
+          <div className="field full" style={{ background: '#0d0f14', borderRadius: 10, padding: 12, border: '1px solid #2a2d3a' }}>
+            <div style={{ fontSize: 11, color: '#c9922a', fontWeight: 700, marginBottom: 8 }}>2do color: {pedidoInicial.color2}</div>
+            <div className="form-grid">
+              <div className="field"><label>Portacliché</label>
+                <select value={portaliche2} onChange={e => setPortaliche2(e.target.value)}>
+                  {PORTALICHES.map(p => <option key={p.largo} value={p.largo}>{p.label}</option>)}
+                </select>
+              </div>
+              <div className="field"><label>Diseño</label>
+                <select value={diseno2} onChange={e => setDiseno2(e.target.value)}>
+                  {DISENOS.map(d => <option key={d.key} value={d.key}>{d.label} ({Math.round(d.cob * 100)}%)</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="field full"><label>Merma esperada (piezas)</label><input type="number" value={merma} onChange={e => setMerma(e.target.value)} placeholder="0" /></div>
 
         {onConfirmar && (<>
@@ -152,8 +186,8 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
               <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 3 }}>enteros: {rollosMP}</div>
             </div>
             <div style={{ background: clicheNA ? 'rgba(42,45,58,0.4)' : 'rgba(201,146,42,0.1)', border: `1px solid ${clicheNA ? '#2a2d3a' : 'rgba(201,146,42,0.25)'}`, borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
-              <div style={{ fontSize: 10, color: clicheNA ? '#3a3f5a' : '#c9922a', fontWeight: 700, letterSpacing: '.05em', marginBottom: 4 }}>TINTA</div>
-              <div style={{ fontSize: 28, fontWeight: 900, color: clicheNA ? '#3a3f5a' : '#c9922a', lineHeight: 1 }}>{clicheNA ? '0' : tintaKg.toFixed(2)}</div>
+              <div style={{ fontSize: 10, color: clicheNA ? '#3a3f5a' : '#c9922a', fontWeight: 700, letterSpacing: '.05em', marginBottom: 4 }}>TINTA{tieneColor2 ? ' (2)' : ''}</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: clicheNA ? '#3a3f5a' : '#c9922a', lineHeight: 1 }}>{clicheNA ? '0' : tintaKgTotal.toFixed(2)}</div>
               <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 3 }}>kg{clicheNA ? ' · N/A' : ''}</div>
             </div>
             <div style={{ background: clicheNA ? 'rgba(42,45,58,0.4)' : 'rgba(75,143,232,0.07)', border: `1px solid ${clicheNA ? '#2a2d3a' : 'rgba(75,143,232,0.18)'}`, borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
@@ -203,7 +237,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
           disabled={!listo}
           style={{ padding: '14px 0', fontSize: 15, marginTop: 16, opacity: listo ? 1 : 0.4 }}
           onClick={() => onConfirmar({
-            rollosMP, rollosExacto, tintaKg, solventeKg,
+            rollosMP, rollosExacto, tintaKg, tintaKg2: tieneColor2 ? tintaKg2 : null, solventeKg,
             piezasProd:  piezasProd !== "" ? Number(piezasProd) : null,
             mermaReal:   mermaReal  !== "" ? Number(mermaReal)  : null,
             mermaPct, stickyback,

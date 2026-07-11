@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   if (req.query.action === 'calcular') {
     if (req.method !== 'POST') return res.status(405).end();
 
-    const { rollosMP, tintaKg, solventeKg, cajas, piezasBuenas, sticky, diasProd, colorKey, tipoCentro } = req.body || {};
+    const { rollosMP, tintaKg, solventeKg, cajas, piezasBuenas, sticky, diasProd, colorKey, tintaKg2, colorKey2, tipoCentro } = req.body || {};
     if (!(Number(piezasBuenas) > 0)) return res.status(400).json({ error: 'piezasBuenas debe ser mayor a 0' });
 
     const { data, error } = await supabase.from('costos').select('*');
@@ -33,6 +33,8 @@ export default async function handler(req, res) {
       sticky: Number(sticky) || 0,
       diasProd: Number(diasProd) || 1,
       colorKey: colorKey || '',
+      tintaKg2: Number(tintaKg2) || 0,
+      colorKey2: colorKey2 || '',
       tipoCentro: tipoCentro || '2',
       costosDB,
     });

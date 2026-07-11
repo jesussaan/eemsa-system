@@ -24,7 +24,7 @@ export const TINTA_OPCIONES = [
   { key: 'negro',   label: 'Negro',   color: '#aaaaaa' },
 ];
 
-export const calcularCosto = ({ rollosMP=0, tintaKg=0, solventeKg=0, cajas=0, piezasBuenas=0, sticky=0, diasProd=1, colorKey='', tipoCentro='2', costosDB=null }) => {
+export const calcularCosto = ({ rollosMP=0, tintaKg=0, solventeKg=0, cajas=0, piezasBuenas=0, sticky=0, diasProd=1, colorKey='', tintaKg2=0, colorKey2='', tipoCentro='2', costosDB=null }) => {
   const pMP    = costosDB?.mp_rollo          ?? COSTOS.mp_rollo;
   const pCaja  = costosDB?.caja              ?? COSTOS.caja;
   const pC2    = costosDB?.centro_2          ?? COSTOS.centro_2;
@@ -42,15 +42,19 @@ export const calcularCosto = ({ rollosMP=0, tintaKg=0, solventeKg=0, cajas=0, pi
     negro:   costosDB?.tinta_negro   ?? COSTOS.tinta.negro,
   };
   const avgTinta = Object.values(tintaPrecios).reduce((s, v) => s + v, 0) / 4;
-  const c = (colorKey || '').toLowerCase();
-  const pTinta = c.includes('naranja') || c.includes('orange') ? tintaPrecios.naranja
-               : c.includes('azul')    || c.includes('blue')   ? tintaPrecios.azul
-               : c.includes('rojo')    || c.includes('roja')   || c.includes('red')   ? tintaPrecios.rojo
-               : c.includes('negro')   || c.includes('negra')  || c.includes('black') ? tintaPrecios.negro
-               : avgTinta;
+  const precioDeColor = (key) => {
+    const c = (key || '').toLowerCase();
+    return c.includes('naranja') || c.includes('orange') ? tintaPrecios.naranja
+         : c.includes('azul')    || c.includes('blue')   ? tintaPrecios.azul
+         : c.includes('rojo')    || c.includes('roja')   || c.includes('red')   ? tintaPrecios.rojo
+         : c.includes('negro')   || c.includes('negra')  || c.includes('black') ? tintaPrecios.negro
+         : avgTinta;
+  };
 
   const mp         = rollosMP     * pMP;
-  const tinta      = tintaKg      * pTinta;
+  // Costo de tinta: si hay 2do color (pedido a 2 tintas), se suma el costo de
+  // cada uno por separado -- cada color tiene su propio kg y su propio precio.
+  const tinta      = tintaKg * precioDeColor(colorKey) + (Number(tintaKg2) || 0) * precioDeColor(colorKey2);
   const solvente   = solventeKg   * pSolv;
   const cajasC     = cajas        * pCaja;
   const centros    = piezasBuenas * (tipoCentro === '3' ? pC3 : pC2);

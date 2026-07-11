@@ -421,6 +421,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13, marginTop: 6 }}>
                   <span style={{ color: "#aaa" }}>{p.tipo}</span>
                   {(p.color || p.tinta_tipo) && <span style={{ color: "#aaa" }}>{p.color || p.tinta_tipo}</span>}
+                  {p.color2 && <span style={{ color: "#aaa" }}>+ {p.color2}</span>}
                   <span style={{ color: "#444" }}>#Ped {p.num}</span>
                 </div>
                 {p.fecha_solicitud && <div style={{ fontSize: 11, color: "#444", marginTop: 4 }}>Solicitud: {p.fecha_solicitud}</div>}
@@ -455,6 +456,13 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                       <div style={S.miniLbl}>Tinta</div>
                       <div style={{ color: "#c9922a", fontWeight: 800, fontSize: 18 }}>{Number(p.tinta_kg).toFixed(3)} kg</div>
                       {(p.color || p.tinta_tipo) && <div style={{ fontSize: 11, color: "#8a90ac", marginTop: 2 }}>{p.color || p.tinta_tipo}</div>}
+                    </div>
+                  )}
+                  {p.tinta_kg2 != null && (
+                    <div style={S.mini}>
+                      <div style={S.miniLbl}>Tinta 2do color</div>
+                      <div style={{ color: "#c9922a", fontWeight: 800, fontSize: 18 }}>{Number(p.tinta_kg2).toFixed(3)} kg</div>
+                      {p.color2 && <div style={{ fontSize: 11, color: "#8a90ac", marginTop: 2 }}>{p.color2}</div>}
                     </div>
                   )}
                   {p.alcohol_litros != null && (
