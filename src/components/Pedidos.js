@@ -83,12 +83,24 @@ export default function Pedidos({ pedidos, setPedidos }) {
     setPlantillas(p => p.filter(x => x.id !== id));
   };
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
+  const medidaAuto = (a, l) => (a && l) ? `${a}"x${l}` : "";
   const upd = (k, v) => setForm(f => {
     const nf = { ...f, [k]: v };
     if ((k === "cajas" || k === "rollos_caja") && !f.rollos_totales) {
       const c = k === "cajas" ? v : nf.cajas;
       const r = k === "rollos_caja" ? v : nf.rollos_caja;
       if (c && r) nf.rollos_totales = String(Number(c) * Number(r));
+    }
+    // Medida se arma sola de Ancho x Largo -- deja de auto-llenarse en
+    // cuanto la escribes distinto a mano (para medidas que no siguen
+    // el patron normal).
+    if (k === "ancho" || k === "largo") {
+      const previaAuto = medidaAuto(f.ancho, f.largo);
+      if (!f.medida || f.medida === previaAuto) {
+        const a = k === "ancho" ? v : nf.ancho;
+        const l = k === "largo" ? v : nf.largo;
+        nf.medida = medidaAuto(a, l);
+      }
     }
     return nf;
   });
@@ -348,7 +360,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
         <div className="field"><label>Cliente *</label><input value={form.cliente} onChange={e => upd("cliente", e.target.value)} placeholder="MAFENSA, ARIAT…" /></div>
         <div className="field"><label>No. Pedido * <span style={{ color: "#666", fontWeight: 400 }}>(sugerido)</span></label><input value={form.num} onChange={e => upd("num", e.target.value)} placeholder="84, 85…" /></div>
         <div className="field"><label>Tipo cinta</label><select value={form.tipo} onChange={e => upd("tipo", e.target.value)}>{TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
-        <div className="field"><label>Medida (ej: 2"x100)</label><input value={form.medida} onChange={e => upd("medida", e.target.value)} placeholder='2"x100' /></div>
+        <div className="field"><label>Medida <span style={{ color: "#666", fontWeight: 400 }}>(automático de Ancho x Largo)</span></label><input value={form.medida} onChange={e => upd("medida", e.target.value)} placeholder='2"x100' /></div>
         <div className="field"><label>Cajas solicitadas *</label><input type="number" value={form.cajas} onChange={e => upd("cajas", e.target.value)} placeholder="50" /></div>
         <div className="field"><label>Rollos por caja</label><input type="number" value={form.rollos_caja} onChange={e => upd("rollos_caja", e.target.value)} placeholder="36" /></div>
         <div className="field"><label>Rollos / piezas totales</label><input type="number" value={form.rollos_totales} onChange={e => upd("rollos_totales", e.target.value)} placeholder="1800" /></div>
