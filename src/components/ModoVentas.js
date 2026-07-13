@@ -29,7 +29,15 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
   const setMesYLimpiar = (updater) => { setMes(updater); setDiaSel(null); };
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(""), 3000); };
-  const upd = (k, v) => setForm(f => ({...f, [k]: v}));
+  const upd = (k, v) => setForm(f => {
+    const nf = {...f, [k]: v};
+    if ((k === "cajas" || k === "rollos_caja") && !f.rollos_totales) {
+      const c = k === "cajas" ? v : nf.cajas;
+      const r = k === "rollos_caja" ? v : nf.rollos_caja;
+      if (c && r) nf.rollos_totales = String(Number(c) * Number(r));
+    }
+    return nf;
+  });
 
   const repetirPedido = (p) => {
     setForm(f => ({
@@ -268,7 +276,12 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
               </div>
 
               <div>
-                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Piezas / rollos totales</label>
+                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Rollos / caja</label>
+                <input type="number" min="0" value={form.rollos_caja} onChange={e=>upd("rollos_caja",e.target.value)} placeholder="Ej: 36" style={inputStyle} />
+              </div>
+
+              <div>
+                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Piezas / rollos totales <span style={{ color:"#555", fontWeight:400 }}>(automático)</span></label>
                 <input type="number" min="0" value={form.rollos_totales} onChange={e=>upd("rollos_totales",e.target.value)} placeholder="Ej: 1800" style={inputStyle} />
               </div>
 
