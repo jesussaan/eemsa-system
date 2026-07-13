@@ -28,6 +28,27 @@ const PantallaCargando = () => (
   </div>
 );
 
+// Avisa cuando hay una version nueva desplegada (el Service Worker ya tomo
+// control) en vez de recargar solo -- asi no se pierde algo que alguien
+// este llenando a la mitad.
+const AvisoActualizacion = () => {
+  const [hayActualizacion, setHayActualizacion] = useState(false);
+  useEffect(() => {
+    const onUpdate = () => setHayActualizacion(true);
+    window.addEventListener('eemsa:actualizacion-disponible', onUpdate);
+    return () => window.removeEventListener('eemsa:actualizacion-disponible', onUpdate);
+  }, []);
+  if (!hayActualizacion) return null;
+  return (
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 1000, background: "var(--accent)", color: "#0b0d11", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 12, fontSize: 13, fontWeight: 700, boxShadow: "0 2px 12px rgba(0,0,0,0.4)" }}>
+      Hay una actualización disponible
+      <button onClick={() => window.location.reload()} style={{ background: "#0b0d11", color: "var(--accent)", border: "none", borderRadius: 8, padding: "6px 14px", fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
+        Actualizar ahora
+      </button>
+    </div>
+  );
+};
+
 const TABS = [
   { id: "dash", Icon: IcoDash, lbl: "Dashboard" },
   { id: "ped",  Icon: IcoPed,  lbl: "Pedidos" },
@@ -41,8 +62,14 @@ const TABS = [
 
 export default function App() {
   const portalMatch = window.location.pathname.match(/^\/cliente\/([^/]+)\/?$/);
-  if (portalMatch) return <Suspense fallback={<PantallaCargando />}><PortalCliente token={portalMatch[1]} /></Suspense>;
-  return <EemsaApp />;
+  return (
+    <>
+      <AvisoActualizacion />
+      {portalMatch
+        ? <Suspense fallback={<PantallaCargando />}><PortalCliente token={portalMatch[1]} /></Suspense>
+        : <EemsaApp />}
+    </>
+  );
 }
 
 function EemsaApp() {
