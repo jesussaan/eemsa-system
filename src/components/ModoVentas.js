@@ -213,7 +213,8 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
 
         {/* ── NUEVO PEDIDO ── */}
         {tab === "nuevo" && (() => {
-          const sorted = [...pedidos].sort((a, b) => (b.fecha_solicitud || "").localeCompare(a.fecha_solicitud || ""));
+          const sorted = [...pedidos].filter(p => p.cliente !== REBOB_CLIENTE).sort((a, b) => (b.fecha_solicitud || "").localeCompare(a.fecha_solicitud || ""));
+          const clientesSugeridos = [...new Set(sorted.map(p => p.cliente).filter(Boolean))].sort();
           const q = form.cliente.trim().toLowerCase();
           const recientes = q.length >= 2
             ? sorted.filter(p => p.cliente?.toLowerCase().includes(q)).slice(0, 5)
@@ -250,7 +251,8 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
 
               <div style={{ gridColumn:"1/-1" }}>
                 <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Cliente *</label>
-                <input value={form.cliente} onChange={e=>upd("cliente",e.target.value)} placeholder="Nombre del cliente" style={inputStyle} />
+                <input value={form.cliente} onChange={e=>upd("cliente",e.target.value)} placeholder="Nombre del cliente" style={inputStyle} list="clientes-list-ventas" />
+                <datalist id="clientes-list-ventas">{clientesSugeridos.map(c => <option key={c} value={c} />)}</datalist>
               </div>
 
               <div>

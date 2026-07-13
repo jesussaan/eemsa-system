@@ -5,7 +5,7 @@ import ClicheImg from './ClicheImg';
 import CalculadoraProduccion from './CalculadoraProduccion';
 import { supabase } from '../lib/supabase';
 import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada } from '../lib/utils';
-import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT } from '../lib/constants';
+import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT, REBOB_CLIENTE } from '../lib/constants';
 import { sendWhatsApp, mensajePedidoNuevo } from '../utils/whatsapp';
 
 const authHeaders = () => ({
@@ -13,9 +13,12 @@ const authHeaders = () => ({
   Authorization: `Bearer ${sessionStorage.getItem('token_supervisor') || ''}`,
 });
 
-export default function Pedidos({ pedidos, setPedidos }) {
+export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
+  // Rebobinado es stock, no es un pedido de cliente real.
+  const pedidos = pedidosProp.filter(p => p.cliente !== REBOB_CLIENTE);
+  const clientesSugeridos = [...new Set(pedidos.map(p => p.cliente).filter(Boolean))].sort();
   const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", rollos_totales: "", ancho: "", largo: "", color: "", color2: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_estimada: "", fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "anotado" };
-  const [form, setForm] = useState(() => ({ ...formInicial, num: siguienteNumPedido(pedidos) }));
+  const [form, setForm] = useState(() => ({ ...formInicial, num: siguienteNumPedido(pedidosProp) }));
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
   const [modalPedido, setModalPedido] = useState(null);
@@ -109,7 +112,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
     setForm({
       ...formInicial,
       cliente: p.cliente || "",
-      num: siguienteNumPedido(pedidos),
+      num: siguienteNumPedido(pedidosProp),
       tipo: p.tipo || "Blanca",
       medida: p.medida || "",
       cajas: p.cajas || "",
@@ -206,7 +209,7 @@ export default function Pedidos({ pedidos, setPedidos }) {
       const data = await res.json();
       if (!res.ok) { showToast("❌ Error: " + (data.error || "desconocido")); setLoading(false); return; }
       setPedidos(p => [nuevo, ...p]);
-      setForm({ ...formInicial, num: siguienteNumPedido([nuevo, ...pedidos]) });
+      setForm({ ...formInicial, num: siguienteNumPedido([nuevo, ...pedidosProp]) });
       setClicheImg(null); setClichePreview(null);
       sendWhatsApp(mensajePedidoNuevo(nuevo));
       showToast("✓ Pedido anotado ☁️");
@@ -357,7 +360,10 @@ export default function Pedidos({ pedidos, setPedidos }) {
         </div>
       )}
       <div className="form-grid">
-        <div className="field"><label>Cliente *</label><input value={form.cliente} onChange={e => upd("cliente", e.target.value)} placeholder="MAFENSA, ARIAT…" /></div>
+        <div className="field"><label>Cliente *</label>
+          <input value={form.cliente} onChange={e => upd("cliente", e.target.value)} placeholder="MAFENSA, ARIAT…" list="clientes-list" />
+          <datalist id="clientes-list">{clientesSugeridos.map(c => <option key={c} value={c} />)}</datalist>
+        </div>
         <div className="field"><label>No. Pedido * <span style={{ color: "#666", fontWeight: 400 }}>(sugerido)</span></label><input value={form.num} onChange={e => upd("num", e.target.value)} placeholder="84, 85…" /></div>
         <div className="field"><label>Tipo cinta</label><select value={form.tipo} onChange={e => upd("tipo", e.target.value)}>{TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
         <div className="field"><label>Medida <span style={{ color: "#666", fontWeight: 400 }}>(automático de Ancho x Largo)</span></label><input value={form.medida} onChange={e => upd("medida", e.target.value)} placeholder='2"x100' /></div>
