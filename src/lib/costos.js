@@ -1,6 +1,7 @@
 // Valores por defecto — se sobreescriben con lo que venga de Supabase
 export const COSTOS = {
   mp_rollo:          412.38,
+  mp_rollo_engomado: 900.00,
   caja:                9.95,
   centro_2:            1.07,
   centro_3:            1.61,
@@ -24,10 +25,12 @@ export const TINTA_OPCIONES = [
   { key: 'negro',   label: 'Negro',   color: '#aaaaaa' },
 ];
 
-export const calcularCosto = ({ rollosMP=0, tintaKg=0, solventeKg=0, cajas=0, piezasBuenas=0, sticky=0, diasProd=1, colorKey='', tintaKg2=0, colorKey2='', tipoCentro='2', costosDB=null, precioMPRollo=null }) => {
-  // precioMPRollo: para materiales con precio de rollo fijo propio
-  // (ej. Engomado a $900/rollo) en vez del precio general de MP.
-  const pMP    = precioMPRollo ?? costosDB?.mp_rollo ?? COSTOS.mp_rollo;
+export const calcularCosto = ({ rollosMP=0, tintaKg=0, solventeKg=0, cajas=0, piezasBuenas=0, sticky=0, diasProd=1, colorKey='', tintaKg2=0, colorKey2='', tipoCentro='2', costosDB=null, esEngomado=false }) => {
+  // Engomado usa un rollo de MP con precio propio (mp_rollo_engomado, editable
+  // igual que los demas costos) en vez del precio general de MP.
+  const pMP    = esEngomado
+    ? (costosDB?.mp_rollo_engomado ?? COSTOS.mp_rollo_engomado)
+    : (costosDB?.mp_rollo          ?? COSTOS.mp_rollo);
   const pCaja  = costosDB?.caja              ?? COSTOS.caja;
   const pC2    = costosDB?.centro_2          ?? COSTOS.centro_2;
   const pC3    = costosDB?.centro_3          ?? COSTOS.centro_3;

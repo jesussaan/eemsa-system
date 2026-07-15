@@ -1,30 +1,12 @@
 import { useState, useEffect } from 'react';
 import { calcularCosto, TINTA_OPCIONES, COSTOS } from '../lib/costos';
-import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_PISTAS, ENGOMADO_MP_ROLLO_PRECIO } from '../lib/constants';
+import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_MP_ROLLO_PRECIO } from '../lib/constants';
+import { calcularProduccion, PORTALICHES, DISENOS } from '../lib/produccion';
 import { IcoCotizador } from './Icons';
-
-const MP_ANCHO    = 6;
-const MP_LARGO    = 914;
-const CLICHE_W    = 14.4;
-const BCM_RATE    = 0.000698;
-const INK_DENSITY = 1.0;
-const TRANSFER    = 0.50;
-
-const PORTALICHES = [
-  { largo: 30.9, label: '30.9 cm' },
-  { largo: 25.4, label: '25.4 cm' },
-  { largo: 29.0, label: '29.0 cm' },
-];
-
-const DISENOS = [
-  { key: 'chica',   label: 'Letra chica',            cob: 0.125 },
-  { key: 'normal',  label: 'Letra normal',            cob: 0.275 },
-  { key: 'grande',  label: 'Letra grande',            cob: 0.450 },
-  { key: 'relleno', label: 'Relleno completo + logo', cob: 0.825 },
-];
 
 const CAMPOS_COSTO = [
   { key: 'mp_rollo',          label: 'MP por rollo',          grupo: 'Materias primas',  prefix: '$' },
+  { key: 'mp_rollo_engomado', label: 'MP Engomado (rollo)',   grupo: 'Materias primas',  prefix: '$' },
   { key: 'caja',              label: 'Caja',                  grupo: 'Materias primas',  prefix: '$' },
   { key: 'centro_2',          label: 'Centro 2"',             grupo: 'Materias primas',  prefix: '$' },
   { key: 'centro_3',          label: 'Centro 3"',             grupo: 'Materias primas',  prefix: '$' },
@@ -40,7 +22,7 @@ const CAMPOS_COSTO = [
 ];
 
 const DEFAULTS = {
-  mp_rollo: COSTOS.mp_rollo, caja: COSTOS.caja, centro_2: COSTOS.centro_2,
+  mp_rollo: COSTOS.mp_rollo, mp_rollo_engomado: COSTOS.mp_rollo_engomado, caja: COSTOS.caja, centro_2: COSTOS.centro_2,
   centro_3: COSTOS.centro_3, stickyback: COSTOS.stickyback,
   solvente_litro: COSTOS.solvente_litro,
   tinta_naranja: COSTOS.tinta.naranja, tinta_azul: COSTOS.tinta.azul,
@@ -118,46 +100,15 @@ export default function Cotizador({ onSalir }) {
     setGuardando(false);
   };
 
-  // Cálculos
-  const anchoN      = parseFloat(ancho)    || 0;
-  const largoN      = parseFloat(largo)    || 0;
-  const cajasN      = parseInt(cajas)      || 0;
-  const rollosCajaN = parseInt(rollosCaja) || 0;
-  const mermaN      = parseInt(merma)      || 0;
-  const clicheLargo = parseFloat(portaliche);
-  const cobertura   = DISENOS.find(d => d.key === diseno)?.cob || 0.275;
-
-  const largoReal    = esEngomado ? largoN : (largoN > 4 ? largoN - 4 : largoN);
-  const pistas       = esEngomado ? ENGOMADO_PISTAS : (anchoN > 0 ? Math.floor(MP_ANCHO / anchoN) : 0);
-  const rollosPista  = largoReal > 0 ? Math.floor((esEngomado ? ENGOMADO_JUMBO_LARGO_M : MP_LARGO) / largoReal) : 0;
-  const rendimiento  = pistas * rollosPista;
-  const piezasBuenas = cajasN * rollosCajaN;
-  const piezasTotal  = piezasBuenas + mermaN;
-  const rollosExacto = rendimiento > 0 ? piezasTotal / rendimiento : 0;
-  const rollosMP     = Math.ceil(rollosExacto);
-
-  const clicheArea      = CLICHE_W * clicheLargo;
-  const inkPerImpresion = clicheArea * BCM_RATE * cobertura;
-  const largoRealCm     = largoReal * 100;
-  const impresiones     = piezasTotal > 0 && clicheLargo > 0 && pistas > 0
-    ? (piezasTotal * largoRealCm) / (clicheLargo * pistas) : 0;
-  const tintaKg    = (impresiones * inkPerImpresion * INK_DENSITY * TRANSFER) / 1000;
-
-  // 2do color (opcional): mismas piezas de la corrida, pero su propio
-  // portacliche y diseno/cobertura -- se calcula igual que el color 1.
-  const clicheLargo2      = parseFloat(portaliche2);
-  const cobertura2        = DISENOS.find(d => d.key === diseno2)?.cob || 0.275;
-  const clicheArea2       = CLICHE_W * clicheLargo2;
-  const inkPerImpresion2  = clicheArea2 * BCM_RATE * cobertura2;
-  const impresiones2      = mostrarColor2 && piezasTotal > 0 && clicheLargo2 > 0 && pistas > 0
-    ? (piezasTotal * largoRealCm) / (clicheLargo2 * pistas) : 0;
-  const tintaKg2   = mostrarColor2 ? (impresiones2 * inkPerImpresion2 * INK_DENSITY * TRANSFER) / 1000 : 0;
-
-  const tintaKgTotal = tintaKg + tintaKg2;
-  // Engomado usa la tinta tal cual viene (espesa), sin diluir con alcohol.
-  const solventeKg = esEngomado ? 0 : (cajasN > 0 ? (tintaKgTotal * 0.5) + 0.600 : 0);
-
-  const listo = anchoN > 0 && largoN > 0 && cajasN > 0 && rollosCajaN > 0;
+  // Cálculos (formula compartida con Modo Operador / CalculadoraProduccion.js)
+  const {
+    cajasN, piezasBuenas,
+    rollosExacto, rollosMP, tintaKg, tintaKg2, tintaKgTotal, solventeKg, listo,
+  } = calcularProduccion({
+    ancho, largo, cajas, rollosCaja, merma,
+    portaliche, diseno, portaliche2, diseno2, tieneColor2: mostrarColor2,
+    esEngomado,
+  });
 
   const costo = listo ? calcularCosto({
     rollosMP, tintaKg, tintaKg2, colorKey2: mostrarColor2 ? colorKey2 : '',
@@ -165,10 +116,11 @@ export default function Cotizador({ onSalir }) {
     cajas: cajasN, piezasBuenas,
     sticky: stickyback || 0,
     diasProd, colorKey, tipoCentro,
-    precioMPRollo: esEngomado ? ENGOMADO_MP_ROLLO_PRECIO : null,
+    esEngomado,
     costosDB,
   }) : null;
   const precioPieza = costo ? costo.porPieza * (1 + margen / 100) : 0;
+  const precioMPRolloActual = costosDB?.mp_rollo_engomado ?? ENGOMADO_MP_ROLLO_PRECIO;
 
   const fmt2 = n => n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -264,7 +216,7 @@ export default function Cotizador({ onSalir }) {
           </div>
           {esEngomado && (
             <div style={{ fontSize: 11, color: '#ff9900', marginBottom: 10, fontWeight: 700 }}>
-              ENGOMADO · rollo 136mm × {ENGOMADO_JUMBO_LARGO_M}m (corte real 6.8cm) · ${ENGOMADO_MP_ROLLO_PRECIO}/rollo
+              ENGOMADO · rollo 136mm × {ENGOMADO_JUMBO_LARGO_M}m (corte real 6.8cm) · ${fmt2(precioMPRolloActual)}/rollo
             </div>
           )}
           <div className="form-grid">
@@ -403,7 +355,7 @@ export default function Cotizador({ onSalir }) {
             <div style={{ background: '#181b24', borderRadius: 14, padding: '16px', border: '1px solid #22263a', marginBottom: 14 }}>
               <div style={{ fontSize: 11, color: '#9aa0bc', fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>DESGLOSE DE COSTOS</div>
               {[
-                [esEngomado ? `MP (${rollosMP} rollos × $${ENGOMADO_MP_ROLLO_PRECIO})` : `MP (${rollosMP} rollos)`, costo.mp],
+                [esEngomado ? `MP (${rollosMP} rollos × $${fmt2(precioMPRolloActual)})` : `MP (${rollosMP} rollos)`, costo.mp],
                 [mostrarColor2 ? `Tinta (${tintaKg.toFixed(3)} + ${tintaKg2.toFixed(3)} kg, 2 colores)` : `Tinta (${tintaKg.toFixed(3)} kg)`, costo.tinta],
                 [`Solvente (${solventeKg.toFixed(3)} kg)`,          costo.solvente],
                 [`Cajas (${cajasN})`,                                costo.cajas],

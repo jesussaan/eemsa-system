@@ -114,7 +114,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
             sticky: fin.stickyback || 0, diasProd,
             colorKey: pedidoSel.color || pedidoSel.tinta_tipo || '',
             tintaKg2: tintaKg2Num, colorKey2: pedidoSel.color2 || '',
-            precioMPRollo: fin.precioMPRollo || null,
+            esEngomado: pedidoSel.tipo === 'Engomado',
             tipoCentro: '2',
           }),
         });
@@ -497,7 +497,6 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                     tinta_kg:       res.tintaKg     != null ? res.tintaKg.toFixed(3)  : "",
                     tinta_kg2:      res.tintaKg2    != null ? res.tintaKg2.toFixed(3) : "",
                     alcohol_litros: res.solventeKg  != null ? res.solventeKg.toFixed(3) : "",
-                    precioMPRollo:  res.precioMPRollo,
                     notas:          res.notas       || "",
                     stickyback:     res.stickyback,
                     costoPieza:     res.costoPieza,

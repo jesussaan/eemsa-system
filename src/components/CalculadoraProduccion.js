@@ -1,25 +1,6 @@
 import { useState } from 'react';
-import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_PISTAS, ENGOMADO_MP_ROLLO_PRECIO } from '../lib/constants';
-
-const MP_ANCHO    = 6;
-const MP_LARGO    = 914;
-const CLICHE_W    = 14.4;
-const BCM_RATE    = 0.000698;
-const INK_DENSITY = 1.0;
-const TRANSFER    = 0.50;
-
-const PORTALICHES = [
-  { largo: 30.9, label: '30.9 cm' },
-  { largo: 25.4, label: '25.4 cm' },
-  { largo: 29.0, label: '29.0 cm' },
-];
-
-const DISENOS = [
-  { key: 'chica',   label: 'Letra chica',            cob: 0.125 },
-  { key: 'normal',  label: 'Letra normal',            cob: 0.275 },
-  { key: 'grande',  label: 'Letra grande',            cob: 0.450 },
-  { key: 'relleno', label: 'Relleno completo + logo', cob: 0.825 },
-];
+import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_MP_ROLLO_PRECIO } from '../lib/constants';
+import { calcularProduccion, MP_ANCHO, MP_LARGO, PORTALICHES, DISENOS } from '../lib/produccion';
 
 export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial, onConfirmar, inline }) {
   const [ancho,      setAncho]      = useState(pedidoInicial?.ancho       ? String(pedidoInicial.ancho)       : '2');
@@ -47,46 +28,16 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const [stickyback, setStickyback] = useState(null);
   const [verDesglose, setVerDesglose] = useState(false);
 
-  // Cálculos producción
-  const anchoN      = parseFloat(ancho)    || 0;
-  const largoN      = parseFloat(largo)    || 0;
-  const cajasN      = parseInt(cajas)      || 0;
-  const rollosCajaN = parseInt(rollosCaja) || 0;
-  const mermaN      = parseInt(merma)      || 0;
-  const clicheLargo = parseFloat(portaliche);
-  const disenoObj   = DISENOS.find(d => d.key === diseno);
-  const cobertura   = disenoObj?.cob || 0.275;
-
-  const largoReal    = esEngomado ? largoN : (largoN > 4 ? largoN - 4 : largoN);
-  const pistas       = esEngomado ? ENGOMADO_PISTAS : (anchoN > 0 ? Math.floor(MP_ANCHO / anchoN) : 0);
-  const rollosPista  = largoReal > 0 ? Math.floor((esEngomado ? ENGOMADO_JUMBO_LARGO_M : MP_LARGO) / largoReal) : 0;
-  const rendimiento  = pistas * rollosPista;
-  const piezasBuenas = cajasN * rollosCajaN;
-  const piezasTotal  = piezasBuenas + mermaN;
-  const rollosExacto = rendimiento > 0 ? piezasTotal / rendimiento : 0;
-  const rollosMP     = Math.ceil(rollosExacto);
-
-  const clicheArea      = CLICHE_W * clicheLargo;
-  const inkPerImpresion = clicheArea * BCM_RATE * cobertura;
-  const largoRealCm     = largoReal * 100;
-  const impresiones     = piezasTotal > 0 && clicheLargo > 0 && pistas > 0
-    ? (piezasTotal * largoRealCm) / (clicheLargo * pistas) : 0;
-  const tintaCm3 = impresiones * inkPerImpresion;
-  const tintaKg  = clicheNA ? 0 : (tintaCm3 * INK_DENSITY * TRANSFER) / 1000;
-
-  const clicheLargo2     = parseFloat(portaliche2);
-  const cobertura2       = DISENOS.find(d => d.key === diseno2)?.cob || 0.275;
-  const clicheArea2      = CLICHE_W * clicheLargo2;
-  const inkPerImpresion2 = clicheArea2 * BCM_RATE * cobertura2;
-  const impresiones2     = tieneColor2 && piezasTotal > 0 && clicheLargo2 > 0 && pistas > 0
-    ? (piezasTotal * largoRealCm) / (clicheLargo2 * pistas) : 0;
-  const tintaKg2 = tieneColor2 && !clicheNA ? (impresiones2 * inkPerImpresion2 * INK_DENSITY * TRANSFER) / 1000 : 0;
-
-  const tintaKgTotal = tintaKg + tintaKg2;
-  // Engomado usa la tinta tal cual viene (espesa), sin diluir con alcohol.
-  const solventeKg = (clicheNA || esEngomado) ? 0 : (tintaKgTotal * 0.5) + 0.600;
-
-  const listo = anchoN > 0 && largoN > 0 && cajasN > 0 && rollosCajaN > 0;
+  // Cálculos producción (formula compartida con Cotizador.js)
+  const {
+    anchoN, largoN, rollosCajaN, mermaN,
+    largoReal, pistas, rollosPista, rendimiento, piezasBuenas, piezasTotal,
+    rollosExacto, rollosMP, tintaKg, tintaKg2, tintaKgTotal, solventeKg, listo,
+  } = calcularProduccion({
+    ancho, largo, cajas, rollosCaja, merma,
+    portaliche, diseno, portaliche2, diseno2, tieneColor2,
+    esEngomado, sinTinta: clicheNA,
+  });
 
   const mermaPct = piezasProd && mermaReal && Number(piezasProd) > 0
     ? ((Number(mermaReal) / Number(piezasProd)) * 100).toFixed(2) : null;
@@ -249,7 +200,6 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             style={{ padding: '14px 0', fontSize: 15, marginTop: 16, opacity: (listo && !faltaPiezas) ? 1 : 0.4 }}
             onClick={() => onConfirmar({
               rollosMP, rollosExacto, tintaKg, tintaKg2: tieneColor2 ? tintaKg2 : null, solventeKg,
-              precioMPRollo: esEngomado ? ENGOMADO_MP_ROLLO_PRECIO : null,
               rollosCaja:  rollosCajaN,
               piezasProd:  piezasProd !== "" ? Number(piezasProd) : null,
               mermaReal:   mermaReal  !== "" ? Number(mermaReal)  : null,
