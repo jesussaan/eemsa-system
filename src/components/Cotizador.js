@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { calcularCosto, TINTA_OPCIONES, COSTOS } from '../lib/costos';
+import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_PISTAS, ENGOMADO_MP_ROLLO_PRECIO } from '../lib/constants';
 import { IcoCotizador } from './Icons';
 
 const MP_ANCHO    = 6;
@@ -50,6 +51,11 @@ const DEFAULTS = {
 };
 
 export default function Cotizador({ onSalir }) {
+  // Engomado: rollo de MP fijo (136mm x 685m, $900/rollo, corte real 6.8cm
+  // aunque se venda como "3\""), sin toggle manual en Modo Operador porque
+  // ahi se autodetecta del tipo del pedido -- aqui no hay pedido, asi que
+  // se elige a mano.
+  const [esEngomado, setEsEngomado] = useState(false);
   const [ancho,      setAncho]      = useState('2');
   const [largo,      setLargo]      = useState('100');
   const [cajas,      setCajas]      = useState('');
@@ -122,9 +128,9 @@ export default function Cotizador({ onSalir }) {
   const clicheLargo = parseFloat(portaliche);
   const cobertura   = DISENOS.find(d => d.key === diseno)?.cob || 0.275;
 
-  const largoReal    = largoN > 4 ? largoN - 4 : largoN;
-  const pistas       = anchoN > 0 ? Math.floor(MP_ANCHO / anchoN) : 0;
-  const rollosPista  = largoReal > 0 ? Math.floor(MP_LARGO / largoReal) : 0;
+  const largoReal    = esEngomado ? largoN : (largoN > 4 ? largoN - 4 : largoN);
+  const pistas       = esEngomado ? ENGOMADO_PISTAS : (anchoN > 0 ? Math.floor(MP_ANCHO / anchoN) : 0);
+  const rollosPista  = largoReal > 0 ? Math.floor((esEngomado ? ENGOMADO_JUMBO_LARGO_M : MP_LARGO) / largoReal) : 0;
   const rendimiento  = pistas * rollosPista;
   const piezasBuenas = cajasN * rollosCajaN;
   const piezasTotal  = piezasBuenas + mermaN;
@@ -149,7 +155,8 @@ export default function Cotizador({ onSalir }) {
   const tintaKg2   = mostrarColor2 ? (impresiones2 * inkPerImpresion2 * INK_DENSITY * TRANSFER) / 1000 : 0;
 
   const tintaKgTotal = tintaKg + tintaKg2;
-  const solventeKg = cajasN > 0 ? (tintaKgTotal * 0.5) + 0.600 : 0;
+  // Engomado usa la tinta tal cual viene (espesa), sin diluir con alcohol.
+  const solventeKg = esEngomado ? 0 : (cajasN > 0 ? (tintaKgTotal * 0.5) + 0.600 : 0);
 
   const listo = anchoN > 0 && largoN > 0 && cajasN > 0 && rollosCajaN > 0;
 
@@ -159,6 +166,7 @@ export default function Cotizador({ onSalir }) {
     cajas: cajasN, piezasBuenas,
     sticky: stickyback || 0,
     diasProd, colorKey, tipoCentro,
+    precioMPRollo: esEngomado ? ENGOMADO_MP_ROLLO_PRECIO : null,
     costosDB,
   }) : null;
   const precioPieza = costo ? costo.porPieza * (1 + margen / 100) : 0;
@@ -238,9 +246,24 @@ export default function Cotizador({ onSalir }) {
 
         {/* Datos del pedido */}
         <div style={{ background: '#181b24', borderRadius: 14, padding: '16px', border: '1px solid #22263a', marginBottom: 14 }}>
-          <div style={{ fontSize: 11, color: '#9aa0bc', fontWeight: 700, letterSpacing: 1, marginBottom: 12 }}>DATOS DE LA CINTA</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 11, color: '#9aa0bc', fontWeight: 700, letterSpacing: 1 }}>DATOS DE LA CINTA</div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {[[false, 'Normal'], [true, 'Engomado']].map(([v, lbl]) => (
+                <button key={lbl} type="button" onClick={() => setEsEngomado(v)}
+                  style={{ padding: '4px 10px', borderRadius: 6, border: `1.5px solid ${esEngomado === v ? '#ff9900' : '#2a2d3a'}`, background: esEngomado === v ? '#ff990022' : 'transparent', color: esEngomado === v ? '#ff9900' : '#555', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+          {esEngomado && (
+            <div style={{ fontSize: 11, color: '#ff9900', marginBottom: 10, fontWeight: 700 }}>
+              ENGOMADO · rollo 136mm × {ENGOMADO_JUMBO_LARGO_M}m (corte real 6.8cm) · ${ENGOMADO_MP_ROLLO_PRECIO}/rollo
+            </div>
+          )}
           <div className="form-grid">
-            <div className="field"><label>Ancho (")</label><input type="number" step="0.5" min="0.5" value={ancho} onChange={e => setAncho(e.target.value)} /></div>
+            <div className="field"><label>Ancho (") {esEngomado && <span style={{ color: '#3a3f5a' }}>· fijo (3")</span>}</label><input type="number" step="0.5" min="0.5" value={ancho} onChange={e => setAncho(e.target.value)} disabled={esEngomado} /></div>
             <div className="field"><label>Largo (m)</label><input type="number" value={largo} onChange={e => setLargo(e.target.value)} /></div>
             <div className="field"><label>Cajas</label><input type="number" value={cajas} onChange={e => setCajas(e.target.value)} placeholder="50" /></div>
             <div className="field"><label>Rollos / caja</label><input type="number" value={rollosCaja} onChange={e => setRollosCaja(e.target.value)} /></div>
@@ -375,7 +398,7 @@ export default function Cotizador({ onSalir }) {
             <div style={{ background: '#181b24', borderRadius: 14, padding: '16px', border: '1px solid #22263a', marginBottom: 14 }}>
               <div style={{ fontSize: 11, color: '#9aa0bc', fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>DESGLOSE DE COSTOS</div>
               {[
-                [`MP (${rollosMP} rollos)`,                          costo.mp],
+                [esEngomado ? `MP (${rollosMP} rollos × $${ENGOMADO_MP_ROLLO_PRECIO})` : `MP (${rollosMP} rollos)`, costo.mp],
                 [mostrarColor2 ? `Tinta (${tintaKg.toFixed(3)} + ${tintaKg2.toFixed(3)} kg, 2 colores)` : `Tinta (${tintaKg.toFixed(3)} kg)`, costo.tinta],
                 [`Solvente (${solventeKg.toFixed(3)} kg)`,          costo.solvente],
                 [`Cajas (${cajasN})`,                                costo.cajas],
