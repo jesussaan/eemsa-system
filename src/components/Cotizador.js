@@ -9,7 +9,6 @@ const CLICHE_W    = 14.4;
 const BCM_RATE    = 0.000698;
 const INK_DENSITY = 1.0;
 const TRANSFER    = 0.50;
-const PISTAS      = 3;
 
 const PORTALICHES = [
   { largo: 30.9, label: '30.9 cm' },
@@ -140,8 +139,8 @@ export default function Cotizador({ onSalir }) {
   const clicheArea      = CLICHE_W * clicheLargo;
   const inkPerImpresion = clicheArea * BCM_RATE * cobertura;
   const largoRealCm     = largoReal * 100;
-  const impresiones     = piezasTotal > 0 && clicheLargo > 0
-    ? (piezasTotal * largoRealCm) / (clicheLargo * PISTAS) : 0;
+  const impresiones     = piezasTotal > 0 && clicheLargo > 0 && pistas > 0
+    ? (piezasTotal * largoRealCm) / (clicheLargo * pistas) : 0;
   const tintaKg    = (impresiones * inkPerImpresion * INK_DENSITY * TRANSFER) / 1000;
 
   // 2do color (opcional): mismas piezas de la corrida, pero su propio
@@ -150,8 +149,8 @@ export default function Cotizador({ onSalir }) {
   const cobertura2        = DISENOS.find(d => d.key === diseno2)?.cob || 0.275;
   const clicheArea2       = CLICHE_W * clicheLargo2;
   const inkPerImpresion2  = clicheArea2 * BCM_RATE * cobertura2;
-  const impresiones2      = mostrarColor2 && piezasTotal > 0 && clicheLargo2 > 0
-    ? (piezasTotal * largoRealCm) / (clicheLargo2 * PISTAS) : 0;
+  const impresiones2      = mostrarColor2 && piezasTotal > 0 && clicheLargo2 > 0 && pistas > 0
+    ? (piezasTotal * largoRealCm) / (clicheLargo2 * pistas) : 0;
   const tintaKg2   = mostrarColor2 ? (impresiones2 * inkPerImpresion2 * INK_DENSITY * TRANSFER) / 1000 : 0;
 
   const tintaKgTotal = tintaKg + tintaKg2;
