@@ -262,7 +262,7 @@ export default function Cotizador({ onSalir }) {
             </div>
           )}
           <div className="form-grid">
-            <div className="field"><label>Ancho (") {esEngomado && <span style={{ color: '#3a3f5a' }}>· fijo (3")</span>}</label><input type="number" step="0.5" min="0.5" value={ancho} onChange={e => setAncho(e.target.value)} disabled={esEngomado} /></div>
+            <div className="field"><label>Ancho (") {esEngomado && <span style={{ color: '#3a3f5a' }}>· fijo</span>}</label><input type="number" step="0.5" min="0.5" value={esEngomado ? '3' : ancho} onChange={e => setAncho(e.target.value)} disabled={esEngomado} /></div>
             <div className="field"><label>Largo (m)</label><input type="number" value={largo} onChange={e => setLargo(e.target.value)} /></div>
             <div className="field"><label>Cajas</label><input type="number" value={cajas} onChange={e => setCajas(e.target.value)} placeholder="50" /></div>
             <div className="field"><label>Rollos / caja</label><input type="number" value={rollosCaja} onChange={e => setRollosCaja(e.target.value)} /></div>
