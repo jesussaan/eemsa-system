@@ -9,6 +9,7 @@ import { notificar } from '../lib/notificaciones';
 import { exportarExcel } from '../lib/exportExcel';
 import { analizarComponentes } from '../lib/mantenimiento';
 import { IcoDash, IcoFal, IcoMoney, IcoCompare, IcoTrendUp, IcoTrophy, IcoDroplet, IcoTapeRoll, IcoRef, IcoRoll } from './Icons';
+import EditorCostos from './EditorCostos';
 
 const SECCIONES = [
   { id: 'resumen',    lbl: 'Resumen',    Icon: IcoDash },
@@ -111,6 +112,16 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
   })();
 
   const pedidosConCosto  = pedidos.filter(p => p.status === "terminado" && p.costo_pieza != null);
+  // Historial por cinta -- una fila por corrida terminada, mas reciente primero.
+  const historialCostos = [...pedidosConCosto]
+    .sort((a, b) => (b.fecha_termino || "").localeCompare(a.fecha_termino || ""))
+    .map(p => ({
+      id: p.id, num: p.num, cliente: p.cliente, fecha: p.fecha_termino,
+      piezas: Number(p.piezas_prod || 0),
+      costoPieza: Number(p.costo_pieza),
+      valor: Number(p.costo_pieza) * Number(p.piezas_prod || 0),
+      merma: Number(p.costo_pieza) * Number(p.merma || 0),
+    }));
   const valorProducido   = pedidosConCosto.reduce((s, p) => s + (Number(p.costo_pieza) * Number(p.piezas_prod || 0)), 0);
   const perdidaMerma     = pedidosConCosto.reduce((s, p) => s + (Number(p.costo_pieza) * Number(p.merma || 0)), 0);
   const valorProducidoMes= pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual) && p.costo_pieza != null)
@@ -502,7 +513,10 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
 
       {seccion === 'finanzas' && <>
       {/* ── Tu máquina en números ── */}
-      <SubTitle icon={IcoMoney}>Tu máquina en números</SubTitle>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <SubTitle icon={IcoMoney}>Tu máquina en números</SubTitle>
+        <EditorCostos label="Editar costos" />
+      </div>
       <div className="stat-grid" style={{ marginBottom: 12 }}>
         <div className="stat-card green">
           <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(valorProducidoMes))}</div>
@@ -609,6 +623,39 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       </>}
 
       {seccion === 'finanzas' && <>
+      {/* ── Historial por cinta ── */}
+      {historialCostos.length > 0 && (
+        <>
+          <SubTitle icon={IcoTapeRoll}>Historial por cinta</SubTitle>
+          <div style={chartCard}>
+            <div style={{ maxHeight: 420, overflowY: 'auto', overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #22263a' }}>
+                    {['Fecha','Pedido','Cliente','Piezas','Costo/pza','Valor producido','Pérd. merma'].map(h => (
+                      <th key={h} style={{ padding: '6px 10px', color: '#545a78', fontWeight: 600, textAlign: (h === 'Cliente' || h === 'Fecha') ? 'left' : 'right', whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#181b24' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {historialCostos.map((r, i) => (
+                    <tr key={r.id} style={{ borderBottom: '1px solid #13161e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                      <td style={{ padding: '8px 10px', color: '#545a78', whiteSpace: 'nowrap' }}>{r.fecha || '—'}</td>
+                      <td style={{ padding: '8px 10px', color: '#9aa0bc', whiteSpace: 'nowrap' }}>#{r.num || '—'}</td>
+                      <td style={{ padding: '8px 10px', color: '#e0e0e0', fontWeight: 600, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.cliente}</td>
+                      <td style={{ padding: '8px 10px', color: '#545a78', textAlign: 'right' }}>{r.piezas.toLocaleString()}</td>
+                      <td style={{ padding: '8px 10px', color: '#9aa0bc', textAlign: 'right' }}>${r.costoPieza.toFixed(3)}</td>
+                      <td style={{ padding: '8px 10px', color: '#4b8fe8', textAlign: 'right', fontWeight: 700 }}>${fmt(Math.round(r.valor))}</td>
+                      <td style={{ padding: '8px 10px', color: '#ff4d4d', textAlign: 'right' }}>${fmt(Math.round(r.merma))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* ── Rentabilidad por cliente ── */}
       {rentabilidadClientes.length > 0 && (
         <>
