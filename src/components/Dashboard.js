@@ -75,12 +75,20 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
   const tiempoPromedio = pedConTiempo.length > 0 ? Math.round(pedConTiempo.reduce((s, p) => s + (new Date(p.fecha_termino + "T12:00:00") - new Date(p.fecha_inicio + "T12:00:00")) / 86400000 + 1, 0) / pedConTiempo.length) : null;
   const componentesVencidos = analizarComponentes(fallas).filter(c => c.vencido);
 
-  const fallasPorComp = [
-    { comp: "Rodillo anilox", lbl: "Anilox" }, { comp: "Sistema de tintas", lbl: "Tintas" },
-    { comp: "Cliché/portacliché", lbl: "Cliché" }, { comp: "Motor principal", lbl: "Motor" },
-    { comp: "Sistema de corte", lbl: "Corte" }, { comp: "Banda transportadora", lbl: "Banda" },
-    { comp: "Sistema eléctrico", lbl: "Eléct." }, { comp: "Otro", lbl: "Otro" },
-  ].map(({ comp, lbl }) => ({ lbl, val: fallas.filter(f => f.comp === comp && f.fecha?.startsWith(mesActual)).reduce((s, f) => s + Number(f.min_paro || 0), 0) })).filter(d => d.val > 0).sort((a, b) => b.val - a.val);
+  // Componentes de la SIAT L36 y de la Rebobinadora -- ambas maquinas
+  // reportan fallas en la misma tabla, asi que las dos deben poder
+  // aparecer en esta grafica.
+  const LBL_COMP = {
+    "Rodillo anilox": "Anilox", "Sistema de tintas": "Tintas", "Cliché/portacliché": "Cliché",
+    "Motor principal": "Motor", "Sistema de corte": "Corte", "Banda transportadora": "Banda",
+    "Sistema eléctrico": "Eléct.", "Resortes de Mandriles Chicos": "Resortes",
+    "Cuchillas de corte": "Cuchillas", "Motor rebobinador": "Motor rebob.",
+    "Sistema de frenado": "Frenado", "Mandriles": "Mandriles",
+    "Otro": "Otro",
+  };
+  const fallasPorComp = Object.entries(LBL_COMP)
+    .map(([comp, lbl]) => ({ lbl, val: fallas.filter(f => f.comp === comp && f.fecha?.startsWith(mesActual)).reduce((s, f) => s + Number(f.min_paro || 0), 0) }))
+    .filter(d => d.val > 0).sort((a, b) => b.val - a.val);
 
   const topClientes = Object.entries(
     pedidos.filter(p => p.status === "terminado")
