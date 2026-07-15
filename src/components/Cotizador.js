@@ -249,7 +249,13 @@ export default function Cotizador({ onSalir }) {
             <div style={{ fontSize: 11, color: '#9aa0bc', fontWeight: 700, letterSpacing: 1 }}>DATOS DE LA CINTA</div>
             <div style={{ display: 'flex', gap: 4 }}>
               {[[false, 'Normal'], [true, 'Engomado']].map(([v, lbl]) => (
-                <button key={lbl} type="button" onClick={() => setEsEngomado(v)}
+                <button key={lbl} type="button" onClick={() => {
+                  setEsEngomado(v);
+                  // Engomado siempre se corta a 137m (rinde 10 piezas = 1 caja).
+                  // "Rollos/caja" normal (36) no aplica -- forzamos el valor real.
+                  if (v) { setLargo('137'); setRollosCaja('10'); }
+                  else    { setLargo('100'); setRollosCaja('36'); }
+                }}
                   style={{ padding: '4px 10px', borderRadius: 6, border: `1.5px solid ${esEngomado === v ? '#ff9900' : '#2a2d3a'}`, background: esEngomado === v ? '#ff990022' : 'transparent', color: esEngomado === v ? '#ff9900' : '#555', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>
                   {lbl}
                 </button>
