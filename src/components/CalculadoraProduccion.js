@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_PISTAS, ENGOMADO_MP_ROLLO_PRECIO } from '../lib/constants';
 
 const MP_ANCHO    = 6;
 const MP_LARGO    = 914;
@@ -31,6 +32,10 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const [diseno,     setDiseno]     = useState('normal');
   const [clicheNA,   setClicheNA]   = useState(false);
 
+  // Engomado: rollo de MP fijo (136mm x 685m, $900/rollo, corte real 6.8cm
+  // aunque se venda como "3\""), en vez de la formula normal de la SIAT L36.
+  const esEngomado = pedidoInicial?.tipo === 'Engomado';
+
   // 2do color: el pedido ya lo declaro (Pedidos.js), mismas piezas de la
   // corrida pero su propio portacliche y diseno/cobertura.
   const tieneColor2   = !!pedidoInicial?.color2;
@@ -53,9 +58,9 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const disenoObj   = DISENOS.find(d => d.key === diseno);
   const cobertura   = disenoObj?.cob || 0.275;
 
-  const largoReal    = largoN > 4 ? largoN - 4 : largoN;
-  const pistas       = anchoN > 0 ? Math.floor(MP_ANCHO / anchoN) : 0;
-  const rollosPista  = largoReal > 0 ? Math.floor(MP_LARGO / largoReal) : 0;
+  const largoReal    = esEngomado ? largoN : (largoN > 4 ? largoN - 4 : largoN);
+  const pistas       = esEngomado ? ENGOMADO_PISTAS : (anchoN > 0 ? Math.floor(MP_ANCHO / anchoN) : 0);
+  const rollosPista  = largoReal > 0 ? Math.floor((esEngomado ? ENGOMADO_JUMBO_LARGO_M : MP_LARGO) / largoReal) : 0;
   const rendimiento  = pistas * rollosPista;
   const piezasBuenas = cajasN * rollosCajaN;
   const piezasTotal  = piezasBuenas + mermaN;
@@ -79,7 +84,8 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const tintaKg2 = tieneColor2 && !clicheNA ? (impresiones2 * inkPerImpresion2 * INK_DENSITY * TRANSFER) / 1000 : 0;
 
   const tintaKgTotal = tintaKg + tintaKg2;
-  const solventeKg = clicheNA ? 0 : (tintaKgTotal * 0.5) + 0.600;
+  // Engomado usa la tinta tal cual viene (espesa), sin diluir con alcohol.
+  const solventeKg = (clicheNA || esEngomado) ? 0 : (tintaKgTotal * 0.5) + 0.600;
 
   const listo = anchoN > 0 && largoN > 0 && cajasN > 0 && rollosCajaN > 0;
 
@@ -98,7 +104,11 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             {onConfirmar ? '✅ Finalizar pedido' : '🧮 Calculadora de Producción'}
           </div>
           {pedidoInicial && <div style={{ fontSize: 13, color: '#c9922a', fontWeight: 700, marginTop: 2 }}>{pedidoInicial.cliente} · {pedidoInicial.medida}</div>}
-          <div style={{ fontSize: 11, color: '#545a78', marginTop: 3 }}>MP {MP_ANCHO}" × {MP_LARGO}m · Anilox 250 LPI / 4.5 BCM · −4m por rollo</div>
+          {esEngomado ? (
+            <div style={{ fontSize: 11, color: '#ff9900', marginTop: 3, fontWeight: 700 }}>ENGOMADO · rollo 136mm × {ENGOMADO_JUMBO_LARGO_M}m (corte real 6.8cm) · ${ENGOMADO_MP_ROLLO_PRECIO}/rollo</div>
+          ) : (
+            <div style={{ fontSize: 11, color: '#545a78', marginTop: 3 }}>MP {MP_ANCHO}" × {MP_LARGO}m · Anilox 250 LPI / 4.5 BCM · −4m por rollo</div>
+          )}
         </div>
         {!inline && onClose && <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#545a78', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>✕</button>}
       </div>
@@ -240,6 +250,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             style={{ padding: '14px 0', fontSize: 15, marginTop: 16, opacity: (listo && !faltaPiezas) ? 1 : 0.4 }}
             onClick={() => onConfirmar({
               rollosMP, rollosExacto, tintaKg, tintaKg2: tieneColor2 ? tintaKg2 : null, solventeKg,
+              precioMPRollo: esEngomado ? ENGOMADO_MP_ROLLO_PRECIO : null,
               rollosCaja:  rollosCajaN,
               piezasProd:  piezasProd !== "" ? Number(piezasProd) : null,
               mermaReal:   mermaReal  !== "" ? Number(mermaReal)  : null,

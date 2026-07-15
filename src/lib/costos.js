@@ -24,8 +24,10 @@ export const TINTA_OPCIONES = [
   { key: 'negro',   label: 'Negro',   color: '#aaaaaa' },
 ];
 
-export const calcularCosto = ({ rollosMP=0, tintaKg=0, solventeKg=0, cajas=0, piezasBuenas=0, sticky=0, diasProd=1, colorKey='', tintaKg2=0, colorKey2='', tipoCentro='2', costosDB=null }) => {
-  const pMP    = costosDB?.mp_rollo          ?? COSTOS.mp_rollo;
+export const calcularCosto = ({ rollosMP=0, tintaKg=0, solventeKg=0, cajas=0, piezasBuenas=0, sticky=0, diasProd=1, colorKey='', tintaKg2=0, colorKey2='', tipoCentro='2', costosDB=null, precioMPRollo=null }) => {
+  // precioMPRollo: para materiales con precio de rollo fijo propio
+  // (ej. Engomado a $900/rollo) en vez del precio general de MP.
+  const pMP    = precioMPRollo ?? costosDB?.mp_rollo ?? COSTOS.mp_rollo;
   const pCaja  = costosDB?.caja              ?? COSTOS.caja;
   const pC2    = costosDB?.centro_2          ?? COSTOS.centro_2;
   const pC3    = costosDB?.centro_3          ?? COSTOS.centro_3;

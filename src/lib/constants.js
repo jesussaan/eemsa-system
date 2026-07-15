@@ -28,3 +28,12 @@ export const calcularPiezasTeoricas = (ancho, largoPieza) => {
   const vueltas = Math.floor(REBOB_LARGO_JUMBO_M / largo);
   return vueltas * piezasPorVuelta;
 };
+
+// Engomado: rollo de materia prima fijo de 136mm x 685m ($900/rollo). El
+// ancho comercial "3 pulgadas" en realidad se corta a 6.8cm reales -- por
+// eso las pistas se calculan con el corte real, no con 3" tal cual.
+export const ENGOMADO_JUMBO_ANCHO_MM = 136;
+export const ENGOMADO_JUMBO_LARGO_M = 685;
+export const ENGOMADO_CORTE_REAL_MM = 68;
+export const ENGOMADO_MP_ROLLO_PRECIO = 900;
+export const ENGOMADO_PISTAS = Math.floor(ENGOMADO_JUMBO_ANCHO_MM / ENGOMADO_CORTE_REAL_MM);
