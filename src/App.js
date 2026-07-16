@@ -224,7 +224,7 @@ function EemsaApp() {
             </button>
           ))}
           {perfil.esAdmin && (
-            <button className="mode-btn" onClick={() => setModo("usuarios")}>
+            <button className="mode-btn mode-btn-usr" onClick={() => setModo("usuarios")}>
               <span style={{ display: "inline-flex", fontSize: 20 }}><IcoCli /></span> Usuarios
             </button>
           )}

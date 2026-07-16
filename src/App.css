@@ -317,6 +317,8 @@ textarea { resize: vertical; min-height: 68px; }
 .mode-btn-cot:hover { background: var(--orange-dim); box-shadow: 0 6px 22px rgba(232,137,75,0.22); }
 .mode-btn-reb { border-color: rgba(62,207,192,0.35); color: var(--teal); box-shadow: 0 2px 12px rgba(62,207,192,0.12); }
 .mode-btn-reb:hover { background: var(--teal-dim); box-shadow: 0 6px 22px rgba(62,207,192,0.22); }
+.mode-btn-usr { border-color: rgba(155,111,232,0.35); color: var(--violet); box-shadow: 0 2px 12px rgba(155,111,232,0.12); }
+.mode-btn-usr:hover { background: var(--violet-dim); box-shadow: 0 6px 22px rgba(155,111,232,0.22); }
 .loading-screen {
   display: flex; align-items: center; justify-content: center;
   height: 100vh; flex-direction: column; gap: 18px;
