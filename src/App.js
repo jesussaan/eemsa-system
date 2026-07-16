@@ -111,7 +111,7 @@ function EemsaApp() {
     if (sesion === undefined) return;
     if (!sesion) { setPerfil(null); return; }
     setPerfil(undefined);
-    fetch("/api/perfil", { headers: authHeaders() })
+    fetch("/api/usuarios?propio=1", { headers: authHeaders() })
       .then(r => r.json())
       .then(d => setPerfil(d?.error ? null : d))
       .catch(() => setPerfil(null));
