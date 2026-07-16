@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { verificarToken, tokenDesdeHeader } from './_lib/token.js';
+import { requiereAlgunModo, requiereModo } from './_lib/auth.js';
 import { uid, today } from '../src/lib/utils.js';
 
 const supabase = createClient(
@@ -7,19 +7,20 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
-// Campos que se pueden tocar sin PIN (piso: iniciar/finalizar producción,
+// Campos que se pueden tocar desde piso (iniciar/finalizar producción,
 // mover orden, dar de alta). Todo lo demás (cliente, num, cajas, fechas
-// de solicitud, etc.) solo se cambia con action="completo" + token.
+// de solicitud, etc.) solo se cambia con action="completo" (supervisor).
 const CAMPOS_ESTADO = [
   'status', 'fecha_inicio', 'fecha_termino', 'inicio_ts', 'fin_ts', 'orden',
   'piezas_prod', 'merma', 'merma_pct', 'rollos_usados', 'rollos_caja', 'tinta_kg', 'tinta_kg2',
   'alcohol_litros', 'stickyback', 'foto_producto_url', 'costo_pieza', 'notas',
 ];
 
-const soloSupervisor = (req) => verificarToken(tokenDesdeHeader(req), ['supervisor']);
-
 export default async function handler(req, res) {
   if (req.method === 'POST') {
+    // Crear pedido: Ventas anota clientes, Rebobinado registra rollos MP,
+    // Supervisor usa "Anotar pedido" -- las tres mismas llamadas de siempre.
+    if (!(await requiereAlgunModo(req, ['ventas', 'rebobinado']))) return res.status(401).json({ error: 'No autorizado' });
     const p = req.body || {};
     if (!p.cliente || !p.num || !p.cajas || !p.fecha_solicitud) {
       return res.status(400).json({ error: 'cliente, num, cajas y fecha_solicitud son requeridos' });
@@ -35,6 +36,8 @@ export default async function handler(req, res) {
     if (!id) return res.status(400).json({ error: 'id es requerido' });
 
     if (action === 'estado') {
+      // Operador registra producción/paros, Emilio da de alta y actualiza estado.
+      if (!(await requiereAlgunModo(req, ['operador', 'emilio']))) return res.status(401).json({ error: 'No autorizado' });
       const updates = {};
       for (const k of CAMPOS_ESTADO) if (req.body[k] !== undefined) updates[k] = req.body[k];
       if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'Sin campos válidos para actualizar' });
@@ -44,7 +47,7 @@ export default async function handler(req, res) {
     }
 
     if (action === 'fecha') {
-      if (!soloSupervisor(req)) return res.status(401).json({ error: 'No autorizado' });
+      if (!(await requiereModo(req, 'supervisor'))) return res.status(401).json({ error: 'No autorizado' });
       const { fecha_estimada, fecha_original } = req.body;
       const { error } = await supabase.from('pedidos').update({ fecha_estimada: fecha_estimada ?? null, fecha_original: fecha_original ?? null }).eq('id', id);
       if (error) return res.status(500).json({ error: error.message });
@@ -52,7 +55,7 @@ export default async function handler(req, res) {
     }
 
     if (action === 'completo') {
-      if (!soloSupervisor(req)) return res.status(401).json({ error: 'No autorizado' });
+      if (!(await requiereModo(req, 'supervisor'))) return res.status(401).json({ error: 'No autorizado' });
       const { action: _a, id: _id, ...resto } = req.body;
       const { error } = await supabase.from('pedidos').update(resto).eq('id', id);
       if (error) return res.status(500).json({ error: error.message });
@@ -63,7 +66,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
-    if (!soloSupervisor(req)) return res.status(401).json({ error: 'No autorizado' });
+    if (!(await requiereModo(req, 'supervisor'))) return res.status(401).json({ error: 'No autorizado' });
     const { id } = req.body || {};
     if (!id) return res.status(400).json({ error: 'id es requerido' });
     const { error } = await supabase.from('pedidos').delete().eq('id', id);

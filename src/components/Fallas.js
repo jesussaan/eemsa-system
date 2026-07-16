@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { authHeaders } from '../lib/auth';
 import { uid, today } from '../lib/utils';
 import { sendPush } from '../lib/push';
 import { MAQUINAS, OPERADORES, COMPS, COMPS_REBOBINADORA, REBOB_OPERADORES, SEV } from '../lib/constants';
@@ -22,17 +23,12 @@ export default function Fallas({ fallas, setFallas }) {
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2200); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const authHeaders = () => ({
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${sessionStorage.getItem('token_supervisor') || ''}`,
-  });
-
   const save = async () => {
     if (!form.descripcion || !form.min_paro) { showToast("⚠ Descripción y minutos son obligatorios"); return; }
     setLoading(true);
     const nuevo = { id: uid(), created: today(), fecha: form.fecha, maq: form.maq, comp: form.comp, min_paro: form.min_paro, sev: form.sev, op: form.op, descripcion: form.descripcion, accion: form.accion, status: form.status };
     try {
-      const res = await fetch('/api/fallas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(nuevo) });
+      const res = await fetch('/api/fallas', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
       const data = await res.json();
       if (!res.ok) { showToast("❌ Error: " + (data.error || "desconocido")); setLoading(false); return; }
       setFallas(f => [nuevo, ...f]);
@@ -55,7 +51,7 @@ export default function Fallas({ fallas, setFallas }) {
     setFallas(f => f.filter(x => x.id !== id));
   };
   const close = async id => {
-    const res = await fetch('/api/fallas', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cerrar', id }) });
+    const res = await fetch('/api/fallas', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ action: 'cerrar', id }) });
     if (!res.ok) { showToast("❌ Error al cerrar"); return; }
     setFallas(f => f.map(x => x.id === id ? { ...x, status: "cerrada" } : x));
   };

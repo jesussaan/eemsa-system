@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { verificarToken, tokenDesdeHeader } from './_lib/token.js';
+import { requiereModo } from './_lib/auth.js';
 import { uid, today } from '../src/lib/utils.js';
 
 const supabase = createClient(
@@ -7,10 +7,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
-const soloSupervisor = (req) => verificarToken(tokenDesdeHeader(req), ['supervisor']);
-
 export default async function handler(req, res) {
-  if (!soloSupervisor(req)) return res.status(401).json({ error: 'No autorizado' });
+  if (!(await requiereModo(req, 'supervisor'))) return res.status(401).json({ error: 'No autorizado' });
 
   if (req.method === 'POST') {
     const p = req.body || {};

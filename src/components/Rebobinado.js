@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { authHeaders } from '../lib/auth';
 import { uid, today, siguienteNumPedido } from '../lib/utils';
 import { REBOB_CLIENTE, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, calcularPiezasTeoricas } from '../lib/constants';
 import { IcoCheck } from './Icons';
@@ -64,7 +65,7 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
           : `Teórico: ${calc.piezasTeoricas} pzas (${calc.vueltas} vueltas x ${c.ancho})${esMixto ? " — rollo mixto" : ""}`,
         status: "pendiente",
       };
-      const res = await fetch('/api/pedidos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(nuevo) });
+      const res = await fetch('/api/pedidos', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
       const data = await res.json();
       if (!res.ok) {
         showToast(`❌ Error en ${c.ancho} x ${c.largoPieza}m: ${data.error || "desconocido"}`);

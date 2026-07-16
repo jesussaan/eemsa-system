@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { authHeaders } from "../lib/auth";
 import { today, uid, siguienteNumPedido } from "../lib/utils";
 import { TIPOS, REBOB_CLIENTE } from "../lib/constants";
 import { sendWhatsApp, mensajePedidoNuevo } from "../utils/whatsapp";
@@ -94,7 +95,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
       maq:             "SIAT L36 #1",
       op:              "",
     };
-    const res = await fetch('/api/pedidos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(nuevo) });
+    const res = await fetch('/api/pedidos', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
     const data = await res.json();
     if (!res.ok) { showToast("❌ Error: " + (data.error || "desconocido")); setSaving(false); return; }
     const guardado = data || nuevo;

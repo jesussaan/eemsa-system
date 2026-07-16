@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../lib/supabase';
+import { authHeaders } from '../lib/auth';
 import { uid, today, fmt, subirConUrlFirmada } from '../lib/utils';
 import { MAQUINAS } from '../lib/constants';
 import { sendWhatsApp } from '../utils/whatsapp';
@@ -36,10 +37,6 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
   const [filtroProveedorQuejas, setFiltroProveedorQuejas] = useState("");
   const [descargandoQuejaId, setDescargandoQuejaId] = useState(null);
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2200); };
-  const authHeaders = () => ({
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${sessionStorage.getItem('token_supervisor') || ''}`,
-  });
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const updP = (k, v) => setFormProv(f => ({ ...f, [k]: v }));
   const updQ = (k, v) => setFormQueja(f => ({ ...f, [k]: v }));

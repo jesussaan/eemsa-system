@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { authHeaders } from "../lib/auth";
 
 export default function AsistenteIA({ onRefrescar }) {
   const [msgs, setMsgs] = useState([{ role: "assistant", content: "Hola Jesús 👋 Soy el asistente de EEMSA. Puedo **consultar y modificar** el sistema por ti.\n\nEjemplos:\n- *\"Crea el pedido #86 para MAFENSA, 50 cajas blancas, entrega 2026-06-20\"*\n- *\"Registra 12 cajas del pedido 85, operador William\"*\n- *\"La SIAT L36 #1 tuvo 30 min de paro por rodillo anilox, severidad moderada\"*\n- *\"Usa un rodillo anilox del inventario\"*\n- *\"Registra merma del pedido 84: 1800 piezas, 36 con defecto\"*" }]);
@@ -15,10 +16,7 @@ export default function AsistenteIA({ onRefrescar }) {
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionStorage.getItem('token_supervisor') || ''}`,
-        },
+        headers: authHeaders(),
         body: JSON.stringify({ messages: next.map(m => ({ role: m.role, content: m.content })) })
       });
       const data = await res.json();

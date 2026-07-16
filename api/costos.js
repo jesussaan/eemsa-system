@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { verificarToken, tokenDesdeHeader } from './_lib/token.js';
+import { requiereAlgunModo } from './_lib/auth.js';
 import { calcularCosto } from '../src/lib/costos.js';
 
 const supabase = createClient(
@@ -7,12 +7,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
-const ROLES_PERMITIDOS = ['supervisor', 'cotizador'];
-
 export default async function handler(req, res) {
-  // Sin token: Modo Operador no tiene PIN hoy. Esta accion solo regresa
-  // el costo por pieza ya calculado -- nunca la tabla de costos completa,
-  // asi que no expone tarifas ni formulas al navegador.
+  // Sin auth: Modo Operador la usa para su calculadora. Esta accion solo
+  // regresa el costo por pieza ya calculado -- nunca la tabla de costos
+  // completa, asi que no expone tarifas ni formulas al navegador.
   if (req.query.action === 'calcular') {
     if (req.method !== 'POST') return res.status(405).end();
 
@@ -43,9 +41,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ costo_pieza: Number(costo.porPieza.toFixed(6)) });
   }
 
-  const token = tokenDesdeHeader(req);
-  const sesion = verificarToken(token, ROLES_PERMITIDOS);
-  if (!sesion) return res.status(401).json({ error: 'No autorizado' });
+  if (!(await requiereAlgunModo(req, ['cotizador']))) return res.status(401).json({ error: 'No autorizado' });
 
   if (req.method === 'GET') {
     const { data, error } = await supabase.from('costos').select('*');

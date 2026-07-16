@@ -1,8 +1,10 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import "./App.css";
 import { supabase } from "./lib/supabase";
+import { initAuth, authHeaders, cerrarSesion } from "./lib/auth";
 import NotifBell from "./components/NotifBell";
-import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoLock, IcoOperador, IcoVentas, IcoEmilio, IcoCotizador, IcoSpinner, IcoRoll } from "./components/Icons";
+import Login from "./components/Login";
+import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoOperador, IcoVentas, IcoEmilio, IcoCotizador, IcoSpinner, IcoRoll } from "./components/Icons";
 
 // Cada pantalla se carga solo cuando se visita, en vez de todas juntas en el
 // bundle inicial (Dashboard/Refacciones/etc. cargan jspdf, recharts, xlsx...).
@@ -20,6 +22,7 @@ const ModoEmilio = lazy(() => import("./components/ModoEmilio"));
 const Cotizador = lazy(() => import("./components/Cotizador"));
 const CalendarioEntregas = lazy(() => import("./components/CalendarioEntregas"));
 const PortalCliente = lazy(() => import("./components/PortalCliente"));
+const AdminUsuarios = lazy(() => import("./components/AdminUsuarios"));
 
 const PantallaCargando = () => (
   <div className="loading-screen">
@@ -60,6 +63,16 @@ const TABS = [
   { id: "ia",   Icon: IcoIA,   lbl: "IA" },
 ];
 
+// Un modo por checkbox del panel de Usuarios (src/components/AdminUsuarios.js).
+const MODOS_DISPONIBLES = [
+  { id: "operador",   Icon: IcoOperador,  lbl: "Modo Operador",   cls: "mode-btn-op" },
+  { id: "ventas",     Icon: IcoVentas,    lbl: "Módulo Ventas",   cls: "mode-btn-ven" },
+  { id: "emilio",     Icon: IcoEmilio,    lbl: "Modo Emilio",     cls: "mode-btn-emi" },
+  { id: "rebobinado", Icon: IcoRoll,      lbl: "Modo Rebobinado", cls: "mode-btn-reb" },
+  { id: "supervisor", Icon: IcoDash,      lbl: "Modo Supervisor", cls: "mode-btn-sup" },
+  { id: "cotizador",  Icon: IcoCotizador, lbl: "Cotizador",       cls: "mode-btn-cot" },
+];
+
 export default function App() {
   const portalMatch = window.location.pathname.match(/^\/cliente\/([^/]+)\/?$/);
   return (
@@ -81,12 +94,28 @@ function EemsaApp() {
   const [prodDiaria, setProdDiaria] = useState([]);
   const [listaMateriales, setListaMateriales] = useState([]);
   const [errorCarga, setErrorCarga] = useState(null);
-  const [modo, setModo] = useState(null); // null | "operador" | "supervisor"
-  const [pinInput, setPinInput] = useState("");
-  const [pinError, setPinError] = useState(false);
-  const [showPinModal, setShowPinModal] = useState(false);
-  const [pinTarget, setPinTarget] = useState("supervisor");
-  const [pinVerificando, setPinVerificando] = useState(false);
+  const [modo, setModo] = useState(null);
+
+  // undefined = todavia verificando si hay sesion guardada; null = sin sesion.
+  const [sesion, setSesion] = useState(undefined);
+  // undefined = cargando el perfil; null = error al cargarlo.
+  const [perfil, setPerfil] = useState(undefined);
+
+  useEffect(() => {
+    initAuth().then(setSesion);
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSesion(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (sesion === undefined) return;
+    if (!sesion) { setPerfil(null); return; }
+    setPerfil(undefined);
+    fetch("/api/perfil", { headers: authHeaders() })
+      .then(r => r.json())
+      .then(d => setPerfil(d?.error ? null : d))
+      .catch(() => setPerfil(null));
+  }, [sesion]);
 
   const cargarTablas = async (tablas) => {
     const mapa = {
@@ -106,6 +135,8 @@ function EemsaApp() {
     setErrorCarga(fallidas.length ? `No se pudo cargar: ${fallidas.join(", ")}. Revisa tu conexión y recarga la página.` : null);
   };
 
+  // Se pide de una vez, en paralelo con el login -- asi no hay espera extra
+  // despues de iniciar sesion (las tablas ya tienen lectura anon abierta).
   useEffect(() => {
     cargarTablas(["pedidos", "fallas", "refacciones", "proveedores", "prod_diaria", "lista_materiales"]);
   }, []);
@@ -132,33 +163,46 @@ function EemsaApp() {
     return () => canales.forEach(c => supabase.removeChannel(c));
   }, []);
 
-  const handlePinDigit = async (d) => {
-    const next = pinInput + d;
-    setPinError(false);
-    if (next.length < 4) { setPinInput(next); return; }
-    setPinInput("");
-    setPinVerificando(true);
-    try {
-      const res = await fetch("/api/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin: next, target: pinTarget }),
-      });
-      const data = await res.json();
-      if (res.ok && data.token) {
-        sessionStorage.setItem(`token_${pinTarget}`, data.token);
-        setModo(pinTarget);
-        setShowPinModal(false);
-      } else {
-        setPinError(true);
-      }
-    } catch {
-      setPinError(true);
-    }
-    setPinVerificando(false);
-  };
+  if (sesion === undefined || perfil === undefined) return (
+    <div className="loading-screen">
+      <div className="loading-icon"><IcoSpinner /></div>
+      <div className="loading-text">CARGANDO EEMSA SYSTEM…</div>
+    </div>
+  );
 
-  const abrirPin = (target) => { setPinTarget(target); setShowPinModal(true); setPinInput(""); setPinError(false); };
+  if (!sesion) return <Login />;
+
+  if (perfil === null) return (
+    <div className="mode-screen">
+      <div className="mode-glow" aria-hidden="true" />
+      <div className="mode-top">EEMSA System</div>
+      <div className="mode-hero">
+        <img src="/logo192.png" alt="EEMSA" className="mode-logo" />
+        <div style={{ color: "#ff9b9b", fontSize: 13, textAlign: "center", maxWidth: 300, marginBottom: 16 }}>
+          No se pudo cargar tu perfil. Revisa tu conexión y recarga la página.
+        </div>
+        <button className="btn btn-primary" onClick={() => cerrarSesion()}>Cerrar sesión</button>
+      </div>
+    </div>
+  );
+
+  if (!perfil.activo || (perfil.modos.length === 0 && !perfil.esAdmin)) return (
+    <div className="mode-screen">
+      <div className="mode-glow" aria-hidden="true" />
+      <div className="mode-top">EEMSA System</div>
+      <div className="mode-hero">
+        <img src="/logo192.png" alt="EEMSA" className="mode-logo" />
+        <div className="mode-tagline">Control SIAT L36 · Calidad · Innovación</div>
+        <div style={{ background: "rgba(201,146,42,0.12)", border: "1px solid rgba(201,146,42,0.4)", color: "#c9922a", borderRadius: 10, padding: "14px 18px", fontSize: 13, textAlign: "center", maxWidth: 320, marginBottom: 20, lineHeight: 1.6 }}>
+          Tu cuenta ({perfil.email}) está esperando a que un administrador te dé acceso a un módulo. Avísale a Jesús.
+        </div>
+        <button className="btn btn-primary" onClick={() => cerrarSesion()}>Cerrar sesión</button>
+      </div>
+      <div className="mode-bottom">Asesoría · Calidad · Innovación</div>
+    </div>
+  );
+
+  const modosVisibles = perfil.esAdmin ? MODOS_DISPONIBLES : MODOS_DISPONIBLES.filter(m => perfil.modos.includes(m.id));
 
   if (!modo) return (
     <div className="mode-screen">
@@ -174,60 +218,33 @@ function EemsaApp() {
           </div>
         )}
         <div className="mode-buttons">
-          <button className="mode-btn mode-btn-op" onClick={() => setModo("operador")}>
-            <span style={{ display: "inline-flex", fontSize: 20 }}><IcoOperador /></span> Modo Operador
-          </button>
-          <button className="mode-btn mode-btn-ven" onClick={() => setModo("ventas")}>
-            <span style={{ display: "inline-flex", fontSize: 20 }}><IcoVentas /></span> Módulo Ventas
-          </button>
-          <button className="mode-btn mode-btn-emi" onClick={() => setModo("emilio")}>
-            <span style={{ display: "inline-flex", fontSize: 20 }}><IcoEmilio /></span> Modo Emilio
-          </button>
-          <button className="mode-btn mode-btn-reb" onClick={() => setModo("rebobinado")}>
-            <span style={{ display: "inline-flex", fontSize: 20 }}><IcoRoll /></span> Modo Rebobinado
-          </button>
-          <button className="mode-btn mode-btn-sup" onClick={() => abrirPin("supervisor")}>
-            <span style={{ display: "inline-flex", fontSize: 20 }}><IcoDash /></span> Modo Supervisor
-            <span className="mode-btn-lock" style={{ display: "inline-flex" }}><IcoLock /></span>
-          </button>
-          <button className="mode-btn mode-btn-cot" onClick={() => abrirPin("cotizador")}>
-            <span style={{ display: "inline-flex", fontSize: 20 }}><IcoCotizador /></span> Cotizador
-            <span className="mode-btn-lock" style={{ display: "inline-flex" }}><IcoLock /></span>
-          </button>
+          {modosVisibles.map(m => (
+            <button key={m.id} className={`mode-btn ${m.cls}`} onClick={() => setModo(m.id)}>
+              <span style={{ display: "inline-flex", fontSize: 20 }}><m.Icon /></span> {m.lbl}
+            </button>
+          ))}
+          {perfil.esAdmin && (
+            <button className="mode-btn" onClick={() => setModo("usuarios")}>
+              <span style={{ display: "inline-flex", fontSize: 20 }}><IcoCli /></span> Usuarios
+            </button>
+          )}
         </div>
+        <button
+          onClick={() => cerrarSesion()}
+          style={{ marginTop: 22, background: "transparent", border: "none", color: "var(--text-2)", fontSize: 11, cursor: "pointer", textDecoration: "underline" }}
+        >
+          Cerrar sesión ({perfil.email})
+        </button>
       </div>
 
       <div className="mode-bottom">Asesoría · Calidad · Innovación</div>
-
-      {showPinModal && (
-        <div className="pin-overlay">
-          <div className="pin-dialog">
-            <div className="pin-title" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-              <span style={{ display: "inline-flex", fontSize: 18 }}>{pinTarget === "cotizador" ? <IcoCotizador /> : <IcoLock />}</span>
-              {pinTarget === "cotizador" ? "PIN Cotizador" : "PIN Supervisor"}
-            </div>
-            <div className="pin-dots">
-              {[0,1,2,3].map(i => (
-                <div key={i} className={`pin-dot${pinInput.length > i ? " filled" : ""}`} />
-              ))}
-            </div>
-            {pinError && <div className="pin-error">PIN incorrecto</div>}
-            {pinVerificando && <div className="muted" style={{ textAlign: "center", marginBottom: 8 }}>Verificando…</div>}
-            <div className="pin-grid" style={{ opacity: pinVerificando ? 0.5 : 1, pointerEvents: pinVerificando ? "none" : "auto" }}>
-              {[1,2,3,4,5,6,7,8,9].map(n => (
-                <button key={n} className="pin-key" onClick={() => handlePinDigit(String(n))}>{n}</button>
-              ))}
-              <div />
-              <button className="pin-key" onClick={() => handlePinDigit("0")}>0</button>
-              <button className="pin-key" onClick={() => { setPinInput(p => p.slice(0, -1)); setPinError(false); }}>⌫</button>
-            </div>
-            <button className="pin-cancel" onClick={() => { setShowPinModal(false); setPinInput(""); setPinError(false); }}>
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
     </div>
+  );
+
+  if (modo === "usuarios") return (
+    <Suspense fallback={<PantallaCargando />}>
+      <AdminUsuarios onSalir={() => setModo(null)} />
+    </Suspense>
   );
 
   if (modo === "operador") return (

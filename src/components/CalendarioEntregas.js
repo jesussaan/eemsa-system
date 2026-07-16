@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { authHeaders } from "../lib/auth";
 import { today } from "../lib/utils";
 import { STATUS_PED, REBOB_CLIENTE } from "../lib/constants";
 import CalendarGrid from "./CalendarGrid";
@@ -35,11 +36,6 @@ export default function CalendarioEntregas({ pedidos: pedidosProp, setPedidos })
     if (p.status === "proceso") return { bg:"#4b8fe822", border:"#4b8fe8", txt:"#4b8fe8", chip:"#4b8fe8" };
     return { bg:"#e8b84b18", border:"#e8b84b", txt:"#e8b84b", chip:"#e8b84b" };
   };
-
-  const authHeaders = () => ({
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${sessionStorage.getItem('token_supervisor') || ''}`,
-  });
 
   const asignarFecha = async (pedidoId, fecha) => {
     if (!fecha) return;

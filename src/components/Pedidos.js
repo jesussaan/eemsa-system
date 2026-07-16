@@ -4,14 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import ClicheImg from './ClicheImg';
 import CalculadoraProduccion from './CalculadoraProduccion';
 import { supabase } from '../lib/supabase';
+import { authHeaders } from '../lib/auth';
 import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada } from '../lib/utils';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT, REBOB_CLIENTE } from '../lib/constants';
 import { sendWhatsApp, mensajePedidoNuevo } from '../utils/whatsapp';
-
-const authHeaders = () => ({
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${sessionStorage.getItem('token_supervisor') || ''}`,
-});
 
 export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   // Rebobinado es stock, no es un pedido de cliente real.
@@ -199,13 +195,13 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
     const n = (v) => v === "" ? null : Number(v);
     let cliche_url = "";
     if (clicheImg) {
-      const { data: up, error: upErr } = await subirConUrlFirmada(supabase, "cliches", `${uid()}_${clicheImg.name}`, clicheImg);
+      const { data: up, error: upErr } = await subirConUrlFirmada(supabase, "cliches", `${uid()}_${clicheImg.name}`, clicheImg, authHeaders());
       if (upErr) { showToast("⚠ Foto no subida: " + upErr.message); }
       else if (up) { cliche_url = up.path; }
     }
     const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.num, tipo: form.tipo, medida: form.medida, cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(form.rollos_totales), ancho: form.ancho, largo: form.largo, color: form.color, color2: form.color2 || null, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
     try {
-      const res = await fetch('/api/pedidos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(nuevo) });
+      const res = await fetch('/api/pedidos', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
       const data = await res.json();
       if (!res.ok) { showToast("❌ Error: " + (data.error || "desconocido")); setLoading(false); return; }
       setPedidos(p => [nuevo, ...p]);
@@ -260,7 +256,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
       foto_producto_url: modalPedido.foto_producto_url || null,
     };
     if (modalClicheImg) {
-      const { data: up, error: upErr } = await subirConUrlFirmada(supabase, "cliches", `${uid()}_${modalClicheImg.name}`, modalClicheImg);
+      const { data: up, error: upErr } = await subirConUrlFirmada(supabase, "cliches", `${uid()}_${modalClicheImg.name}`, modalClicheImg, authHeaders());
       if (upErr) { showToast("⚠ Foto no subida: " + upErr.message); }
       else if (up) { actualizado.cliche_url = up.path; }
     }
@@ -279,7 +275,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   };
 
   const darDeAlta = async (id) => {
-    const res = await fetch('/api/pedidos', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'estado', id, status: 'anotado' }) });
+    const res = await fetch('/api/pedidos', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ action: 'estado', id, status: 'anotado' }) });
     if (!res.ok) { showToast("❌ Error al dar de alta"); return; }
     setPedidos(ps => ps.map(p => p.id === id ? { ...p, status: "anotado" } : p));
     showToast("✓ Pedido dado de alta");

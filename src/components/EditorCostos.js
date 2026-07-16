@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { authHeaders } from '../lib/auth';
 import { COSTOS } from '../lib/costos';
 
 const CAMPOS_COSTO = [
@@ -27,11 +28,6 @@ const DEFAULTS = {
   mano_obra_dia: COSTOS.mano_obra_dia, mantenimiento_dia: COSTOS.mantenimiento_dia,
   luz_dia: COSTOS.luz_dia,
 };
-
-const authHeaders = () => ({
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${sessionStorage.getItem('token_cotizador') || sessionStorage.getItem('token_supervisor') || ''}`,
-});
 
 // Editor de costos compartido -- antes vivia solo dentro de Cotizador.js.
 // Se usa tambien desde el Dashboard (pestana Finanzas) para poder cambiar

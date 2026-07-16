@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { verificarToken, tokenDesdeHeader } from './_lib/token.js';
+import { requiereModo } from './_lib/auth.js';
 import { uid, today } from '../src/lib/utils.js';
 
 const supabase = createClient(
@@ -7,10 +7,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
-const soloSupervisor = (req) => verificarToken(tokenDesdeHeader(req), ['supervisor']);
-
 export default async function handler(req, res) {
   if (req.method === 'POST') {
+    if (!(await requiereModo(req, 'operador'))) return res.status(401).json({ error: 'No autorizado' });
     const f = req.body || {};
     if (!f.descripcion || !f.min_paro) return res.status(400).json({ error: 'descripcion y min_paro son requeridos' });
     const nueva = {
@@ -29,6 +28,7 @@ export default async function handler(req, res) {
     if (!id) return res.status(400).json({ error: 'id es requerido' });
 
     if (action === 'cerrar') {
+      if (!(await requiereModo(req, 'operador'))) return res.status(401).json({ error: 'No autorizado' });
       const updates = { status: 'cerrada' };
       if (req.body.accion !== undefined) updates.accion = req.body.accion;
       const { error } = await supabase.from('fallas').update(updates).eq('id', id);
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     }
 
     if (action === 'completo') {
-      if (!soloSupervisor(req)) return res.status(401).json({ error: 'No autorizado' });
+      if (!(await requiereModo(req, 'supervisor'))) return res.status(401).json({ error: 'No autorizado' });
       const { action: _a, id: _id, ...resto } = req.body;
       const { error } = await supabase.from('fallas').update(resto).eq('id', id);
       if (error) return res.status(500).json({ error: error.message });
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
-    if (!soloSupervisor(req)) return res.status(401).json({ error: 'No autorizado' });
+    if (!(await requiereModo(req, 'supervisor'))) return res.status(401).json({ error: 'No autorizado' });
     const { id } = req.body || {};
     if (!id) return res.status(400).json({ error: 'id es requerido' });
     const { error } = await supabase.from('fallas').delete().eq('id', id);

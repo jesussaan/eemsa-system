@@ -1,15 +1,11 @@
 import { useState } from "react";
 import ClicheImg from './ClicheImg';
+import { authHeaders } from '../lib/auth';
 import { uid, today } from '../lib/utils';
 import { OPERADORES, META_CAJAS, REBOB_CLIENTE } from '../lib/constants';
 import { IcoCheck } from './Icons';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
-
-const authHeaders = () => ({
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${sessionStorage.getItem('token_supervisor') || ''}`,
-});
 
 export default function Produccion({ prodDiaria, setProdDiaria, pedidos: pedidosProp }) {
   // Rebobinado no tiene produccion diaria (no es un pedido de cliente).

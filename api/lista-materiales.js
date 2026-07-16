@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { requiereModo } from './_lib/auth.js';
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -8,6 +9,8 @@ const supabase = createClient(
 const CAMPOS_EDITABLES = ['material', 'tipo', 'cantidad', 'unidad', 'urgente', 'notas', 'proveedor'];
 
 export default async function handler(req, res) {
+  if (!(await requiereModo(req, 'emilio'))) return res.status(401).json({ error: 'No autorizado' });
+
   if (req.method === 'POST') {
     const m = req.body || {};
     if (!m.material || !String(m.material).trim()) return res.status(400).json({ error: 'material es requerido' });

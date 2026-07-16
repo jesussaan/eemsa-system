@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { verificarToken, tokenDesdeHeader } from './_lib/token.js';
+import { requiereModo } from './_lib/auth.js';
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -348,8 +348,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const sesion = verificarToken(tokenDesdeHeader(req), ['supervisor']);
-  if (!sesion) return res.status(401).json({ error: 'No autorizado' });
+  if (!(await requiereModo(req, 'supervisor'))) return res.status(401).json({ error: 'No autorizado' });
 
   try {
     const { messages, image, mediaType, extractTicket } = req.body;

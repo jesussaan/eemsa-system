@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ClicheImg from './ClicheImg';
+import { authHeaders } from "../lib/auth";
 import { today } from "../lib/utils";
 import { sendWhatsApp } from "../utils/whatsapp";
 import { sendPush } from "../lib/push";
@@ -64,7 +65,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
   const darDeAlta = async (id) => {
     setLoading(id);
     const update = { status: "terminado", fecha_termino: today() };
-    const res = await fetch('/api/pedidos', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'estado', id, ...update }) });
+    const res = await fetch('/api/pedidos', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ action: 'estado', id, ...update }) });
     if (!res.ok) { showToast("❌ Error al dar de alta"); setLoading(null); return; }
     setPedidos(ps => ps.map(p => p.id === id ? { ...p, ...update } : p));
     const p = pedidos.find(x => x.id === id);
@@ -105,7 +106,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
     if (!formMat.material.trim()) { showToast("⚠ Escribe el material"); return; }
     setLoadingMat("add");
     const payload = { material: formMat.material.trim(), tipo: formMat.tipo, cantidad: formMat.cantidad || null, unidad: formMat.unidad, urgente: formMat.urgente, notas: formMat.notas || null, proveedor: formMat.proveedor || null };
-    const res = await fetch('/api/lista-materiales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const res = await fetch('/api/lista-materiales', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) });
     const data = await res.json();
     if (!res.ok) { showToast("❌ Error: " + (data.error || "")); setLoadingMat(null); return; }
     setListaMateriales(p => [data, ...p]);
@@ -117,7 +118,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
   const marcarListo = async (id) => {
     setLoadingMat(id);
     const update = { status: "listo", fecha_listo: today() };
-    const res = await fetch('/api/lista-materiales', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'listo', id, fecha_listo: update.fecha_listo }) });
+    const res = await fetch('/api/lista-materiales', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ action: 'listo', id, fecha_listo: update.fecha_listo }) });
     if (!res.ok) { showToast("❌ Error"); setLoadingMat(null); return; }
     setListaMateriales(p => p.map(m => m.id === id ? { ...m, ...update } : m));
     showToast("✓ Marcado como listo");
@@ -125,7 +126,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
   };
 
   const eliminarMaterial = async (id) => {
-    await fetch('/api/lista-materiales', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+    await fetch('/api/lista-materiales', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
     setListaMateriales(p => p.filter(m => m.id !== id));
   };
 
@@ -137,7 +138,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
   const guardarEdicion = async (id) => {
     setLoadingMat("edit_" + id);
     const update = { material: formEdit.material.trim(), tipo: formEdit.tipo, cantidad: formEdit.cantidad || null, unidad: formEdit.unidad, urgente: formEdit.urgente, notas: formEdit.notas || null, proveedor: formEdit.proveedor || null };
-    const res = await fetch('/api/lista-materiales', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'editar', id, ...update }) });
+    const res = await fetch('/api/lista-materiales', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ action: 'editar', id, ...update }) });
     const data = await res.json();
     if (!res.ok) { showToast("❌ Error: " + (data.error || "")); setLoadingMat(null); return; }
     setListaMateriales(p => p.map(m => m.id === id ? { ...m, ...update } : m));

@@ -56,6 +56,15 @@ export default async function handler(req, res) {
       <div class="pie">EEMSA System · ${new Date().toLocaleString('es-MX')}</div>
     </div>`;
 
+  } else if (tipo === 'nuevo_usuario') {
+    subject = `👤 Nueva cuenta registrada — ${datos.email}`;
+    html = `<style>${estilos}</style>
+    <div class="card">
+      <div class="titulo">👤 Nueva cuenta registrada</div>
+      ${fila('Correo', datos.email)}
+      <div class="pie">Sin módulos asignados todavía — entra a Usuarios para darle acceso. EEMSA System · ${new Date().toLocaleString('es-MX')}</div>
+    </div>`;
+
   } else if (tipo === 'pedidos_vencidos') {
     subject = `⚠️ ${datos.pedidos.length} pedido(s) vencido(s) — EEMSA`;
     const filas = datos.pedidos.map(p =>
