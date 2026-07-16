@@ -17,6 +17,13 @@ root.render(
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
+    // skipWaiting()+clients.claim() en sw.js hacen que "controllerchange"
+    // tambien dispare en la primera instalacion (sin controller previo),
+    // no solo cuando un SW nuevo reemplaza a uno activo -- por eso se
+    // guarda si ya habia un controller antes de registrar, para no avisar
+    // "hay una actualizacion" a alguien que apenas abrio la app por primera vez.
+    const habiaControllerPrevio = !!navigator.serviceWorker.controller;
+
     navigator.serviceWorker.register('/sw.js').then(reg => {
       // La app se queda abierta horas en algunos dispositivos (piso,
       // notificaciones push) y ahi el navegador no siempre revisa solo
@@ -29,7 +36,7 @@ if ('serviceWorker' in navigator) {
     // que alguien este llenando a la mitad.
     let yaAvisado = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (yaAvisado) return;
+      if (yaAvisado || !habiaControllerPrevio) return;
       yaAvisado = true;
       window.dispatchEvent(new CustomEvent('eemsa:actualizacion-disponible'));
     });
