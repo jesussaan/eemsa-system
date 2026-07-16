@@ -85,10 +85,10 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   const medidaAuto = (a, l) => (a && l) ? `${a}"x${l}` : "";
   const upd = (k, v) => setForm(f => {
     const nf = { ...f, [k]: v };
-    if ((k === "cajas" || k === "rollos_caja") && !f.rollos_totales) {
+    if (k === "cajas" || k === "rollos_caja") {
       const c = k === "cajas" ? v : nf.cajas;
       const r = k === "rollos_caja" ? v : nf.rollos_caja;
-      if (c && r) nf.rollos_totales = String(Number(c) * Number(r));
+      nf.rollos_totales = (c && r) ? String(Number(c) * Number(r)) : "";
     }
     // Medida se arma sola de Ancho x Largo -- deja de auto-llenarse en
     // cuanto la escribes distinto a mano (para medidas que no siguen
@@ -365,7 +365,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
         <div className="field"><label>Medida <span style={{ color: "#666", fontWeight: 400 }}>(automático de Ancho x Largo)</span></label><input value={form.medida} onChange={e => upd("medida", e.target.value)} placeholder='2"x100' /></div>
         <div className="field"><label>Cajas solicitadas *</label><input type="number" value={form.cajas} onChange={e => upd("cajas", e.target.value)} placeholder="50" /></div>
         <div className="field"><label>Rollos por caja</label><input type="number" value={form.rollos_caja} onChange={e => upd("rollos_caja", e.target.value)} placeholder="36" /></div>
-        <div className="field"><label>Rollos / piezas totales</label><input type="number" value={form.rollos_totales} onChange={e => upd("rollos_totales", e.target.value)} placeholder="1800" /></div>
+        <div className="field"><label>Rollos / piezas totales <span style={{ color: "#666", fontWeight: 400 }}>(automático)</span></label><input type="number" readOnly value={form.rollos_totales} placeholder="Cajas × Rollos/caja" style={{ background: "#1a2744", color: "#c9922a" }} /></div>
         <div className="field"><label>Ancho (pulg)</label><input value={form.ancho} onChange={e => upd("ancho", e.target.value)} placeholder='2"' /></div>
         <div className="field"><label>Largo (m)</label><input type="number" value={form.largo} onChange={e => upd("largo", e.target.value)} placeholder="100" /></div>
         <div className="field"><label>Color impresión</label><input value={form.color} onChange={e => upd("color", e.target.value)} placeholder="Rojo PMS 485" /></div>

@@ -2,11 +2,19 @@ import { useState } from 'react';
 import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_MP_ROLLO_PRECIO } from '../lib/constants';
 import { calcularProduccion, MP_ANCHO, MP_LARGO, PORTALICHES, DISENOS } from '../lib/produccion';
 
+// Rollos por caja segun ancho -- 2" caben 36, 3" caben 24 (Canela/Transparente/
+// Blanca). Engomado siempre se vende como 3" pero el rollo real es mas chico,
+// asi que caben 10 por caja en vez de 24. Antes se escribia a mano y era facil
+// equivocarse (ej. dejar 36 en un pedido de 3", o de Engomado).
+const rollosPorCaja = (ancho, esEngomado) => {
+  if (esEngomado) return 10;
+  return Number(ancho) === 3 ? 24 : 36;
+};
+
 export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial, onConfirmar, inline }) {
   const [ancho,      setAncho]      = useState(pedidoInicial?.ancho       ? String(pedidoInicial.ancho)       : '2');
   const [largo,      setLargo]      = useState(pedidoInicial?.largo       ? String(pedidoInicial.largo)       : '100');
   const [cajas,      setCajas]      = useState(pedidoInicial?.cajas       ? String(pedidoInicial.cajas)       : '');
-  const [rollosCaja, setRollosCaja] = useState(pedidoInicial?.rollos_caja ? String(pedidoInicial.rollos_caja) : '36');
   const [merma,      setMerma]      = useState('');
   const [portaliche, setPortaliche] = useState('30.9');
   const [diseno,     setDiseno]     = useState('normal');
@@ -16,13 +24,20 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   // aunque se venda como "3\""), en vez de la formula normal de la SIAT L36.
   const esEngomado = pedidoInicial?.tipo === 'Engomado';
 
+  // Rollos/caja ya no se escribe a mano -- se calcula solo segun ancho/tipo,
+  // para no volver a repetir el error de dejar el numero que no es.
+  const rollosCaja = String(rollosPorCaja(ancho, esEngomado));
+
   // 2do color: el pedido ya lo declaro (Pedidos.js), mismas piezas de la
   // corrida pero su propio portacliche y diseno/cobertura.
   const tieneColor2   = !!pedidoInicial?.color2;
   const [portaliche2, setPortaliche2] = useState('30.9');
   const [diseno2,     setDiseno2]     = useState('normal');
 
-  // Datos reales (flujo finalizar)
+  // Datos reales (flujo finalizar) -- se captura "cajas producidas" y las
+  // piezas se calculan solas (cajas x rollos/caja), en vez de escribirlas
+  // a mano; es mas facil contar cajas que llevar la cuenta de piezas.
+  const [cajasProd,  setCajasProd]  = useState('');
   const [piezasProd, setPiezasProd] = useState('');
   const [mermaReal,  setMermaReal]  = useState('');
   const [stickyback, setStickyback] = useState(null);
@@ -68,7 +83,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
         <div className="field"><label>Ancho (")</label><input type="number" step="0.5" min="0.5" value={ancho} onChange={e => setAncho(e.target.value)} placeholder="2" /></div>
         <div className="field"><label>Largo (m)</label><input type="number" value={largo} onChange={e => setLargo(e.target.value)} placeholder="100" /></div>
         <div className="field"><label>Cajas</label><input type="number" value={cajas} onChange={e => setCajas(e.target.value)} placeholder="50" /></div>
-        <div className="field"><label>Rollos / caja</label><input type="number" value={rollosCaja} onChange={e => setRollosCaja(e.target.value)} placeholder="36" /></div>
+        <div className="field"><label>Rollos / caja (automático)</label><input type="number" readOnly value={rollosCaja} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
 
         {/* Portacliché con botón N/A */}
         <div className="field">
@@ -117,7 +132,12 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
           <div className="field full" style={{ borderTop: '1px solid #1e2132', paddingTop: 14, marginTop: 4 }}>
             <div style={{ fontSize: 11, color: '#4be87a', fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>DATOS REALES DE LA CORRIDA</div>
           </div>
-          <div className="field"><label>Piezas producidas *</label><input type="number" placeholder="1800" value={piezasProd} onChange={e => setPiezasProd(e.target.value)} /></div>
+          <div className="field"><label>Cajas producidas</label><input type="number" placeholder="50" value={cajasProd} onChange={e => {
+            const v = e.target.value;
+            setCajasProd(v);
+            setPiezasProd(v !== '' ? String(Number(v) * rollosCajaN) : '');
+          }} /></div>
+          <div className="field"><label>Piezas producidas *</label><input type="number" placeholder="1800" value={piezasProd} onChange={e => { setPiezasProd(e.target.value); setCajasProd(''); }} /></div>
           <div className="field"><label>Merma real (piezas)</label><input type="number" placeholder="0" value={mermaReal} onChange={e => setMermaReal(e.target.value)} /></div>
           {mermaPct !== null && (
             <div className="field"><label>% Merma real</label><input readOnly value={mermaPct + "%"} style={{ background: "#1a2744", color: Number(mermaPct) > 3 ? "#ff4d4d" : "#4be87a" }} /></div>
