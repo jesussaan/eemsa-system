@@ -279,7 +279,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
     setLoading(true);
     try {
       const base64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result.split(",")[1]); r.onerror = rej; r.readAsDataURL(imagen); });
-      const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: base64, mediaType: imagen.type, extractTicket: true }) });
+      const response = await fetch("/api/chat", { method: "POST", headers: authHeaders(), body: JSON.stringify({ image: base64, mediaType: imagen.type, extractTicket: true }) });
       const data = await response.json();
       const texto = data?.content?.map(b => b.text || "").join("") || "";
       try { const json = JSON.parse(texto.replace(/```json|```/g, "").trim()); setFormProv({ nombre: json.nombre || "", telefono: json.telefono || "", direccion: json.direccion || "", monto: json.monto || "", fecha: json.fecha || today(), que_compro: json.que_compro || "" }); showToast("✓ Datos extraídos por IA"); } catch { showToast("⚠ Llena manualmente"); }

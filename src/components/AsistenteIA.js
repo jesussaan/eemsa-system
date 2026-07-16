@@ -17,7 +17,7 @@ export default function AsistenteIA({ onRefrescar }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(process.env.REACT_APP_CHAT_API_SECRET ? { "X-Chat-Secret": process.env.REACT_APP_CHAT_API_SECRET } : {})
+          Authorization: `Bearer ${sessionStorage.getItem('token_supervisor') || ''}`,
         },
         body: JSON.stringify({ messages: next.map(m => ({ role: m.role, content: m.content })) })
       });
