@@ -80,7 +80,6 @@ function EemsaApp() {
   const [proveedores, setProveedores] = useState([]);
   const [prodDiaria, setProdDiaria] = useState([]);
   const [listaMateriales, setListaMateriales] = useState([]);
-  const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState(null);
   const [modo, setModo] = useState(null); // null | "operador" | "supervisor"
   const [pinInput, setPinInput] = useState("");
@@ -108,11 +107,7 @@ function EemsaApp() {
   };
 
   useEffect(() => {
-    const cargar = async () => {
-      await cargarTablas(["pedidos", "fallas", "refacciones", "proveedores", "prod_diaria", "lista_materiales"]);
-      setCargando(false);
-    };
-    cargar();
+    cargarTablas(["pedidos", "fallas", "refacciones", "proveedores", "prod_diaria", "lista_materiales"]);
   }, []);
 
   // Realtime: actualiza el estado local cuando otro usuario cambia datos en Supabase
@@ -164,13 +159,6 @@ function EemsaApp() {
   };
 
   const abrirPin = (target) => { setPinTarget(target); setShowPinModal(true); setPinInput(""); setPinError(false); };
-
-  if (cargando) return (
-    <div className="loading-screen">
-      <div className="loading-icon"><IcoSpinner /></div>
-      <div className="loading-text">CARGANDO EEMSA SYSTEM…</div>
-    </div>
-  );
 
   if (!modo) return (
     <div className="mode-screen">
