@@ -375,6 +375,12 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
           const diasEsperando = esperaDesde ? Math.floor((Date.now() - esperaDesde.getTime()) / 86400000) : 0;
           const esRebobinado = p.cliente === REBOB_CLIENTE;
           const bordeColor = confirming ? '#4be87a' : esRebobinado ? REBOB_COLOR : diasEsperando >= 2 ? '#ff4d4d' : '#3a3f5a';
+          // Rollo mixto: Rebobinado le pone el mismo folio base + letra a
+          // cada corte del mismo rollo fisico (1A, 1B, 1C...) -- se detecta
+          // aqui para mostrarlo agrupado y no confundirlo con un pedido de
+          // cliente cualquiera (que usa su propio consecutivo, no el de
+          // Rebobinado).
+          const loteMixto = esRebobinado ? String(p.num || '').match(/^(\d+)([A-Za-z])$/) : null;
 
           return (
             <div
@@ -423,7 +429,11 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                   <span style={{ color: "#aaa" }}>{p.tipo}</span>
                   {(p.color || p.tinta_tipo) && <span style={{ color: "#aaa" }}>{p.color || p.tinta_tipo}</span>}
                   {p.color2 && <span style={{ color: "#aaa" }}>+ {p.color2}</span>}
-                  <span style={{ color: "#444" }}>#Ped {p.num}</span>
+                  {loteMixto ? (
+                    <span style={{ color: REBOB_COLOR, fontWeight: 700 }}>🧵 Lote #{loteMixto[1]} · Corte {loteMixto[2].toUpperCase()}</span>
+                  ) : (
+                    <span style={{ color: "#444" }}>{esRebobinado ? `#Rebob ${p.num}` : `#Ped ${p.num}`}</span>
+                  )}
                 </div>
                 {p.fecha_solicitud && <div style={{ fontSize: 11, color: "#444", marginTop: 4 }}>Solicitud: {p.fecha_solicitud}</div>}
               </div>
@@ -496,6 +506,12 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                           {Number(p.piezas_prod).toLocaleString()} prod + {Number(p.merma)} merma
                         </div>
                       )}
+                    </div>
+                  )}
+                  {cajasProducidas != null && (
+                    <div style={S.mini}>
+                      <div style={S.miniLbl}>Cajas utilizadas</div>
+                      <div style={{ color: "#e0e0e0", fontWeight: 800, fontSize: 20 }}>{cajasProducidas.toLocaleString()}</div>
                     </div>
                   )}
                   <div style={S.mini}>

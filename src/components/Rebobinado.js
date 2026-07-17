@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { authHeaders } from '../lib/auth';
-import { uid, today, siguienteNumPedido } from '../lib/utils';
+import { uid, today } from '../lib/utils';
 import { REBOB_CLIENTE, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, calcularPiezasTeoricas } from '../lib/constants';
 import { IcoCheck } from './Icons';
 
@@ -53,14 +53,28 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
     if (validos.length === 0) { showToast("⚠ Llena cajas completas o piezas sueltas en al menos una medida"); return; }
     setLoading(true);
 
-    let siguiente = parseInt(siguienteNumPedido(pedidos), 10);
+    // Folio propio de Rebobinado (empieza en 1) en su propia columna --
+    // "num" antes era el mismo consecutivo compartido con pedidos de
+    // cliente (por eso los registros viejos tienen numeros altos, 84, 90...);
+    // usar folio_rebobinado en vez de num para contar evita que esos
+    // numeros viejos empujen el folio nuevo para arriba. Un rollo mixto
+    // sigue siendo un solo rollo fisico aunque salga en varias medidas, asi
+    // que todos sus cortes comparten el folio base con una letra
+    // (1A, 1B, 1C...) -- eso mismo los agrupa en Modo Emilio sin necesitar
+    // un campo aparte para "pertenecen al mismo lote".
+    const folioNum = Math.max(0, ...pedidos
+      .filter(p => p.cliente === REBOB_CLIENTE)
+      .map(p => Number(p.folio_rebobinado) || 0)) + 1;
+    const mixtoReal = validos.length > 1;
     const nuevos = [];
-    for (const c of validos) {
+    for (let i = 0; i < validos.length; i++) {
+      const c = validos[i];
       const calc = calcCorte(c);
       const notaSueltas = calc.piezasSueltasN > 0 ? ` · ${calc.piezasSueltasN} pzas sueltas (no completan caja)` : "";
+      const num = mixtoReal ? `${folioNum}${String.fromCharCode(65 + i)}` : String(folioNum);
       const nuevo = {
         id: uid(), created: today(),
-        cliente: REBOB_CLIENTE, num: String(siguiente),
+        cliente: REBOB_CLIENTE, num, folio_rebobinado: folioNum,
         // tipo = material del rollo (Transparente/Canela), color = adhesivo (Hotmelt/Acrílico):
         // asi la tarjeta de Modo Emilio los muestra en el encabezado y bajo "Rollos MP usados"
         // sin tocar su logica, igual que con los pedidos normales de cliente.
@@ -82,15 +96,14 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
         return;
       }
       nuevos.push(nuevo);
-      siguiente += 1;
     }
 
     setPedidos(ps => [...nuevos, ...ps]);
     setCortes([corteInicial()]);
     setForm(f => ({ ...formInicial, adhesivo: f.adhesivo, material: f.material }));
     showToast(nuevos.length > 1
-      ? `✓ ${nuevos.length} medidas registradas — ya aparecen en Modo Emilio para dar de alta`
-      : "✓ Registrado — ya aparece en Modo Emilio para dar de alta");
+      ? `✓ Folio ${folioNum} — ${nuevos.length} medidas registradas — ya aparecen en Modo Emilio para dar de alta`
+      : `✓ Folio ${folioNum} registrado — ya aparece en Modo Emilio para dar de alta`);
     setLoading(false);
   };
 
@@ -133,7 +146,7 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
       <h3 className="sub-title" style={{ marginTop: 20 }}>Medidas que salieron</h3>
       {esMixto && (
         <div style={{ background: "rgba(201,146,42,0.12)", border: "1px solid rgba(201,146,42,0.4)", color: "#c9922a", borderRadius: 8, padding: "8px 12px", fontSize: 12, marginBottom: 12 }}>
-          ⚠ Rollo mixto: se van a crear {cortes.length} pedidos por separado, uno por cada medida, para que Modo Emilio muestre cuántas piezas salieron de cada una.
+          ⚠ Rollo mixto: se van a crear {cortes.length} pedidos por separado, uno por cada medida, para que Modo Emilio muestre cuántas piezas salieron de cada una. Comparten el mismo folio (ej. 1A, 1B, 1C) para que se identifiquen como del mismo rollo.
         </div>
       )}
       {cortes.map((c, i) => {
