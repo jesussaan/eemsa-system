@@ -425,7 +425,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
             )}
             {/* Bloque rollos MP necesarios */}
             {(() => {
-              const anchoN      = parseFloat(pedidoSel.ancho)     || 0;
+              const anchoN      = anchoDePedido(pedidoSel)        || 0;
               const largoN      = parseFloat(pedidoSel.largo)     || 0;
               const cajasN      = parseInt(pedidoSel.cajas)       || 0;
               const rollosCajaN = parseInt(pedidoSel.rollos_caja) || 36;

@@ -96,29 +96,21 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
     setPlantillas(p => p.filter(x => x.id !== id));
   };
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
-  const medidaAuto = (a, l) => (a && l) ? `${a}"x${l}` : "";
   const upd = (k, v) => setForm(f => {
     const nf = { ...f, [k]: v };
-    // Medida se arma sola de Ancho x Largo -- deja de auto-llenarse en
-    // cuanto la escribes distinto a mano (para medidas que no siguen
-    // el patron normal).
-    if (k === "ancho" || k === "largo") {
-      const previaAuto = medidaAuto(f.ancho, f.largo);
-      if (!f.medida || f.medida === previaAuto) {
-        const a = k === "ancho" ? v : nf.ancho;
-        const l = k === "largo" ? v : nf.largo;
-        nf.medida = medidaAuto(a, l);
-      }
+    // Ya no hay campo "Ancho" a mano -- era redundante con Medida (2"x100
+    // ya trae el ancho adentro, igual que en Ventas). Se sigue guardando
+    // "ancho" internamente, sacado de Medida, porque Modo Operador lo usa
+    // (Rollos MP a utilizar, tarifa de centro 2"/3").
+    if (k === "medida" || k === "largo") {
+      nf.ancho = String(anchoDePedido(nf) || "");
     }
     // Rollos/caja ya no se escribe a mano -- se calcula solo de tipo + ancho
-    // (2"=36, 3"=24, Engomado=10). Si no hay "Ancho" lleno (ej. se escribio
-    // la Medida directo, como en Ventas), se saca el ancho de ahi -- antes
-    // solo miraba el campo Ancho y escribir la Medida a mano no actualizaba
-    // rollos/caja.
-    if (k === "ancho" || k === "tipo" || k === "medida") {
+    // (2"=36, 3"=24, Engomado=10).
+    if (k === "tipo" || k === "medida" || k === "largo") {
       nf.rollos_caja = String(rollosPorCaja(anchoDePedido(nf), nf.tipo === "Engomado"));
     }
-    if (k === "cajas" || k === "ancho" || k === "tipo" || k === "medida") {
+    if (k === "cajas" || k === "tipo" || k === "medida" || k === "largo") {
       const c = k === "cajas" ? v : nf.cajas;
       nf.rollos_totales = (c && nf.rollos_caja) ? String(Number(c) * Number(nf.rollos_caja)) : "";
     }
@@ -215,7 +207,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   };
 
   const save = async () => {
-    if (!form.cliente || !form.num || !form.cajas || !form.fecha_solicitud) { showToast("⚠ Llena cliente, número, cajas y fecha solicitada"); return; }
+    if (!form.cliente || !form.num || !form.medida || !form.cajas || !form.fecha_solicitud) { showToast("⚠ Llena cliente, número, medida, cajas y fecha solicitada"); return; }
     setLoading(true);
     const n = (v) => v === "" ? null : Number(v);
     let cliche_url = "";
@@ -420,11 +412,10 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
         </div>
         <div className="field"><label>No. Pedido * <span style={{ color: "#666", fontWeight: 400 }}>(sugerido)</span></label><input value={form.num} onChange={e => upd("num", e.target.value)} placeholder="84, 85…" /></div>
         <div className="field"><label>Tipo cinta</label><select value={form.tipo} onChange={e => upd("tipo", e.target.value)}>{TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
-        <div className="field"><label>Medida <span style={{ color: "#666", fontWeight: 400 }}>(automático de Ancho x Largo)</span></label><input value={form.medida} onChange={e => upd("medida", e.target.value)} placeholder='2"x100' /></div>
+        <div className="field"><label>Medida *</label><input value={form.medida} onChange={e => upd("medida", e.target.value)} placeholder='2"x100' /></div>
         <div className="field"><label>Cajas solicitadas *</label><input type="number" value={form.cajas} onChange={e => upd("cajas", e.target.value)} placeholder="50" /></div>
-        <div className="field"><label>Rollos por caja <span style={{ color: "#666", fontWeight: 400 }}>(automático de tipo + ancho)</span></label><input type="number" readOnly value={form.rollos_caja} placeholder="36" style={{ background: "#1a2744", color: "#c9922a" }} /></div>
+        <div className="field"><label>Rollos por caja <span style={{ color: "#666", fontWeight: 400 }}>(automático de tipo + medida)</span></label><input type="number" readOnly value={form.rollos_caja} placeholder="36" style={{ background: "#1a2744", color: "#c9922a" }} /></div>
         <div className="field"><label>Rollos / piezas totales <span style={{ color: "#666", fontWeight: 400 }}>(automático)</span></label><input type="number" readOnly value={form.rollos_totales} placeholder="Cajas × Rollos/caja" style={{ background: "#1a2744", color: "#c9922a" }} /></div>
-        <div className="field"><label>Ancho (pulg)</label><input value={form.ancho} onChange={e => upd("ancho", e.target.value)} placeholder='2"' /></div>
         <div className="field"><label>Largo (m)</label><input type="number" value={form.largo} onChange={e => upd("largo", e.target.value)} placeholder="100" /></div>
         <div className="field"><label>Color impresión</label>
           <input value={form.color} onChange={e => upd("color", e.target.value)} placeholder="Rojo PMS 485" list="tintas-list-nuevo" />
