@@ -426,7 +426,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                   <div key={p.id} style={{ background: "#13161e", borderRadius: 10, padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
                       <div style={{ fontSize: 16, fontWeight: 900, color: "#c9922a" }}>{p.medida}</div>
-                      <div style={{ fontSize: 11, color: "#8a90ac", marginTop: 2 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "#e0e0e0", marginTop: 4 }}>
                         {p.cajas} cajas · {Number(p.piezas_prod || 0).toLocaleString()} piezas
                         {p.merma_pct != null && <span style={{ color: Number(p.merma_pct) > 3 ? "#ff4d4d" : "#4be87a" }}> · {Number(p.merma_pct).toFixed(2)}% merma</span>}
                       </div>
@@ -446,6 +446,9 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                   <div style={{ color: "#e0e0e0", fontWeight: 800, fontSize: 20 }}>
                     {grupo.reduce((s, p) => s + (Number(p.piezas_prod) || 0) + (Number(p.merma) || 0), 0).toLocaleString()}
                   </div>
+                  <div style={{ fontSize: 11, color: "#8a90ac", marginTop: 2 }}>
+                    {[...new Set(grupo.map(p => String(p.medida || '').split(' x ')[0]).filter(Boolean))].join(' · ')}
+                  </div>
                 </div>
                 <div style={S.mini}>
                   <div style={S.miniLbl}>Cajas utilizadas</div>
@@ -457,6 +460,9 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                   <div style={S.miniLbl}>Rollo MP usado (total)</div>
                   <div style={{ color: "#4b8fe8", fontWeight: 800, fontSize: 20 }}>
                     {grupo.reduce((s, p) => s + (Number(p.rollos_usados) || 0), 0).toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#8a90ac", marginTop: 2 }}>
+                    {grupo[0].tipo} · {grupo[0].color}
                   </div>
                 </div>
               </div>
