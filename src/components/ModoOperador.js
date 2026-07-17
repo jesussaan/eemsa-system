@@ -9,7 +9,7 @@ import { sendPush } from '../lib/push';
 import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV, UMBRAL_MERMA } from '../lib/constants';
 import { sendWhatsApp } from '../utils/whatsapp';
-import { IcoOperador, IcoPalette, IcoRuler, IcoProd, IcoRoll, IcoClipboard, IcoCamera, IcoCheck, IcoFal } from './Icons';
+import { IcoOperador, IcoPalette, IcoRoll, IcoClipboard, IcoCamera, IcoCheck, IcoFal } from './Icons';
 import NotifBell from './NotifBell';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
@@ -343,13 +343,13 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                     <div style={{ fontSize: 19, fontWeight: 700, color: "#fff", marginBottom: 4 }}>{p.cliente}</div>
                     {al && <span style={{ fontSize: 12, fontWeight: 700, color: al.color, whiteSpace: "nowrap" }}>{al.txt}</span>}
                   </div>
-                  <div style={{ color: "#c9922a", fontSize: 16, fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoRuler} size={15} /> {p.medida}</div>
-                  <div style={{ display: "flex", gap: 8, fontSize: 13, color: "#aaa", flexWrap: "wrap", alignItems: "center" }}>
-                    <span><Ico icon={IcoProd} /> {p.cajas} cajas</span>
-                    {p.rollos_totales && <span><Ico icon={IcoRoll} /> {p.rollos_totales} piezas/rollos</span>}
-                    <span><Ico icon={IcoPalette} /> {p.tipo}</span>
+                  <div style={{ color: "#c9922a", fontSize: 23, fontWeight: 800, marginBottom: 6 }}>{p.medida}</div>
+                  <div style={{ display: "flex", gap: 10, fontSize: 16, color: "#ddd", flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ fontWeight: 700 }}>{p.cajas} cajas</span>
+                    {p.rollos_totales && <span style={{ fontWeight: 700 }}>{p.rollos_totales} piezas/rollos</span>}
+                    <span style={{ fontWeight: 700 }}>{p.tipo}</span>
                     {(p.color || p.tinta_tipo) && <ColorChip color={p.color || p.tinta_tipo} />}
-                    <span style={{ color: "#555" }}>#Ped {p.num}</span>
+                    <span style={{ color: "#555", fontSize: 13, fontWeight: 400 }}>#Ped {p.num}</span>
                   </div>
                 </div>
                 );
@@ -380,13 +380,13 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                         <div style={{ fontSize: 16, fontWeight: 700, color: "#e0e0e0" }}>{p.cliente}</div>
                         {al && <span style={{ fontSize: 11, fontWeight: 700, color: al.color, whiteSpace: "nowrap", marginLeft: 6 }}>{al.txt}</span>}
                       </div>
-                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13 }}>
-                        <span style={{ color: "#c9922a", fontWeight: 700 }}><Ico icon={IcoRuler} /> {p.medida}</span>
-                        <span style={{ color: "#aaa" }}><Ico icon={IcoPalette} /> {p.tipo}</span>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 15, alignItems: "center" }}>
+                        <span style={{ color: "#c9922a", fontWeight: 800, fontSize: 18 }}>{p.medida}</span>
+                        <span style={{ color: "#ddd", fontWeight: 700 }}>{p.tipo}</span>
                         {(p.color || p.tinta_tipo) && <ColorChip color={p.color || p.tinta_tipo} />}
-                        <span style={{ color: "#aaa" }}><Ico icon={IcoProd} /> {p.cajas} cajas</span>
-                        {p.rollos_caja && <span style={{ color: "#aaa" }}><Ico icon={IcoRoll} /> {p.rollos_caja} rollos/caja</span>}
-                        {p.rollos_totales && <span style={{ color: "#aaa" }}><Ico icon={IcoRoll} /> {p.rollos_totales} piezas/rollos</span>}
+                        <span style={{ color: "#ddd", fontWeight: 700 }}>{p.cajas} cajas</span>
+                        {p.rollos_caja && <span style={{ color: "#ddd", fontWeight: 700 }}>{p.rollos_caja} rollos/caja</span>}
+                        {p.rollos_totales && <span style={{ color: "#ddd", fontWeight: 700 }}>{p.rollos_totales} piezas/rollos</span>}
                       </div>
                       {p.fecha_solicitud && <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>Solicitud: {p.fecha_solicitud}</div>}
                       {p.cliche_url && <div style={{ fontSize: 11, color: "#ff9900", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><Ico icon={IcoCamera} /> Ver diseño →</div>}
