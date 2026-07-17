@@ -20,6 +20,16 @@ export const DISENOS = [
   { key: 'relleno', label: 'Relleno completo + logo', cob: 0.825 },
 ];
 
+// Rollos por caja segun ancho -- 2" caben 36, 3" caben 24 (Canela/Transparente/
+// Blanca). Engomado siempre se vende como 3" pero el rollo real es mas chico,
+// asi que caben 10 por caja en vez de 24. Fuente unica -- se usa al crear el
+// pedido (Ventas, Pedidos) y al finalizar produccion (Modo Operador).
+export const rollosPorCaja = (ancho, esEngomado) => {
+  if (esEngomado) return 10;
+  const anchoN = parseFloat(String(ancho ?? '').replace(/[^0-9.]/g, ''));
+  return anchoN === 3 ? 24 : 36;
+};
+
 // Formula compartida entre Cotizador y Modo Operador para rendimiento de
 // rollo (rollosMP) y consumo de tinta/solvente. Antes estaba duplicada en
 // ambos componentes y un mismo bug (pistas fijas en la formula de tinta)

@@ -1,15 +1,6 @@
 import { useState } from 'react';
 import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_MP_ROLLO_PRECIO } from '../lib/constants';
-import { calcularProduccion, MP_ANCHO, MP_LARGO, PORTALICHES, DISENOS } from '../lib/produccion';
-
-// Rollos por caja segun ancho -- 2" caben 36, 3" caben 24 (Canela/Transparente/
-// Blanca). Engomado siempre se vende como 3" pero el rollo real es mas chico,
-// asi que caben 10 por caja en vez de 24. Antes se escribia a mano y era facil
-// equivocarse (ej. dejar 36 en un pedido de 3", o de Engomado).
-const rollosPorCaja = (ancho, esEngomado) => {
-  if (esEngomado) return 10;
-  return Number(ancho) === 3 ? 24 : 36;
-};
+import { calcularProduccion, MP_ANCHO, MP_LARGO, PORTALICHES, DISENOS, rollosPorCaja } from '../lib/produccion';
 
 export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial, onConfirmar, inline }) {
   const [ancho,      setAncho]      = useState(pedidoInicial?.ancho       ? String(pedidoInicial.ancho)       : '2');

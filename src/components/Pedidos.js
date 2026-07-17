@@ -6,6 +6,7 @@ import CalculadoraProduccion from './CalculadoraProduccion';
 import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
 import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada } from '../lib/utils';
+import { rollosPorCaja } from '../lib/produccion';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT, REBOB_CLIENTE } from '../lib/constants';
 import { sendWhatsApp, mensajePedidoNuevo } from '../utils/whatsapp';
 
@@ -39,19 +40,25 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   }, []);
 
   const aplicarPlantilla = (pl) => {
-    setForm(f => ({
-      ...f,
-      cliente:     pl.cliente     || f.cliente,
-      tipo:        pl.tipo        || f.tipo,
-      medida:      pl.medida      || f.medida,
-      ancho:       pl.ancho       != null ? String(pl.ancho) : f.ancho,
-      largo:       pl.largo       != null ? String(pl.largo) : f.largo,
-      cajas:       pl.cajas       != null ? String(pl.cajas) : f.cajas,
-      rollos_caja: pl.rollos_caja != null ? String(pl.rollos_caja) : f.rollos_caja,
-      rollos_totales: pl.cajas && pl.rollos_caja ? String(pl.cajas * pl.rollos_caja) : f.rollos_totales,
-      color:       pl.color       || f.color,
-      notas:       pl.notas       || f.notas,
-    }));
+    setForm(f => {
+      const tipo  = pl.tipo || f.tipo;
+      const ancho = pl.ancho != null ? String(pl.ancho) : f.ancho;
+      const cajas = pl.cajas != null ? String(pl.cajas) : f.cajas;
+      const rollosCaja = String(rollosPorCaja(ancho, tipo === "Engomado"));
+      return {
+        ...f,
+        cliente:     pl.cliente     || f.cliente,
+        tipo,
+        medida:      pl.medida      || f.medida,
+        ancho,
+        largo:       pl.largo       != null ? String(pl.largo) : f.largo,
+        cajas,
+        rollos_caja: rollosCaja,
+        rollos_totales: (cajas && rollosCaja) ? String(Number(cajas) * Number(rollosCaja)) : f.rollos_totales,
+        color:       pl.color       || f.color,
+        notas:       pl.notas       || f.notas,
+      };
+    });
     setShowPlantillas(false);
     showToast("📋 Plantilla aplicada");
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -85,10 +92,16 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   const medidaAuto = (a, l) => (a && l) ? `${a}"x${l}` : "";
   const upd = (k, v) => setForm(f => {
     const nf = { ...f, [k]: v };
-    if (k === "cajas" || k === "rollos_caja") {
+    // Rollos/caja ya no se escribe a mano -- se calcula solo de tipo + ancho
+    // (2"=36, 3"=24, Engomado=10).
+    if (k === "ancho" || k === "tipo") {
+      const anchoActual = k === "ancho" ? v : nf.ancho;
+      const tipoActual  = k === "tipo"  ? v : nf.tipo;
+      nf.rollos_caja = String(rollosPorCaja(anchoActual, tipoActual === "Engomado"));
+    }
+    if (k === "cajas" || k === "ancho" || k === "tipo") {
       const c = k === "cajas" ? v : nf.cajas;
-      const r = k === "rollos_caja" ? v : nf.rollos_caja;
-      nf.rollos_totales = (c && r) ? String(Number(c) * Number(r)) : "";
+      nf.rollos_totales = (c && nf.rollos_caja) ? String(Number(c) * Number(nf.rollos_caja)) : "";
     }
     // Medida se arma sola de Ancho x Largo -- deja de auto-llenarse en
     // cuanto la escribes distinto a mano (para medidas que no siguen
@@ -105,16 +118,20 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   });
 
   const clonarPedido = (p) => {
+    const tipo  = p.tipo || "Blanca";
+    const ancho = p.ancho || "";
+    const cajas = p.cajas || "";
+    const rollosCaja = String(rollosPorCaja(ancho, tipo === "Engomado"));
     setForm({
       ...formInicial,
       cliente: p.cliente || "",
       num: siguienteNumPedido(pedidosProp),
-      tipo: p.tipo || "Blanca",
+      tipo,
       medida: p.medida || "",
-      cajas: p.cajas || "",
-      rollos_caja: p.rollos_caja || "",
-      rollos_totales: p.rollos_totales || "",
-      ancho: p.ancho || "",
+      cajas,
+      rollos_caja: rollosCaja,
+      rollos_totales: (cajas && rollosCaja) ? String(Number(cajas) * Number(rollosCaja)) : "",
+      ancho,
       largo: p.largo || "",
       color: p.color || "",
       maq: p.maq || "SIAT L36 #1",
@@ -364,7 +381,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
         <div className="field"><label>Tipo cinta</label><select value={form.tipo} onChange={e => upd("tipo", e.target.value)}>{TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
         <div className="field"><label>Medida <span style={{ color: "#666", fontWeight: 400 }}>(automático de Ancho x Largo)</span></label><input value={form.medida} onChange={e => upd("medida", e.target.value)} placeholder='2"x100' /></div>
         <div className="field"><label>Cajas solicitadas *</label><input type="number" value={form.cajas} onChange={e => upd("cajas", e.target.value)} placeholder="50" /></div>
-        <div className="field"><label>Rollos por caja</label><input type="number" value={form.rollos_caja} onChange={e => upd("rollos_caja", e.target.value)} placeholder="36" /></div>
+        <div className="field"><label>Rollos por caja <span style={{ color: "#666", fontWeight: 400 }}>(automático de tipo + ancho)</span></label><input type="number" readOnly value={form.rollos_caja} placeholder="36" style={{ background: "#1a2744", color: "#c9922a" }} /></div>
         <div className="field"><label>Rollos / piezas totales <span style={{ color: "#666", fontWeight: 400 }}>(automático)</span></label><input type="number" readOnly value={form.rollos_totales} placeholder="Cajas × Rollos/caja" style={{ background: "#1a2744", color: "#c9922a" }} /></div>
         <div className="field"><label>Ancho (pulg)</label><input value={form.ancho} onChange={e => upd("ancho", e.target.value)} placeholder='2"' /></div>
         <div className="field"><label>Largo (m)</label><input type="number" value={form.largo} onChange={e => upd("largo", e.target.value)} placeholder="100" /></div>

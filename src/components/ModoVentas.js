@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { authHeaders } from "../lib/auth";
 import { today, uid, siguienteNumPedido } from "../lib/utils";
+import { rollosPorCaja } from "../lib/produccion";
 import { TIPOS, REBOB_CLIENTE } from "../lib/constants";
 import { sendWhatsApp, mensajePedidoNuevo } from "../utils/whatsapp";
 import Clientes from "./Clientes";
 import CalendarGrid from "./CalendarGrid";
+
+// La Medida se escribe como "2x100" -- las pulgadas son el numero inicial.
+const anchoDeMedida = (medida) => (String(medida).match(/^\s*(\d+(\.\d+)?)/) || [])[1] || '';
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
@@ -32,23 +36,32 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(""), 3000); };
   const upd = (k, v) => setForm(f => {
     const nf = {...f, [k]: v};
-    if (k === "cajas" || k === "rollos_caja") {
+    // Rollos/caja ya no se escribe a mano -- se calcula solo de tipo + las
+    // pulgadas que trae la Medida (2"=36, 3"=24, Engomado=10).
+    if (k === "medida" || k === "tipo") {
+      const medidaActual = k === "medida" ? v : nf.medida;
+      const tipoActual    = k === "tipo"   ? v : nf.tipo;
+      nf.rollos_caja = String(rollosPorCaja(anchoDeMedida(medidaActual), tipoActual === "Engomado"));
+    }
+    if (k === "cajas" || k === "medida" || k === "tipo") {
       const c = k === "cajas" ? v : nf.cajas;
-      const r = k === "rollos_caja" ? v : nf.rollos_caja;
-      nf.rollos_totales = (c && r) ? String(Number(c) * Number(r)) : "";
+      nf.rollos_totales = (c && nf.rollos_caja) ? String(Number(c) * Number(nf.rollos_caja)) : "";
     }
     return nf;
   });
 
   const repetirPedido = (p) => {
+    const tipo  = p.tipo || "Blanca";
+    const cajas = p.cajas ? String(p.cajas) : "";
+    const rollosCaja = String(rollosPorCaja(anchoDeMedida(p.medida || ""), tipo === "Engomado"));
     setForm(f => ({
       ...f,
       cliente:        p.cliente || "",
-      tipo:           p.tipo || "Blanca",
+      tipo,
       medida:         p.medida || "",
-      cajas:          p.cajas ? String(p.cajas) : "",
-      rollos_caja:    p.rollos_caja ? String(p.rollos_caja) : "",
-      rollos_totales: p.rollos_totales ? String(p.rollos_totales) : "",
+      cajas,
+      rollos_caja:    rollosCaja,
+      rollos_totales: (cajas && rollosCaja) ? String(Number(cajas) * Number(rollosCaja)) : "",
       tinta_tipo:     p.tinta_tipo || "",
       color2:         p.color2 || "",
       notas:          "",
@@ -279,8 +292,8 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
               </div>
 
               <div>
-                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Rollos / caja</label>
-                <input type="number" min="0" value={form.rollos_caja} onChange={e=>upd("rollos_caja",e.target.value)} placeholder="Ej: 36" style={inputStyle} />
+                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Rollos / caja <span style={{ color:"#555", fontWeight:400 }}>(automático)</span></label>
+                <input type="number" readOnly value={form.rollos_caja} placeholder="Ej: 36" style={{ ...inputStyle, background: "#1a2744", color: "#c9922a" }} />
               </div>
 
               <div>
