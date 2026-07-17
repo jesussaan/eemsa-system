@@ -333,6 +333,10 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
                       <div className="muted">
                         {corteLetra && <strong style={{ color: REBOB_COLOR }}>{corteLetra} </strong>}
                         {p.medida} · {p.cajas} cajas · {p.piezas_prod} piezas
+                        {esLote && (() => {
+                          const { ancho, largoPieza } = parseMedidaRebob(p.medida);
+                          return ` · teórico ${calcularPiezasTeoricas(ancho, largoPieza)} pzas`;
+                        })()}
                       </div>
                       {p.status === "pendiente" && (
                         <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
