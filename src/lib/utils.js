@@ -10,6 +10,17 @@ export const unificarPorTexto = (valor, existentes) => {
   return match !== undefined ? String(match).trim() : limpio;
 };
 
+// Una medida se puede escribir de mil formas ("2x100", "2X100", "2"100",
+// "2 x 100") y todas quieren decir lo mismo. Se guarda siempre igual
+// (ancho"xlargo, ej. 2"x100) para que el historial de un cliente no se vea
+// fragmentado solo por como se haya tecleado. Si no se le puede sacar dos
+// numeros, se deja tal cual (mejor no perder el dato que adivinar mal).
+export const normalizarMedida = (medida) => {
+  const s = String(medida ?? '').trim();
+  const m = s.match(/^(\d+(?:\.\d+)?)\D+(\d+(?:\.\d+)?)/);
+  return m ? `${m[1]}"x${m[2]}` : s;
+};
+
 // Sube un archivo a Supabase Storage vía signed URL (pedida al servidor) en
 // vez de con la anon key directo -- misma forma de retorno {data, error}
 // que supabase.storage.from(bucket).upload() para poder sustituirlo igual.

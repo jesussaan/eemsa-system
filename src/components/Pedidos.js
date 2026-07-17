@@ -5,7 +5,7 @@ import ClicheImg from './ClicheImg';
 import CalculadoraProduccion from './CalculadoraProduccion';
 import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
-import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada, unificarPorTexto } from '../lib/utils';
+import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada, unificarPorTexto, normalizarMedida } from '../lib/utils';
 import { rollosPorCaja, anchoDePedido } from '../lib/produccion';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT, REBOB_CLIENTE } from '../lib/constants';
 import { sendWhatsApp, mensajePedidoNuevo } from '../utils/whatsapp';
@@ -14,7 +14,13 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   // Rebobinado es stock, no es un pedido de cliente real.
   const pedidos = pedidosProp.filter(p => p.cliente !== REBOB_CLIENTE);
   const clientesSugeridos = [...new Set(pedidos.map(p => p.cliente).filter(Boolean))].sort();
-  const tintasSugeridas = [...new Set(pedidos.map(p => p.tinta_tipo).filter(Boolean))].sort();
+  // Dashboard > Consumibles suma tinta por "p.color || p.tinta_tipo" y por
+  // "p.color2" -- los tres campos son el mismo concepto (nombre de tinta),
+  // asi que se unifican entre si o "Negro" y "NEGRO" quedan como colores
+  // distintos en esa grafica aunque tinta_tipo ya este limpio.
+  const tintasSugeridas = [...new Set(
+    pedidos.flatMap(p => [p.tinta_tipo, p.color, p.color2]).filter(Boolean)
+  )].sort();
   const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", rollos_totales: "", ancho: "", largo: "", color: "", color2: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_estimada: "", fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "anotado" };
   const [form, setForm] = useState(() => ({ ...formInicial, num: siguienteNumPedido(pedidosProp) }));
   const [toast, setToast] = useState("");
@@ -217,7 +223,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
       if (upErr) { showToast("⚠ Foto no subida: " + upErr.message); }
       else if (up) { cliche_url = up.path; }
     }
-    const nuevo = { id: uid(), created: today(), cliente: unificarPorTexto(form.cliente, clientesSugeridos), num: form.num, tipo: form.tipo, medida: form.medida, cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(form.rollos_totales), ancho: form.ancho, largo: form.largo, color: form.color, color2: form.color2 || null, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
+    const nuevo = { id: uid(), created: today(), cliente: unificarPorTexto(form.cliente, clientesSugeridos), num: form.num, tipo: form.tipo, medida: normalizarMedida(form.medida), cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(form.rollos_totales), ancho: form.ancho, largo: form.largo, color: unificarPorTexto(form.color, tintasSugeridas) || null, color2: unificarPorTexto(form.color2, tintasSugeridas) || null, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
     try {
       const res = await fetch('/api/pedidos', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
       const data = await res.json();
@@ -249,11 +255,11 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
     const actualizado = {
       id: modalPedido.id, created: modalPedido.created,
       cliente: unificarPorTexto(modalPedido.cliente, clientesSugeridos), num: modalPedido.num,
-      tipo: modalPedido.tipo, medida: modalPedido.medida,
+      tipo: modalPedido.tipo, medida: normalizarMedida(modalPedido.medida),
       cajas: n2(modalPedido.cajas), rollos_caja: n2(modalPedido.rollos_caja),
       rollos_totales: n2(modalPedido.rollos_totales),
       ancho: modalPedido.ancho, largo: modalPedido.largo,
-      color: modalPedido.color, maq: modalPedido.maq, op: modalPedido.op,
+      color: unificarPorTexto(modalPedido.color, tintasSugeridas) || null, maq: modalPedido.maq, op: modalPedido.op,
       fecha_solicitud: modalPedido.fecha_solicitud,
       fecha_estimada: modalPedido.fecha_estimada || null,
       fecha_original: fechaOriginal,
@@ -265,7 +271,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
       rollos_usados: n2(modalPedido.rollos_usados),
       tinta_tipo: unificarPorTexto(modalPedido.tinta_tipo, tintasSugeridas) || null,
       tinta_kg: n2(modalPedido.tinta_kg),
-      color2: modalPedido.color2 || null,
+      color2: unificarPorTexto(modalPedido.color2, tintasSugeridas) || null,
       tinta_kg2: n2(modalPedido.tinta_kg2),
       alcohol_litros: n2(modalPedido.alcohol_litros),
       notas_consumo: modalPedido.notas_consumo || null,
@@ -419,7 +425,10 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
         <div className="field"><label>Rollos / piezas totales <span style={{ color: "#666", fontWeight: 400 }}>(automático)</span></label><input type="number" readOnly value={form.rollos_totales} placeholder="Cajas × Rollos/caja" style={{ background: "#1a2744", color: "#c9922a" }} /></div>
         <div className="field"><label>Ancho (pulg)</label><input value={form.ancho} onChange={e => upd("ancho", e.target.value)} placeholder='2"' /></div>
         <div className="field"><label>Largo (m)</label><input type="number" value={form.largo} onChange={e => upd("largo", e.target.value)} placeholder="100" /></div>
-        <div className="field"><label>Color impresión</label><input value={form.color} onChange={e => upd("color", e.target.value)} placeholder="Rojo PMS 485" /></div>
+        <div className="field"><label>Color impresión</label>
+          <input value={form.color} onChange={e => upd("color", e.target.value)} placeholder="Rojo PMS 485" list="tintas-list-nuevo" />
+          <datalist id="tintas-list-nuevo">{tintasSugeridas.map(t => <option key={t} value={t} />)}</datalist>
+        </div>
         <div className="field"><label>2do color (opcional)</label><input value={form.color2} onChange={e => upd("color2", e.target.value)} placeholder="Solo si el pedido lleva 2 tintas" /></div>
         <div className="field full"><label>📷 Foto del cliché</label><input type="file" accept="image/*" onChange={e => { const f = e.target.files[0]; if (!f) return; setClicheImg(f); setClichePreview(URL.createObjectURL(f)); }} />{clichePreview && <img src={clichePreview} alt="cliché" style={{ width: "100%", maxWidth: 260, marginTop: 8, borderRadius: 8, border: "1px solid #2a2d3a" }} />}</div>
         <div className="field"><label>Máquina</label><select value={form.maq} onChange={e => upd("maq", e.target.value)}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>

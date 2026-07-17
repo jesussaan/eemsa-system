@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { authHeaders } from "../lib/auth";
-import { today, uid, siguienteNumPedido, unificarPorTexto } from "../lib/utils";
+import { today, uid, siguienteNumPedido, unificarPorTexto, normalizarMedida } from "../lib/utils";
 import { rollosPorCaja } from "../lib/produccion";
 import { TIPOS, REBOB_CLIENTE } from "../lib/constants";
 import { sendWhatsApp, mensajePedidoNuevo } from "../utils/whatsapp";
@@ -73,7 +73,10 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
 
   const pedActivos = pedidos.filter(p => p.status !== "terminado" && p.cliente !== REBOB_CLIENTE);
   const clientesSugeridos = [...new Set(pedidos.map(p => p.cliente).filter(Boolean))].sort();
-  const tintasSugeridas   = [...new Set(pedidos.map(p => p.tinta_tipo).filter(Boolean))].sort();
+  // Dashboard > Consumibles suma tinta_tipo, color y color2 como si fueran
+  // el mismo campo -- se unifican entre si para que "Negro"/"NEGRO" no
+  // aparezcan como colores distintos en esa grafica.
+  const tintasSugeridas   = [...new Set(pedidos.flatMap(p => [p.tinta_tipo, p.color, p.color2]).filter(Boolean))].sort();
   const conFecha   = pedActivos.filter(p => p.fecha_estimada).sort((a,b) => a.fecha_estimada.localeCompare(b.fecha_estimada));
   const proximos   = conFecha.filter(p => p.fecha_estimada >= hoy).slice(0, 10);
 
@@ -98,12 +101,12 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
       cliente:         unificarPorTexto(form.cliente, clientesSugeridos),
       num:             form.num.trim() || `V-${Date.now().toString().slice(-5)}`,
       tipo:            form.tipo,
-      medida:          form.medida.trim(),
+      medida:          normalizarMedida(form.medida),
       cajas:           Number(form.cajas),
       rollos_caja:     form.rollos_caja ? Number(form.rollos_caja) : null,
       rollos_totales:  form.rollos_totales ? Number(form.rollos_totales) : null,
       tinta_tipo:      unificarPorTexto(form.tinta_tipo, tintasSugeridas) || null,
-      color2:          form.color2.trim() || null,
+      color2:          unificarPorTexto(form.color2, tintasSugeridas) || null,
       fecha_solicitud: form.fecha_solicitud || hoy,
       notas:           form.notas.trim() || null,
       status:          "anotado",

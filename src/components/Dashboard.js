@@ -151,19 +151,23 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
 
   const tintaPorColor = (() => {
     const map = {};
+    // Agrupa ignorando mayus/minusculas -- "Negro" y "NEGRO" son la misma
+    // tinta aunque se hayan escrito distinto en algun pedido viejo. Se
+    // muestra con la primera forma que se vio.
     const sumar = (k, kg, pedido) => {
       k = (k || "Sin color").trim();
-      if (!map[k]) map[k] = { total: 0, mes: 0, pedidos: 0 };
-      map[k].total   += kg;
-      map[k].pedidos += 1;
-      if (pedido.fecha_termino?.startsWith(mesActual)) map[k].mes += kg;
+      const key = k.toLowerCase();
+      if (!map[key]) map[key] = { color: k, total: 0, mes: 0, pedidos: 0 };
+      map[key].total   += kg;
+      map[key].pedidos += 1;
+      if (pedido.fecha_termino?.startsWith(mesActual)) map[key].mes += kg;
     };
     // Solo pedidos con costo calculado (flujo nuevo, valores en kg confiables)
     pedidos.filter(p => p.status === "terminado" && p.tinta_kg && p.costo_pieza != null).forEach(p => {
       sumar(p.color || p.tinta_tipo, Number(p.tinta_kg), p);
       if (p.tinta_kg2) sumar(p.color2, Number(p.tinta_kg2), p);
     });
-    return Object.entries(map).map(([color, d]) => ({ color, ...d })).sort((a, b) => b.total - a.total);
+    return Object.values(map).sort((a, b) => b.total - a.total);
   })();
 
   const tipoCintaStats = (() => {
