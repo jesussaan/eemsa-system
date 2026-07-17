@@ -154,30 +154,30 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
     // Agrupa ignorando mayus/minusculas -- "Negro" y "NEGRO" son la misma
     // tinta aunque se hayan escrito distinto en algun pedido viejo. Se
     // muestra con la primera forma que se vio.
-    const sumar = (k, kg, pedido) => {
+    const sumar = (k, kg) => {
       k = (k || "Sin color").trim();
       const key = k.toLowerCase();
-      if (!map[key]) map[key] = { color: k, total: 0, mes: 0, pedidos: 0 };
+      if (!map[key]) map[key] = { color: k, total: 0, pedidos: 0 };
       map[key].total   += kg;
       map[key].pedidos += 1;
-      if (pedido.fecha_termino?.startsWith(mesActual)) map[key].mes += kg;
     };
-    // Solo pedidos con costo calculado (flujo nuevo, valores en kg confiables)
-    pedidos.filter(p => p.status === "terminado" && p.tinta_kg && p.costo_pieza != null).forEach(p => {
-      sumar(p.color || p.tinta_tipo, Number(p.tinta_kg), p);
-      if (p.tinta_kg2) sumar(p.color2, Number(p.tinta_kg2), p);
+    // Solo el mes actual -- antes tambien exigia costo_pieza calculado, lo
+    // que dejaba fuera pedidos con tinta_kg real pero sin costear (la mitad
+    // de los terminados en algunos meses no aparecian aqui).
+    pedidos.filter(p => p.status === "terminado" && p.tinta_kg && p.fecha_termino?.startsWith(mesActual)).forEach(p => {
+      sumar(p.color || p.tinta_tipo, Number(p.tinta_kg));
+      if (p.tinta_kg2) sumar(p.color2, Number(p.tinta_kg2));
     });
     return Object.values(map).sort((a, b) => b.total - a.total);
   })();
 
   const tipoCintaStats = (() => {
     const map = {};
-    pedidos.filter(p => p.status === "terminado" && p.costo_pieza != null).forEach(p => {
+    pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual)).forEach(p => {
       const k = (p.tipo || "Sin tipo").trim();
-      if (!map[k]) map[k] = { rollos: 0, rollosMes: 0, pedidos: 0 };
+      if (!map[k]) map[k] = { rollos: 0, pedidos: 0 };
       map[k].rollos   += Number(p.rollos_usados || 0);
       map[k].pedidos  += 1;
-      if (p.fecha_termino?.startsWith(mesActual)) map[k].rollosMes += Number(p.rollos_usados || 0);
     });
     return Object.entries(map).map(([tipo, d]) => ({ tipo, ...d })).sort((a, b) => b.rollos - a.rollos);
   })();
@@ -714,7 +714,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
 
       {seccion === 'consumibles' && <>
       {/* ── Tinta por color ── */}
-      <SubTitle icon={IcoDroplet}>Tinta por color</SubTitle>
+      <SubTitle icon={IcoDroplet}>Tinta por color — este mes</SubTitle>
       <div style={chartCard}>
         {tintaPorColor.length === 0
           ? <div style={{ textAlign: 'center', color: '#3a3f5a', fontSize: 13, padding: '12px 0' }}>Sin datos aún — se llena al finalizar pedidos</div>
@@ -722,7 +722,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #22263a' }}>
-                    {['Color','Pedidos','Este mes','Total'].map(h => (
+                    {['Color','Pedidos','Kg'].map(h => (
                       <th key={h} style={{ padding: '6px 10px', color: '#545a78', fontWeight: 600, textAlign: h === 'Color' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -732,8 +732,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
                     <tr key={r.color} style={{ borderBottom: '1px solid #13161e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
                       <td style={{ padding: '8px 10px', color: '#e0e0e0', fontWeight: 600 }}>{r.color}</td>
                       <td style={{ padding: '8px 10px', color: '#545a78', textAlign: 'right' }}>{r.pedidos}</td>
-                      <td style={{ padding: '8px 10px', color: '#4be87a', textAlign: 'right', fontWeight: 700 }}>{r.mes > 0 ? r.mes.toFixed(2) + ' kg' : '—'}</td>
-                      <td style={{ padding: '8px 10px', color: '#4b8fe8', textAlign: 'right', fontWeight: 700 }}>{r.total.toFixed(2)} kg</td>
+                      <td style={{ padding: '8px 10px', color: '#4be87a', textAlign: 'right', fontWeight: 700 }}>{r.total.toFixed(2)} kg</td>
                     </tr>
                   ))}
                 </tbody>
@@ -743,7 +742,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       </div>
 
       {/* ── Por tipo de cinta ── */}
-      <SubTitle icon={IcoTapeRoll}>Por tipo de cinta</SubTitle>
+      <SubTitle icon={IcoTapeRoll}>Por tipo de cinta — este mes</SubTitle>
       <div style={chartCard}>
         {tipoCintaStats.length === 0
           ? <div style={{ textAlign: 'center', color: '#3a3f5a', fontSize: 13, padding: '12px 0' }}>Sin datos aún — se llena al finalizar pedidos</div>
@@ -751,7 +750,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #22263a' }}>
-                    {['Tipo','Pedidos','Rollos MP este mes','Rollos MP total'].map(h => (
+                    {['Tipo','Pedidos','Rollos MP'].map(h => (
                       <th key={h} style={{ padding: '6px 10px', color: '#545a78', fontWeight: 600, textAlign: h === 'Tipo' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -761,8 +760,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
                     <tr key={r.tipo} style={{ borderBottom: '1px solid #13161e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
                       <td style={{ padding: '8px 10px', color: '#e0e0e0', fontWeight: 600, textTransform: 'capitalize' }}>{r.tipo}</td>
                       <td style={{ padding: '8px 10px', color: '#545a78', textAlign: 'right' }}>{r.pedidos}</td>
-                      <td style={{ padding: '8px 10px', color: '#4be87a', textAlign: 'right', fontWeight: 700 }}>{r.rollosMes > 0 ? r.rollosMes.toFixed(2) : '—'}</td>
-                      <td style={{ padding: '8px 10px', color: '#4b8fe8', textAlign: 'right', fontWeight: 700 }}>{r.rollos.toFixed(2)}</td>
+                      <td style={{ padding: '8px 10px', color: '#4be87a', textAlign: 'right', fontWeight: 700 }}>{r.rollos.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
