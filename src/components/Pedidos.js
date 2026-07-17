@@ -99,17 +99,6 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   const medidaAuto = (a, l) => (a && l) ? `${a}"x${l}` : "";
   const upd = (k, v) => setForm(f => {
     const nf = { ...f, [k]: v };
-    // Rollos/caja ya no se escribe a mano -- se calcula solo de tipo + ancho
-    // (2"=36, 3"=24, Engomado=10).
-    if (k === "ancho" || k === "tipo") {
-      const anchoActual = k === "ancho" ? v : nf.ancho;
-      const tipoActual  = k === "tipo"  ? v : nf.tipo;
-      nf.rollos_caja = String(rollosPorCaja(anchoActual, tipoActual === "Engomado"));
-    }
-    if (k === "cajas" || k === "ancho" || k === "tipo") {
-      const c = k === "cajas" ? v : nf.cajas;
-      nf.rollos_totales = (c && nf.rollos_caja) ? String(Number(c) * Number(nf.rollos_caja)) : "";
-    }
     // Medida se arma sola de Ancho x Largo -- deja de auto-llenarse en
     // cuanto la escribes distinto a mano (para medidas que no siguen
     // el patron normal).
@@ -120,6 +109,18 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
         const l = k === "largo" ? v : nf.largo;
         nf.medida = medidaAuto(a, l);
       }
+    }
+    // Rollos/caja ya no se escribe a mano -- se calcula solo de tipo + ancho
+    // (2"=36, 3"=24, Engomado=10). Si no hay "Ancho" lleno (ej. se escribio
+    // la Medida directo, como en Ventas), se saca el ancho de ahi -- antes
+    // solo miraba el campo Ancho y escribir la Medida a mano no actualizaba
+    // rollos/caja.
+    if (k === "ancho" || k === "tipo" || k === "medida") {
+      nf.rollos_caja = String(rollosPorCaja(anchoDePedido(nf), nf.tipo === "Engomado"));
+    }
+    if (k === "cajas" || k === "ancho" || k === "tipo" || k === "medida") {
+      const c = k === "cajas" ? v : nf.cajas;
+      nf.rollos_totales = (c && nf.rollos_caja) ? String(Number(c) * Number(nf.rollos_caja)) : "";
     }
     return nf;
   });
