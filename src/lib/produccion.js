@@ -30,6 +30,18 @@ export const rollosPorCaja = (ancho, esEngomado) => {
   return anchoN === 3 ? 24 : 36;
 };
 
+// Ancho en pulgadas de un pedido, sin importar de donde vino: Pedidos.js
+// guarda "ancho" suelto, ModoVentas.js solo guarda "medida" (ej. "3x100").
+// Engomado siempre es 3" aunque el campo no lo diga -- se usa para elegir
+// la tarifa de centro correcta al costear (ver tipoCentro en lib/costos.js).
+export const anchoDePedido = (pedido) => {
+  if (pedido?.tipo === 'Engomado') return 3;
+  const directo = parseFloat(String(pedido?.ancho ?? '').replace(/[^0-9.]/g, ''));
+  if (directo) return directo;
+  const deMedida = String(pedido?.medida ?? '').match(/^\s*(\d+(\.\d+)?)/);
+  return deMedida ? parseFloat(deMedida[1]) : 0;
+};
+
 // Formula compartida entre Cotizador y Modo Operador para rendimiento de
 // rollo (rollosMP) y consumo de tinta/solvente. Antes estaba duplicada en
 // ambos componentes y un mismo bug (pistas fijas en la formula de tinta)

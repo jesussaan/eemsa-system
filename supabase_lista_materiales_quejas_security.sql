@@ -5,7 +5,7 @@
 
 -- lista_materiales: se lee en Modo Emilio y App.js (realtime), se queda
 -- abierta a lectura. Insert/update/delete ahora solo pasan por
--- /api/lista-materiales (service role key). Modo Emilio no tiene PIN,
+-- /api/registro?tabla=lista-materiales (service role key). Modo Emilio no tiene PIN,
 -- así que ese endpoint no exige token -- el punto es cerrar el acceso
 -- directo a la tabla vía la anon key, no agregar login a Emilio.
 alter table public.lista_materiales enable row level security;

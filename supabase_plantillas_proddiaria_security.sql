@@ -5,13 +5,13 @@
 
 -- plantillas: solo la usa Pedidos.js dentro de Supervisor. Se bloquea
 -- por completo (lectura y escritura) -- ahora todo pasa por
--- /api/plantillas (token de supervisor + service role key).
+-- /api/registro?tabla=plantillas (token de supervisor + service role key).
 alter table public.plantillas enable row level security;
 -- Sin politicas para anon => acceso directo denegado por defecto.
 
 -- prod_diaria: se lee en Dashboard/Modo TV/App.js, se queda abierta a
 -- lectura. Solo se bloquea insert/update/delete -- ahora pasa por
--- /api/prod-diaria (token de supervisor).
+-- /api/registro?tabla=prod-diaria (token de supervisor).
 alter table public.prod_diaria enable row level security;
 create policy "anon_select" on public.prod_diaria for select to anon using (true);
 

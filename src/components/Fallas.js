@@ -28,7 +28,7 @@ export default function Fallas({ fallas, setFallas }) {
     setLoading(true);
     const nuevo = { id: uid(), created: today(), fecha: form.fecha, maq: form.maq, comp: form.comp, min_paro: form.min_paro, sev: form.sev, op: form.op, descripcion: form.descripcion, accion: form.accion, status: form.status };
     try {
-      const res = await fetch('/api/fallas', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
+      const res = await fetch('/api/registro?tabla=fallas', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
       const data = await res.json();
       if (!res.ok) { showToast("❌ Error: " + (data.error || "desconocido")); setLoading(false); return; }
       setFallas(f => [nuevo, ...f]);
@@ -46,12 +46,12 @@ export default function Fallas({ fallas, setFallas }) {
 
   const del = async id => {
     if (!window.confirm("¿Eliminar?")) return;
-    const res = await fetch('/api/fallas', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
+    const res = await fetch('/api/registro?tabla=fallas', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
     if (!res.ok) { showToast("❌ Error al eliminar"); return; }
     setFallas(f => f.filter(x => x.id !== id));
   };
   const close = async id => {
-    const res = await fetch('/api/fallas', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ action: 'cerrar', id }) });
+    const res = await fetch('/api/registro?tabla=fallas', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ action: 'cerrar', id }) });
     if (!res.ok) { showToast("❌ Error al cerrar"); return; }
     setFallas(f => f.map(x => x.id === id ? { ...x, status: "cerrada" } : x));
   };
@@ -66,7 +66,7 @@ export default function Fallas({ fallas, setFallas }) {
       min_paro: editandoFalla.min_paro, sev: editandoFalla.sev, op: editandoFalla.op,
       descripcion: editandoFalla.descripcion, accion: editandoFalla.accion, status: editandoFalla.status,
     };
-    const res = await fetch('/api/fallas', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ action: 'completo', id: editandoFalla.id, ...actualizado }) });
+    const res = await fetch('/api/registro?tabla=fallas', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ action: 'completo', id: editandoFalla.id, ...actualizado }) });
     const data = await res.json();
     if (!res.ok) { showToast("❌ Error: " + (data.error || "desconocido")); setGuardandoEdicion(false); return; }
     setFallas(fs => fs.map(x => x.id === editandoFalla.id ? { ...x, ...actualizado } : x));

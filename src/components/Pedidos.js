@@ -6,7 +6,7 @@ import CalculadoraProduccion from './CalculadoraProduccion';
 import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
 import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada, unificarPorTexto } from '../lib/utils';
-import { rollosPorCaja } from '../lib/produccion';
+import { rollosPorCaja, anchoDePedido } from '../lib/produccion';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT, REBOB_CLIENTE } from '../lib/constants';
 import { sendWhatsApp, mensajePedidoNuevo } from '../utils/whatsapp';
 
@@ -34,7 +34,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   const formRef = useRef(null);
 
   useEffect(() => {
-    fetch('/api/plantillas', { headers: authHeaders() })
+    fetch('/api/registro?tabla=plantillas', { headers: authHeaders() })
       .then(res => res.ok ? res.json() : [])
       .then(data => setPlantillas(data || []))
       .catch(() => {});
@@ -76,7 +76,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
       rollos_caja: form.rollos_caja ? Number(form.rollos_caja) : null,
       color: form.color || null, notas: form.notas || null,
     };
-    const res = await fetch('/api/plantillas', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nueva) });
+    const res = await fetch('/api/registro?tabla=plantillas', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nueva) });
     const data = await res.json();
     if (!res.ok) { showToast("❌ Error: " + (data.error || "desconocido")); return; }
     setPlantillas(p => [data, ...p]);
@@ -86,7 +86,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   };
 
   const eliminarPlantilla = async (id) => {
-    await fetch('/api/plantillas', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
+    await fetch('/api/registro?tabla=plantillas', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
     setPlantillas(p => p.filter(x => x.id !== id));
   };
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
@@ -273,6 +273,39 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
       cliche_url: modalPedido.cliche_url || null,
       foto_producto_url: modalPedido.foto_producto_url || null,
     };
+    // El costo se recalcula aqui tambien -- si el supervisor corrige rollos
+    // usados, tinta o alcohol despues de que Modo Operador ya calculo el
+    // costo, ese numero se queda desactualizado a menos que se recalcule
+    // con los valores nuevos (paso lo mismo que con el pedido de Ariat).
+    if (actualizado.piezas_prod > 0) {
+      try {
+        const diasProd = modalPedido.inicio_ts
+          ? Math.max(0.5, Math.ceil((Date.now() - new Date(modalPedido.inicio_ts).getTime()) / 86400000))
+          : 1;
+        const costoRes = await fetch('/api/costos?action=calcular', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rollosMP: actualizado.rollos_usados || 0,
+            tintaKg: actualizado.tinta_kg || 0,
+            solventeKg: actualizado.alcohol_litros || 0,
+            cajas: actualizado.cajas || 0,
+            piezasBuenas: actualizado.piezas_prod,
+            sticky: modalPedido.stickyback || 0,
+            diasProd,
+            colorKey: actualizado.color || actualizado.tinta_tipo || '',
+            tintaKg2: actualizado.tinta_kg2 || 0,
+            colorKey2: actualizado.color2 || '',
+            esEngomado: actualizado.tipo === 'Engomado',
+            tipoCentro: anchoDePedido(actualizado) === 3 ? '3' : '2',
+          }),
+        });
+        if (costoRes.ok) {
+          const { costo_pieza } = await costoRes.json();
+          actualizado.costo_pieza = costo_pieza;
+        }
+      } catch (_) {}
+    }
     if (modalClicheImg) {
       const { data: up, error: upErr } = await subirConUrlFirmada(supabase, "cliches", `${uid()}_${modalClicheImg.name}`, modalClicheImg, authHeaders());
       if (upErr) { showToast("⚠ Foto no subida: " + upErr.message); }

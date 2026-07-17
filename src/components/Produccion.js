@@ -25,7 +25,7 @@ export default function Produccion({ prodDiaria, setProdDiaria, pedidos: pedidos
     if (!form.num_pedido || !form.cajas_dia) { showToast("⚠ Llena pedido y cajas"); return; }
     setLoading(true);
     const nuevo = { id: uid(), created: today(), fecha: form.fecha, num_pedido: form.num_pedido, cajas_dia: form.cajas_dia, op: form.op, notas: form.notas };
-    const res = await fetch('/api/prod-diaria', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
+    const res = await fetch('/api/registro?tabla=prod-diaria', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
     const data = await res.json();
     if (!res.ok) { showToast("❌ Error: " + (data.error || "desconocido")); setLoading(false); return; }
     setProdDiaria(p => [nuevo, ...p]);
@@ -36,7 +36,7 @@ export default function Produccion({ prodDiaria, setProdDiaria, pedidos: pedidos
 
   const del = async id => {
     if (!window.confirm("¿Eliminar registro?")) return;
-    await fetch('/api/prod-diaria', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
+    await fetch('/api/registro?tabla=prod-diaria', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
     setProdDiaria(p => p.filter(x => x.id !== id));
   };
 

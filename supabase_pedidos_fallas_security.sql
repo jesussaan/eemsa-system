@@ -5,7 +5,7 @@
 
 -- Lectura abierta (Dashboard, Modo TV, Clientes, realtime dependen de
 -- esto). Se bloquea insert/update/delete directo desde el navegador --
--- ahora todo pasa por /api/pedidos y /api/fallas (service role key).
+-- ahora todo pasa por /api/pedidos y /api/registro?tabla=fallas (service role key).
 
 alter table public.pedidos enable row level security;
 create policy "anon_select" on public.pedidos for select to anon using (true);

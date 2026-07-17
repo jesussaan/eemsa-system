@@ -4,6 +4,7 @@ import ClicheImg from './ClicheImg';
 import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
 import { today, alertaEntrega, subirConUrlFirmada } from '../lib/utils';
+import { anchoDePedido } from '../lib/produccion';
 import { sendPush } from '../lib/push';
 import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV, UMBRAL_MERMA } from '../lib/constants';
@@ -116,7 +117,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
             colorKey: pedidoSel.color || pedidoSel.tinta_tipo || '',
             tintaKg2: tintaKg2Num, colorKey2: pedidoSel.color2 || '',
             esEngomado: pedidoSel.tipo === 'Engomado',
-            tipoCentro: '2',
+            tipoCentro: anchoDePedido(pedidoSel) === 3 ? '3' : '2',
           }),
         });
         if (costoRes.ok) {
@@ -166,7 +167,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
       sev: formFalla.sev, op: "William",
       descripcion: formFalla.descripcion, accion: "", status: "abierta",
     };
-    const res = await fetch('/api/fallas', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nueva) });
+    const res = await fetch('/api/registro?tabla=fallas', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nueva) });
     if (!res.ok) { showToast("❌ Error al guardar falla"); setLoading(false); return; }
     setFallas(fs => [nueva, ...fs]);
     setVista(null);
