@@ -89,6 +89,27 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
     setLoading(null);
   };
 
+  // Rollo mixto: se da de alta el lote completo de una vez (mismo rollo
+  // fisico, Emilio lo revisa junto) en vez de una medida a la vez.
+  const darDeAltaLote = async (grupo) => {
+    setLoading(grupo[0].id);
+    const update = { status: "terminado", fecha_termino: today() };
+    try {
+      for (const p of grupo) {
+        const res = await fetch('/api/pedidos', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ action: 'estado', id: p.id, ...update }) });
+        if (!res.ok) throw new Error('fallo al dar de alta ' + p.id);
+      }
+      const ids = new Set(grupo.map(p => p.id));
+      setPedidos(ps => ps.map(p => ids.has(p.id) ? { ...p, ...update } : p));
+      sendWhatsApp(`✅ Lote #${grupo[0].folio_rebobinado} (${grupo.length} medidas) dado de alta por Emilio`);
+      sendPush('✅ Lote dado de alta', `Lote #${grupo[0].folio_rebobinado} — dado de alta por Emilio`);
+      showToast("✓ Lote dado de alta");
+    } catch (_) {
+      showToast("❌ Error al dar de alta el lote");
+    }
+    setLoading(null);
+  };
+
   const calcTiempo = (p) => {
     const start = p.inicio_ts  ? new Date(p.inicio_ts)
                 : p.fecha_inicio   ? new Date(p.fecha_inicio   + 'T07:00:00')
@@ -368,16 +389,53 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
           </div>
         )}
 
-        {gruposPendientes.map(grupo => (
-        <div key={grupo[0].id} style={grupo.length > 1 ? {
-          border: `1px solid ${REBOB_COLOR}55`, borderRadius: 14, padding: 10, marginBottom: 12, background: "rgba(62,207,192,0.04)",
-        } : undefined}>
-          {grupo.length > 1 && (
-            <div style={{ fontSize: 11, fontWeight: 800, color: REBOB_COLOR, letterSpacing: ".05em", marginBottom: 8 }}>
-              🧵 LOTE #{grupo[0].folio_rebobinado} — ROLLO MIXTO ({grupo.length} medidas)
+        {gruposPendientes.map(grupo => grupo.length > 1 ? (
+          // Rollo mixto: una sola tarjeta combinada (no una tarjeta grande
+          // por cada medida) -- comparten cliente/lote, asi que eso se
+          // muestra una vez arriba, y cada medida es un renglon compacto.
+          // "Dar de alta" confirma las dos medidas juntas de una vez,
+          // porque fisicamente son el mismo rollo que Emilio revisa junto.
+          <div key={grupo[0].id} style={{ ...S.card, borderLeft: `4px solid ${REBOB_COLOR}` }}>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 19, fontWeight: 700, color: "#fff" }}>{grupo[0].cliente}</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13, marginTop: 6 }}>
+                <span style={{ color: "#aaa" }}>{grupo[0].tipo}</span>
+                <span style={{ color: "#aaa" }}>{grupo[0].color}</span>
+                <span style={{ color: REBOB_COLOR, fontWeight: 700 }}>🧵 Lote #{grupo[0].folio_rebobinado} — Rollo mixto ({grupo.length} medidas)</span>
+              </div>
             </div>
-          )}
-          {grupo.map(p => {
+            <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
+              {grupo.map(p => (
+                <div key={p.id} style={{ background: "#13161e", borderRadius: 10, padding: "10px 12px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <span style={{ fontSize: 17, fontWeight: 900, color: "#c9922a" }}>{p.medida}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: "#4be87a" }}>{p.cajas} cajas</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 14, fontSize: 12, color: "#8a90ac", flexWrap: "wrap" }}>
+                    <span>{Number(p.piezas_prod || 0).toLocaleString()} piezas</span>
+                    {p.rollos_usados != null && <span>{Number(p.rollos_usados).toFixed(2)} rollo MP</span>}
+                    {p.merma_pct != null && <span style={{ color: Number(p.merma_pct) > 3 ? "#ff4d4d" : "#4be87a" }}>{Number(p.merma_pct).toFixed(2)}% merma</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ textAlign: "right", fontSize: 11, color: "#555", marginBottom: 10 }}>
+              Rollo MP usado total: <strong style={{ color: "#4be87a" }}>{grupo.reduce((s, p) => s + (Number(p.rollos_usados) || 0), 0).toFixed(2)}</strong>
+            </div>
+            <button
+              onClick={() => darDeAltaLote(grupo)}
+              disabled={loading === grupo[0].id}
+              style={{
+                width: "100%", padding: "14px 0", borderRadius: 10, border: "none",
+                background: loading === grupo[0].id ? "#2a2d3a" : "#4be87a",
+                color: "#000", fontSize: 15, fontWeight: 800,
+                cursor: loading === grupo[0].id ? "default" : "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}>
+              {loading === grupo[0].id ? "Guardando…" : <><Ico icon={IcoCheck} size={16} /> Ya di de alta el lote</>}
+            </button>
+          </div>
+        ) : grupo.map(p => {
           const esRebobinado = p.cliente === REBOB_CLIENTE;
           // Rebobinado guarda "cajas" directo (cajas completas del rollo),
           // no "rollos_caja" -- por eso no se puede sacar cajasProducidas
@@ -632,9 +690,8 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
 
             </div>
           );
-          })}
-        </div>
-        ))}
+        })
+        )}
         </>}
 
       </main>

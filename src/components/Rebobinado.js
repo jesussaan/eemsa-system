@@ -1,12 +1,43 @@
 import { useState } from "react";
 import { authHeaders } from '../lib/auth';
 import { uid, today } from '../lib/utils';
-import { REBOB_CLIENTE, REBOB_COLOR, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, calcularPiezasTeoricas } from '../lib/constants';
+import { REBOB_CLIENTE, REBOB_COLOR, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, REBOB_PIEZAS_POR_VUELTA, calcularPiezasTeoricas } from '../lib/constants';
 import { IcoCheck } from './Icons';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
 const corteInicial = () => ({ id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0], cajasCompletas: "", piezasSueltas: "", merma: "" });
+
+// Metros de MP que se llevo un corte: piezas reales / piezas-por-vuelta =
+// vueltas usadas; vueltas x largo de pieza = metros.
+const metrosDeCorte = (c) => {
+  const piezasPorCaja = REBOB_PIEZAS_POR_CAJA[c.ancho] || 1;
+  const piezasPorVuelta = REBOB_PIEZAS_POR_VUELTA[c.ancho] || 0;
+  const cajasN = Number(c.cajasCompletas) || 0;
+  const sueltasN = Number(c.piezasSueltas) || 0;
+  const piezasReal = cajasN * piezasPorCaja + sueltasN;
+  const vueltasUsadas = piezasPorVuelta > 0 ? piezasReal / piezasPorVuelta : 0;
+  return vueltasUsadas * (Number(c.largoPieza) || 0);
+};
+
+// Fraccion de rollo por corte, proporcional a los metros reales de cada
+// uno -- asi la suma entre los cortes de un mismo rollo SIEMPRE da
+// exactamente 1, en vez de comparar cada uno contra su propio 100%
+// teorico por separado (eso solo se acercaba a 1 por casualidad
+// geometrica, nunca exacto, por la vuelta final que no se completa).
+const calcularFraccionesRollo = (listaCortes) => {
+  if (listaCortes.length <= 1) return listaCortes.map(() => 1);
+  const metros = listaCortes.map(metrosDeCorte);
+  const total = metros.reduce((s, m) => s + m, 0);
+  if (total <= 0) return listaCortes.map(() => 0);
+  const crudas = metros.map(m => m / total);
+  // El ultimo corte absorbe el redondeo de los demas para que la suma
+  // guardada de exactamente 1, no 0.999... o 1.001... por punto flotante.
+  const sumaMenosUltimo = crudas.slice(0, -1).reduce((s, f) => s + Number(f.toFixed(4)), 0);
+  return crudas.map((f, i) => i === crudas.length - 1
+    ? Number((1 - sumaMenosUltimo).toFixed(4))
+    : Number(f.toFixed(4)));
+};
 
 export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
   const formInicial = {
@@ -44,17 +75,7 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
     const mermaNum = c.merma !== "" ? Number(c.merma) : null;
     const mermaPct = mermaNum != null && piezasReal > 0 ? ((mermaNum / piezasReal) * 100).toFixed(2) : null;
 
-    // Cuando el rollo sale mixto, cada medida solo se llevo una parte del
-    // jumbo de 8000m, no un rollo completo -- antes se guardaba "1 rollo
-    // usado" por cada medida, lo que inflaba el consumo si eran 2-3 cortes
-    // del mismo rollo fisico. El 100% de un rollo NO es 8000m/largoPieza
-    // (division exacta) porque la ultima vuelta casi nunca se completa --
-    // el 100% real es piezasTeoricas (ya trae el floor de vueltas, ver
-    // calcularPiezasTeoricas). Por eso la fraccion usada es piezas reales
-    // entre piezas teoricas, no metros entre 8000.
-    const rollosUsadosFraccion = piezasTeoricas > 0 ? piezasReal / piezasTeoricas : 0;
-
-    return { vueltas, piezasTeoricas, piezasReal, diferencia, piezasPorCaja, cajasCompletasN, piezasSueltasN, mermaNum, mermaPct, rollosUsadosFraccion };
+    return { vueltas, piezasTeoricas, piezasReal, diferencia, piezasPorCaja, cajasCompletasN, piezasSueltasN, mermaNum, mermaPct };
   };
 
   const esMixto = cortes.length > 1;
@@ -77,6 +98,7 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
       .filter(p => p.cliente === REBOB_CLIENTE)
       .map(p => Number(p.folio_rebobinado) || 0)) + 1;
     const mixtoReal = validos.length > 1;
+    const fracciones = calcularFraccionesRollo(validos);
     const nuevos = [];
     for (let i = 0; i < validos.length; i++) {
       const c = validos[i];
@@ -90,7 +112,7 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
         // asi la tarjeta de Modo Emilio los muestra en el encabezado y bajo "Rollos MP usados"
         // sin tocar su logica, igual que con los pedidos normales de cliente.
         tipo: form.material, color: form.adhesivo, medida: `${c.ancho} x ${c.largoPieza}m`,
-        cajas: calc.cajasCompletasN, piezas_prod: calc.piezasReal, rollos_usados: Number(calc.rollosUsadosFraccion.toFixed(4)), op: REBOB_OPERADOR_EQUIPO,
+        cajas: calc.cajasCompletasN, piezas_prod: calc.piezasReal, rollos_usados: fracciones[i], op: REBOB_OPERADOR_EQUIPO,
         merma: calc.mermaNum, merma_pct: calc.mermaPct,
         fecha_solicitud: today(), fecha_inicio: form.fecha_inicio, fecha_termino: form.fecha_termino,
         notas: (form.notas
@@ -224,8 +246,9 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
           ⚠ Rollo mixto: se van a crear {cortes.length} pedidos por separado, uno por cada medida, para que Modo Emilio muestre cuántas piezas salieron de cada una. Comparten el mismo folio (ej. 1A, 1B, 1C) para que se identifiquen como del mismo rollo.
         </div>
       )}
-      {cortes.map((c, i) => {
+      {(() => { const fraccionesRollo = calcularFraccionesRollo(cortes); return cortes.map((c, i) => {
         const calc = calcCorte(c);
+        const fraccionRollo = fraccionesRollo[i];
         return (
           <div key={c.id} style={{ background: "#1a1d26", borderRadius: 10, padding: 12, marginBottom: 12, border: esMixto ? "1px solid #2a2e3a" : "none" }}>
             {esMixto && (
@@ -244,7 +267,7 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
               <div className="field"><label>Cajas completas * <span style={{ color: "#666", fontWeight: 400 }}>({calc.piezasPorCaja}/caja)</span></label><input type="number" value={c.cajasCompletas} onChange={e => updCorte(c.id, "cajasCompletas", e.target.value)} placeholder="27" /></div>
               <div className="field"><label>Piezas sueltas <span style={{ color: "#666", fontWeight: 400 }}>(no completan caja)</span></label><input type="number" value={c.piezasSueltas} onChange={e => updCorte(c.id, "piezasSueltas", e.target.value)} placeholder="18" /></div>
               <div className="field"><label>Total piezas (automático)</label><input readOnly value={(c.cajasCompletas || c.piezasSueltas) ? `${calc.piezasReal} pzas` : "—"} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
-              <div className="field"><label>Rollo MP usado <span style={{ color: "#666", fontWeight: 400 }}>(fracción, automático)</span></label><input readOnly value={(c.cajasCompletas || c.piezasSueltas) ? calc.rollosUsadosFraccion.toFixed(2) : "—"} style={{ background: "#1a2744", color: "#4b8fe8" }} /></div>
+              <div className="field"><label>Rollo MP usado <span style={{ color: "#666", fontWeight: 400 }}>(fracción, automático)</span></label><input readOnly value={(c.cajasCompletas || c.piezasSueltas) ? fraccionRollo.toFixed(2) : "—"} style={{ background: "#1a2744", color: "#4b8fe8" }} /></div>
               <div className="field"><label>Merma (piezas)</label><input type="number" value={c.merma} onChange={e => updCorte(c.id, "merma", e.target.value)} placeholder="0" /></div>
               <div className="field"><label>% Merma</label><input readOnly value={calc.mermaPct != null ? `${calc.mermaPct}%` : "—"} style={{ background: "#1a2744", color: calc.mermaPct > 3 ? "#ff4d4d" : "#4be87a" }} /></div>
             </div>
@@ -256,17 +279,15 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
             </div>
           </div>
         );
-      })}
+      }); })()}
       {esMixto && (() => {
-        const sumaFraccion = cortes.reduce((s, c) => s + calcCorte(c).rollosUsadosFraccion, 0);
-        // El redondeo de cada corte (piezas enteras / piezas por vuelta)
-        // deja un ruido minimo en la suma (ej. 1.006 en vez de 1.0) que no
-        // es un error real -- si esta bien cerca de un entero, se muestra
-        // ese entero limpio en vez del decimal con ruido.
-        const sumaMostrada = Math.abs(sumaFraccion - Math.round(sumaFraccion)) < 0.02 ? Math.round(sumaFraccion) : sumaFraccion;
+        // Las fracciones ya se calculan proporcionales entre si (ver
+        // calcularFraccionesRollo), asi que esta suma siempre da 1 exacto
+        // -- se deja como confirmacion visual, no como advertencia.
+        const suma = calcularFraccionesRollo(cortes).reduce((s, f) => s + f, 0);
         return (
           <div style={{ textAlign: "right", fontSize: 12, color: "#aaa", marginBottom: 8 }}>
-            Suma de rollo usado entre las {cortes.length} medidas: <strong style={{ color: Math.abs(sumaFraccion - 1) > 0.1 ? "#ff4d4d" : "#4be87a" }}>{sumaMostrada.toFixed(2)}</strong> <span style={{ color: "#555" }}>(debería acercarse a 1 = un jumbo completo)</span>
+            Suma de rollo usado entre las {cortes.length} medidas: <strong style={{ color: "#4be87a" }}>{suma.toFixed(2)}</strong>
           </div>
         );
       })()}
@@ -280,52 +301,53 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
       </button>
 
       <h3 className="sub-title" style={{ marginTop: 20 }}>Historial</h3>
-      {gruposHistorial.length === 0 ? <p className="empty">Sin registros todavía.</p> : gruposHistorial.map(grupo => (
-        <div key={grupo[0].id} style={{
-          background: grupo.length > 1 ? "rgba(62,207,192,0.06)" : "transparent",
-          border: grupo.length > 1 ? `1px solid ${REBOB_COLOR}44` : "none",
-          borderRadius: 10, padding: grupo.length > 1 ? 8 : 0, marginBottom: 12,
-        }}>
-          {grupo.length > 1 && (
-            <div style={{ fontSize: 11, fontWeight: 700, color: REBOB_COLOR, letterSpacing: ".05em", marginBottom: 6 }}>
-              🧵 LOTE #{grupo[0].folio_rebobinado} — ROLLO MIXTO ({grupo.length} medidas)
+      {gruposHistorial.length === 0 ? <p className="empty">Sin registros todavía.</p> : gruposHistorial.map(grupo => {
+        const esLote = grupo.length > 1;
+        const statusGeneral = grupo.every(p => p.status === "terminado") ? "terminado" : "pendiente";
+        return (
+          <div key={grupo[0].id} className="list-item" style={{ marginTop: 4 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <div>
+                <strong>{esLote ? `🧵 Lote #${grupo[0].folio_rebobinado}` : `#${grupo[0].num}`}</strong> · {grupo[0].tipo} · {grupo[0].color}
+              </div>
+              <span className={`badge ${statusGeneral === "terminado" ? "b-green" : "b-orange"}`}>{statusGeneral === "terminado" ? "Terminado" : "Falta dar de alta"}</span>
             </div>
-          )}
-          {grupo.map(p => (
-            <div key={p.id} className="list-item" style={{ marginTop: 4 }}>
-              {editId === p.id ? (
-                <div>
-                  <div className="form-grid">
-                    <div className="field"><label>Cajas completas</label><input type="number" value={editForm.cajasCompletas} onChange={e => setEditForm(f => ({ ...f, cajasCompletas: e.target.value }))} /></div>
-                    <div className="field"><label>Piezas sueltas</label><input type="number" value={editForm.piezasSueltas} onChange={e => setEditForm(f => ({ ...f, piezasSueltas: e.target.value }))} /></div>
-                    <div className="field"><label>Merma (piezas)</label><input type="number" value={editForm.merma} onChange={e => setEditForm(f => ({ ...f, merma: e.target.value }))} /></div>
-                  </div>
-                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <button className="btn btn-primary btn-sm" onClick={() => guardarEdicion(p)}>💾 Guardar</button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setEditId(null)}>Cancelar</button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                    <div><strong>#{p.num}</strong> · {p.tipo} · {p.color} · {p.medida}</div>
-                    <span className={`badge ${p.status === "terminado" ? "b-green" : "b-orange"}`}>{p.status === "terminado" ? "Terminado" : "Falta dar de alta"}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                    <div className="muted">{p.cajas} cajas · {p.piezas_prod} piezas · {p.op}</div>
-                    {p.status === "pendiente" && (
-                      <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
-                        <button onClick={() => abrirEdicion(p)} style={{ background: "transparent", border: "none", color: "#4b8fe8", cursor: "pointer", fontSize: 11 }}>✏️ Editar</button>
-                        <button onClick={() => borrar(p.id)} style={{ background: "transparent", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: 11 }}>🗑️ Borrar</button>
+            {grupo.map((p, i) => {
+              const corteLetra = esLote ? (String(p.num).match(/^\d+([A-Za-z])$/) || [])[1] : null;
+              return (
+                <div key={p.id} style={{ marginTop: 6, paddingTop: i > 0 || esLote ? 6 : 0, borderTop: esLote && i > 0 ? "1px solid #22252f" : "none" }}>
+                  {editId === p.id ? (
+                    <div>
+                      <div className="form-grid">
+                        <div className="field"><label>Cajas completas</label><input type="number" value={editForm.cajasCompletas} onChange={e => setEditForm(f => ({ ...f, cajasCompletas: e.target.value }))} /></div>
+                        <div className="field"><label>Piezas sueltas</label><input type="number" value={editForm.piezasSueltas} onChange={e => setEditForm(f => ({ ...f, piezasSueltas: e.target.value }))} /></div>
+                        <div className="field"><label>Merma (piezas)</label><input type="number" value={editForm.merma} onChange={e => setEditForm(f => ({ ...f, merma: e.target.value }))} /></div>
                       </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      ))}
+                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                        <button className="btn btn-primary btn-sm" onClick={() => guardarEdicion(p)}>💾 Guardar</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setEditId(null)}>Cancelar</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                      <div className="muted">
+                        {corteLetra && <strong style={{ color: REBOB_COLOR }}>{corteLetra} </strong>}
+                        {p.medida} · {p.cajas} cajas · {p.piezas_prod} piezas
+                      </div>
+                      {p.status === "pendiente" && (
+                        <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+                          <button onClick={() => abrirEdicion(p)} style={{ background: "transparent", border: "none", color: "#4b8fe8", cursor: "pointer", fontSize: 11 }}>✏️ Editar</button>
+                          <button onClick={() => borrar(p.id)} style={{ background: "transparent", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: 11 }}>🗑️ Borrar</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
 
       {toast && <div className="toast">{toast}</div>}
       </main>
