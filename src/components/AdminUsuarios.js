@@ -96,10 +96,10 @@ export default function AdminUsuarios({ onSalir }) {
               </div>
             </div>
             <div className="muted" style={{ marginBottom: 8 }}>Registrado: {(u.created_at || "").slice(0, 10)}</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {MODOS.map(m => (
-                <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, cursor: "pointer" }}>
-                  <input type="checkbox" checked={(u.modos || []).includes(m.id)} onChange={() => toggleModo(u, m.id)} />
+                <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, cursor: "pointer", padding: "8px 10px", borderRadius: 8, background: (u.modos || []).includes(m.id) ? "rgba(75,232,122,0.12)" : "#13161e", border: "1px solid #2a2d3a" }}>
+                  <input type="checkbox" checked={(u.modos || []).includes(m.id)} onChange={() => toggleModo(u, m.id)} style={{ width: 18, height: 18, cursor: "pointer" }} />
                   {m.label}
                 </label>
               ))}
