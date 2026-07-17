@@ -1,14 +1,22 @@
 import { useState } from 'react';
 import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_MP_ROLLO_PRECIO } from '../lib/constants';
-import { calcularProduccion, MP_ANCHO, MP_LARGO, PORTALICHES, DISENOS, rollosPorCaja } from '../lib/produccion';
+import { calcularProduccion, MP_ANCHO, MP_LARGO, PORTALICHES, DISENOS, rollosPorCaja, anchoDePedido, largoDePedido } from '../lib/produccion';
 
-export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial, onConfirmar, inline }) {
-  const [ancho,      setAncho]      = useState(pedidoInicial?.ancho       ? String(pedidoInicial.ancho)       : '2');
-  const [largo,      setLargo]      = useState(pedidoInicial?.largo       ? String(pedidoInicial.largo)       : '100');
+export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial, onConfirmar, inline, sugerido }) {
+  // Ancho/largo se sacan de Medida cuando el pedido no los trae aparte (ej.
+  // pedidos anotados desde Ventas, que solo guardan Medida) -- antes se
+  // usaba pedidoInicial.ancho/largo crudos y se caia en el default fijo
+  // ("2"/"100") sin avisar, aunque el pedido si tuviera la medida real.
+  const [ancho,      setAncho]      = useState(String(anchoDePedido(pedidoInicial) || 2));
+  const [largo,      setLargo]      = useState(String(largoDePedido(pedidoInicial) || 100));
   const [cajas,      setCajas]      = useState(pedidoInicial?.cajas       ? String(pedidoInicial.cajas)       : '');
   const [merma,      setMerma]      = useState('');
-  const [portaliche, setPortaliche] = useState('30.9');
-  const [diseno,     setDiseno]     = useState('normal');
+  // Portacliche/diseno: si viene "sugerido" (ultimo pedido igual ya
+  // finalizado, ver ModoOperador.js), se prellenan con eso en vez del
+  // default fijo -- el operador los puede seguir cambiando si el cliche
+  // de esta corrida es distinto.
+  const [portaliche, setPortaliche] = useState(String(sugerido?.portaliche || '30.9'));
+  const [diseno,     setDiseno]     = useState(sugerido?.diseno || 'normal');
   const [clicheNA,   setClicheNA]   = useState(false);
 
   // Engomado: rollo de MP fijo (136mm x 685m, $900/rollo, corte real 6.8cm
@@ -22,8 +30,8 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   // 2do color: el pedido ya lo declaro (Pedidos.js), mismas piezas de la
   // corrida pero su propio portacliche y diseno/cobertura.
   const tieneColor2   = !!pedidoInicial?.color2;
-  const [portaliche2, setPortaliche2] = useState('30.9');
-  const [diseno2,     setDiseno2]     = useState('normal');
+  const [portaliche2, setPortaliche2] = useState(String(sugerido?.portaliche2 || '30.9'));
+  const [diseno2,     setDiseno2]     = useState(sugerido?.diseno2 || 'normal');
 
   // Datos reales (flujo finalizar) -- se captura "cajas producidas" y las
   // piezas se calculan solas (cajas x rollos/caja), en vez de escribirlas
@@ -215,6 +223,10 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
               piezasProd:  piezasProd !== "" ? Number(piezasProd) : null,
               mermaReal:   mermaReal  !== "" ? Number(mermaReal)  : null,
               mermaPct, stickyback,
+              diseno:      clicheNA ? null : diseno,
+              portaliche:  clicheNA ? null : (Number(portaliche) || null),
+              diseno2:     (tieneColor2 && !clicheNA) ? diseno2 : null,
+              portaliche2: (tieneColor2 && !clicheNA) ? (Number(portaliche2) || null) : null,
             })}
           >
             ✅ Confirmar y enviar a Emilio

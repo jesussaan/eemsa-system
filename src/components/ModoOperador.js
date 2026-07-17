@@ -34,6 +34,22 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
   const compsSugeridos = [...new Set([...COMPS, ...fallas.map(f => f.comp).filter(Boolean)])];
 
+  // Portacliché/diseño no los sabe nadie mas que Produccion en el momento de
+  // correr el trabajo (Ventas/Cotizador no lo tienen) -- se sugiere el
+  // ultimo valor que el mismo Operador guardo para este cliente+medida+color,
+  // en vez de arrancar siempre en el default fijo. Editable si el cliche
+  // de esta corrida cambio.
+  const sugeridoCliche = (pedido) => {
+    if (!pedido) return null;
+    const anterior = pedidos
+      .filter(p => p.id !== pedido.id && p.diseno
+        && p.cliente === pedido.cliente && p.medida === pedido.medida
+        && (p.color || null) === (pedido.color || null))
+      .sort((a, b) => (b.fin_ts || b.fecha_termino || "").localeCompare(a.fin_ts || a.fecha_termino || ""))[0];
+    if (!anterior) return null;
+    return { diseno: anterior.diseno, portaliche: anterior.portaliche, diseno2: anterior.diseno2, portaliche2: anterior.portaliche2 };
+  };
+
   const seleccionarPedido = (p) => {
     setPedidoSel(p);
     setVista(null);
@@ -96,6 +112,12 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     if (fin.tinta_kg2 != null && fin.tinta_kg2 !== "") update.tinta_kg2 = Number(fin.tinta_kg2);
     if (fin.alcohol_litros != null && fin.alcohol_litros !== "") update.alcohol_litros = Number(fin.alcohol_litros);
     if (fin.stickyback != null) update.stickyback = Number(fin.stickyback);
+    // Portacliché/diseño usados en esta corrida -- se guardan para poder
+    // sugerirlos la próxima vez que se repita este mismo cliente+medida+color.
+    if (fin.diseno != null) update.diseno = fin.diseno;
+    if (fin.portaliche != null) update.portaliche = fin.portaliche;
+    if (fin.diseno2 != null) update.diseno2 = fin.diseno2;
+    if (fin.portaliche2 != null) update.portaliche2 = fin.portaliche2;
 
     // Calcular costo automáticamente sin mostrar a William
     const tintaKgNum   = fin.tinta_kg     ? Number(fin.tinta_kg)     : 0;
@@ -490,6 +512,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
               : <CalculadoraProduccion
                   pedidoInicial={pedidoSel}
                   inline
+                  sugerido={sugeridoCliche(pedidoSel)}
                   onConfirmar={(res) => finalizarPedido({
                     piezas_prod:    res.piezasProd  != null ? String(res.piezasProd)  : "",
                     rollos_caja:    res.rollosCaja   || "",
@@ -504,6 +527,10 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                     costoPieza:     res.costoPieza,
                     precioPieza:    res.precioPieza,
                     margenPct:      res.margenPct,
+                    diseno:         res.diseno,
+                    portaliche:     res.portaliche,
+                    diseno2:        res.diseno2,
+                    portaliche2:    res.portaliche2,
                   })}
                 />
             }

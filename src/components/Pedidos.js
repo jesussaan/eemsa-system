@@ -6,7 +6,7 @@ import CalculadoraProduccion from './CalculadoraProduccion';
 import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
 import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada, unificarPorTexto, normalizarMedida } from '../lib/utils';
-import { rollosPorCaja, anchoDePedido } from '../lib/produccion';
+import { rollosPorCaja, anchoDePedido, largoDePedido } from '../lib/produccion';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT, REBOB_CLIENTE } from '../lib/constants';
 import { sendWhatsApp, mensajePedidoNuevo } from '../utils/whatsapp';
 
@@ -98,19 +98,21 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
   const upd = (k, v) => setForm(f => {
     const nf = { ...f, [k]: v };
-    // Ya no hay campo "Ancho" a mano -- era redundante con Medida (2"x100
-    // ya trae el ancho adentro, igual que en Ventas). Se sigue guardando
-    // "ancho" internamente, sacado de Medida, porque Modo Operador lo usa
-    // (Rollos MP a utilizar, tarifa de centro 2"/3").
-    if (k === "medida" || k === "largo") {
+    // Ya no hay campos "Ancho" ni "Largo" a mano -- eran redundantes con
+    // Medida (2"x100 ya trae los dos numeros adentro, igual que en Ventas).
+    // Se siguen guardando "ancho"/"largo" internamente, sacados de Medida,
+    // porque Modo Operador los usa (Rollos MP a utilizar, tarifa de centro
+    // 2"/3", calculo de tinta/solvente).
+    if (k === "medida") {
       nf.ancho = String(anchoDePedido(nf) || "");
+      nf.largo = String(largoDePedido(nf) || "");
     }
     // Rollos/caja ya no se escribe a mano -- se calcula solo de tipo + ancho
     // (2"=36, 3"=24, Engomado=10).
-    if (k === "tipo" || k === "medida" || k === "largo") {
+    if (k === "tipo" || k === "medida") {
       nf.rollos_caja = String(rollosPorCaja(anchoDePedido(nf), nf.tipo === "Engomado"));
     }
-    if (k === "cajas" || k === "tipo" || k === "medida" || k === "largo") {
+    if (k === "cajas" || k === "tipo" || k === "medida") {
       const c = k === "cajas" ? v : nf.cajas;
       nf.rollos_totales = (c && nf.rollos_caja) ? String(Number(c) * Number(nf.rollos_caja)) : "";
     }
@@ -416,7 +418,6 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
         <div className="field"><label>Cajas solicitadas *</label><input type="number" value={form.cajas} onChange={e => upd("cajas", e.target.value)} placeholder="50" /></div>
         <div className="field"><label>Rollos por caja <span style={{ color: "#666", fontWeight: 400 }}>(automático de tipo + medida)</span></label><input type="number" readOnly value={form.rollos_caja} placeholder="36" style={{ background: "#1a2744", color: "#c9922a" }} /></div>
         <div className="field"><label>Rollos / piezas totales <span style={{ color: "#666", fontWeight: 400 }}>(automático)</span></label><input type="number" readOnly value={form.rollos_totales} placeholder="Cajas × Rollos/caja" style={{ background: "#1a2744", color: "#c9922a" }} /></div>
-        <div className="field"><label>Largo (m)</label><input type="number" value={form.largo} onChange={e => upd("largo", e.target.value)} placeholder="100" /></div>
         <div className="field"><label>Color impresión</label>
           <input value={form.color} onChange={e => upd("color", e.target.value)} placeholder="Rojo PMS 485" list="tintas-list-nuevo" />
           <datalist id="tintas-list-nuevo">{tintasSugeridas.map(t => <option key={t} value={t} />)}</datalist>

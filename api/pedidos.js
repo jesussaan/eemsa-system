@@ -14,6 +14,7 @@ const CAMPOS_ESTADO = [
   'status', 'fecha_inicio', 'fecha_termino', 'inicio_ts', 'fin_ts', 'orden',
   'piezas_prod', 'merma', 'merma_pct', 'rollos_usados', 'rollos_caja', 'tinta_kg', 'tinta_kg2',
   'alcohol_litros', 'stickyback', 'foto_producto_url', 'costo_pieza', 'notas',
+  'diseno', 'portaliche', 'diseno2', 'portaliche2',
 ];
 
 export default async function handler(req, res) {

@@ -42,6 +42,16 @@ export const anchoDePedido = (pedido) => {
   return deMedida ? parseFloat(deMedida[1]) : 0;
 };
 
+// Largo (m) de un pedido, mismo criterio que anchoDePedido: Pedidos.js guarda
+// "largo" suelto, ModoVentas.js solo guarda "medida" (ej. "3x100") -- si no
+// viene el campo aparte, se saca el segundo numero de la medida.
+export const largoDePedido = (pedido) => {
+  const directo = parseFloat(String(pedido?.largo ?? '').replace(/[^0-9.]/g, ''));
+  if (directo) return directo;
+  const deMedida = String(pedido?.medida ?? '').match(/^\s*\d+(?:\.\d+)?\D+(\d+(\.\d+)?)/);
+  return deMedida ? parseFloat(deMedida[1]) : 0;
+};
+
 // Formula compartida entre Cotizador y Modo Operador para rendimiento de
 // rollo (rollosMP) y consumo de tinta/solvente. Antes estaba duplicada en
 // ambos componentes y un mismo bug (pistas fijas en la formula de tinta)
