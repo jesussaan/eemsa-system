@@ -3,7 +3,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
-import { uid, today, fmt, subirConUrlFirmada } from '../lib/utils';
+import { uid, today, fmt, subirConUrlFirmada, unificarPorTexto } from '../lib/utils';
 import { MAQUINAS } from '../lib/constants';
 import { sendWhatsApp } from '../utils/whatsapp';
 import { IcoPlus } from './Icons';
@@ -37,6 +37,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
   const [filtroProveedorQuejas, setFiltroProveedorQuejas] = useState("");
   const [descargandoQuejaId, setDescargandoQuejaId] = useState(null);
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2200); };
+  const proveedoresSugeridos = [...new Set([...proveedores.map(p => p.nombre), ...refs.map(r => r.proveedor)].filter(Boolean))].sort();
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const updP = (k, v) => setFormProv(f => ({ ...f, [k]: v }));
   const updQ = (k, v) => setFormQueja(f => ({ ...f, [k]: v }));
@@ -235,7 +236,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
         }
       }
       const nuevo = {
-        folio, fecha: formQueja.fecha, proveedor: formQueja.proveedor, lote: formQueja.lote, material: formQueja.material,
+        folio, fecha: formQueja.fecha, proveedor: unificarPorTexto(formQueja.proveedor, proveedoresSugeridos), lote: formQueja.lote, material: formQueja.material,
         cantidad_afectada: formQueja.cantidad_afectada, factura_remision: formQueja.factura_remision,
         detectado_por: formQueja.detectado_por, accion_solicitada: formQueja.accion_solicitada,
         descripcion: formQueja.descripcion, elaboro: formQueja.elaboro, autorizo: formQueja.autorizo,
@@ -289,10 +290,11 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
     setLoading(true);
     let imagen_url = "";
     if (imagen) { const { data } = await subirConUrlFirmada(supabase, "refacciones", `tickets/${uid()}_${imagen.name}`, imagen, authHeaders()); if (data) { const { data: url } = supabase.storage.from("refacciones").getPublicUrl(data.path); imagen_url = url.publicUrl; } }
+    const nombreProv = unificarPorTexto(formProv.nombre, proveedoresSugeridos);
     try {
       const res = await fetch('/api/refacciones?tabla=proveedores', {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ nombre: formProv.nombre, telefono: formProv.telefono, direccion: formProv.direccion, monto: formProv.monto, fecha: formProv.fecha, que_compro: formProv.que_compro, categoria: formProv.categoria || null, imagen_url }),
+        body: JSON.stringify({ nombre: nombreProv, telefono: formProv.telefono, direccion: formProv.direccion, monto: formProv.monto, fecha: formProv.fecha, que_compro: formProv.que_compro, categoria: formProv.categoria || null, imagen_url }),
       });
       const nuevo = await res.json();
       if (!res.ok) { showToast("❌ Error: " + (nuevo.error || "desconocido")); setLoading(false); return; }
@@ -310,7 +312,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
     try {
       const res = await fetch('/api/refacciones', {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ nombre: form.nombre, costo: form.costo, maq: form.maq, proveedor: form.proveedor, fecha: form.fecha, notas: form.notas, stock: form.stock, stock_min: form.stock_min }),
+        body: JSON.stringify({ nombre: form.nombre, costo: form.costo, maq: form.maq, proveedor: unificarPorTexto(form.proveedor, proveedoresSugeridos), fecha: form.fecha, notas: form.notas, stock: form.stock, stock_min: form.stock_min }),
       });
       const nuevo = await res.json();
       if (!res.ok) { showToast("❌ Error: " + (nuevo.error || "desconocido")); setLoading(false); return; }
@@ -429,7 +431,10 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
             <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={analizar} disabled={loading || !imagen}>{loading ? "Analizando…" : "🤖 Analizar con IA"}</button>
           </div>
           <div className="form-grid">
-            <div className="field"><label>Proveedor *</label><input value={formProv.nombre} onChange={e => updP("nombre", e.target.value)} placeholder="Nombre del proveedor" /></div>
+            <div className="field"><label>Proveedor *</label>
+              <input value={formProv.nombre} onChange={e => updP("nombre", e.target.value)} placeholder="Nombre del proveedor" list="proveedores-list" />
+              <datalist id="proveedores-list">{proveedoresSugeridos.map(p => <option key={p} value={p} />)}</datalist>
+            </div>
             <div className="field"><label>Teléfono</label><input value={formProv.telefono} onChange={e => updP("telefono", e.target.value)} placeholder="667 123 4567" /></div>
             <div className="field"><label>Monto ($MXN) *</label><input type="number" value={formProv.monto} onChange={e => updP("monto", e.target.value)} placeholder="850.00" /></div>
             <div className="field"><label>Fecha</label><input type="date" value={formProv.fecha} onChange={e => updP("fecha", e.target.value)} /></div>
@@ -602,7 +607,9 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
             <div className="field"><label>Stock actual</label><input type="number" value={form.stock} onChange={e => upd("stock", e.target.value)} placeholder="1" /></div>
             <div className="field"><label>Stock mínimo</label><input type="number" value={form.stock_min} onChange={e => upd("stock_min", e.target.value)} placeholder="1" /></div>
             <div className="field"><label>Máquina</label><select value={form.maq} onChange={e => upd("maq", e.target.value)}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>
-            <div className="field"><label>Proveedor</label><input value={form.proveedor} onChange={e => upd("proveedor", e.target.value)} placeholder="Ferrelex, Amazon…" /></div>
+            <div className="field"><label>Proveedor</label>
+              <input value={form.proveedor} onChange={e => upd("proveedor", e.target.value)} placeholder="Ferrelex, Amazon…" list="proveedores-list" />
+            </div>
             <div className="field"><label>Fecha compra</label><input type="date" value={form.fecha} onChange={e => upd("fecha", e.target.value)} /></div>
             <div className="field full"><label>Notas</label><textarea value={form.notas} onChange={e => upd("notas", e.target.value)} placeholder="Número de parte, observaciones…" /></div>
           </div>
@@ -656,7 +663,10 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
             <div>
               <p className="muted" style={{ marginBottom: 12 }}>Genera un documento formal de una página para enviar al proveedor. Se guarda con folio automático.</p>
               <div className="form-grid">
-                <div className="field"><label>Proveedor *</label><input value={formQueja.proveedor} onChange={e => updQ("proveedor", e.target.value)} placeholder="Nombre del proveedor" /></div>
+                <div className="field"><label>Proveedor *</label>
+                  <input value={formQueja.proveedor} onChange={e => updQ("proveedor", e.target.value)} placeholder="Nombre del proveedor" list="proveedores-list" />
+                  <datalist id="proveedores-list">{proveedoresSugeridos.map(p => <option key={p} value={p} />)}</datalist>
+                </div>
                 <div className="field"><label>Fecha</label><input type="date" value={formQueja.fecha} onChange={e => updQ("fecha", e.target.value)} /></div>
                 <div className="field"><label>No. Pedido / Lote</label><input value={formQueja.lote} onChange={e => updQ("lote", e.target.value)} placeholder="Ej: Lote 2456" /></div>
                 <div className="field"><label>Material / Producto</label><input value={formQueja.material} onChange={e => updQ("material", e.target.value)} placeholder="Ej: Cinta blanca 2 pulg" /></div>

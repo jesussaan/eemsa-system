@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { authHeaders } from "../lib/auth";
-import { today, uid, siguienteNumPedido } from "../lib/utils";
+import { today, uid, siguienteNumPedido, unificarPorTexto } from "../lib/utils";
 import { rollosPorCaja } from "../lib/produccion";
 import { TIPOS, REBOB_CLIENTE } from "../lib/constants";
 import { sendWhatsApp, mensajePedidoNuevo } from "../utils/whatsapp";
@@ -72,6 +72,8 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
   const mesStr  = `${mes.y}-${String(mes.m+1).padStart(2,"0")}`;
 
   const pedActivos = pedidos.filter(p => p.status !== "terminado" && p.cliente !== REBOB_CLIENTE);
+  const clientesSugeridos = [...new Set(pedidos.map(p => p.cliente).filter(Boolean))].sort();
+  const tintasSugeridas   = [...new Set(pedidos.map(p => p.tinta_tipo).filter(Boolean))].sort();
   const conFecha   = pedActivos.filter(p => p.fecha_estimada).sort((a,b) => a.fecha_estimada.localeCompare(b.fecha_estimada));
   const proximos   = conFecha.filter(p => p.fecha_estimada >= hoy).slice(0, 10);
 
@@ -93,14 +95,14 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
     setSaving(true);
     const nuevo = {
       id:              uid(),
-      cliente:         form.cliente.trim(),
+      cliente:         unificarPorTexto(form.cliente, clientesSugeridos),
       num:             form.num.trim() || `V-${Date.now().toString().slice(-5)}`,
       tipo:            form.tipo,
       medida:          form.medida.trim(),
       cajas:           Number(form.cajas),
       rollos_caja:     form.rollos_caja ? Number(form.rollos_caja) : null,
       rollos_totales:  form.rollos_totales ? Number(form.rollos_totales) : null,
-      tinta_tipo:      form.tinta_tipo.trim() || null,
+      tinta_tipo:      unificarPorTexto(form.tinta_tipo, tintasSugeridas) || null,
       color2:          form.color2.trim() || null,
       fecha_solicitud: form.fecha_solicitud || hoy,
       notas:           form.notas.trim() || null,
@@ -228,7 +230,6 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
         {/* ── NUEVO PEDIDO ── */}
         {tab === "nuevo" && (() => {
           const sorted = [...pedidos].filter(p => p.cliente !== REBOB_CLIENTE).sort((a, b) => (b.fecha_solicitud || "").localeCompare(a.fecha_solicitud || ""));
-          const clientesSugeridos = [...new Set(sorted.map(p => p.cliente).filter(Boolean))].sort();
           const q = form.cliente.trim().toLowerCase();
           const recientes = q.length >= 2
             ? sorted.filter(p => p.cliente?.toLowerCase().includes(q)).slice(0, 5)
@@ -303,7 +304,8 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
 
               <div>
                 <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Tinta</label>
-                <input value={form.tinta_tipo} onChange={e=>upd("tinta_tipo",e.target.value)} placeholder="Ej: Roja UV, Azul PMS…" style={inputStyle} />
+                <input value={form.tinta_tipo} onChange={e=>upd("tinta_tipo",e.target.value)} placeholder="Ej: Roja UV, Azul PMS…" style={inputStyle} list="tintas-list-ventas" />
+                <datalist id="tintas-list-ventas">{tintasSugeridas.map(t => <option key={t} value={t} />)}</datalist>
               </div>
 
               <div>

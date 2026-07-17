@@ -1,5 +1,15 @@
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 
+// Evita que "Azul PMS" y "azul pms" queden como dos valores distintos solo
+// por may/min. Si ya existe un valor igual ignorando mayusculas, se usa esa
+// forma (la primera que se escribio); si no, se guarda tal cual lo escribieron.
+export const unificarPorTexto = (valor, existentes) => {
+  const limpio = String(valor ?? '').trim();
+  if (!limpio) return limpio;
+  const match = existentes.find(e => String(e ?? '').trim().toLowerCase() === limpio.toLowerCase());
+  return match !== undefined ? String(match).trim() : limpio;
+};
+
 // Sube un archivo a Supabase Storage vía signed URL (pedida al servidor) en
 // vez de con la anon key directo -- misma forma de retorno {data, error}
 // que supabase.storage.from(bucket).upload() para poder sustituirlo igual.

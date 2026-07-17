@@ -5,7 +5,7 @@ import ClicheImg from './ClicheImg';
 import CalculadoraProduccion from './CalculadoraProduccion';
 import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
-import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada } from '../lib/utils';
+import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada, unificarPorTexto } from '../lib/utils';
 import { rollosPorCaja } from '../lib/produccion';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT, REBOB_CLIENTE } from '../lib/constants';
 import { sendWhatsApp, mensajePedidoNuevo } from '../utils/whatsapp';
@@ -14,6 +14,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   // Rebobinado es stock, no es un pedido de cliente real.
   const pedidos = pedidosProp.filter(p => p.cliente !== REBOB_CLIENTE);
   const clientesSugeridos = [...new Set(pedidos.map(p => p.cliente).filter(Boolean))].sort();
+  const tintasSugeridas = [...new Set(pedidos.map(p => p.tinta_tipo).filter(Boolean))].sort();
   const formInicial = { cliente: "", num: "", tipo: "Blanca", medida: "", cajas: "", rollos_caja: "", rollos_totales: "", ancho: "", largo: "", color: "", color2: "", color_cinta: "", maq: "SIAT L36 #1", op: "William", fecha_solicitud: today(), fecha_estimada: "", fecha_inicio: "", fecha_termino: "", piezas_prod: "", merma: "", merma_pct: "", notas: "", status: "anotado" };
   const [form, setForm] = useState(() => ({ ...formInicial, num: siguienteNumPedido(pedidosProp) }));
   const [toast, setToast] = useState("");
@@ -216,7 +217,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
       if (upErr) { showToast("⚠ Foto no subida: " + upErr.message); }
       else if (up) { cliche_url = up.path; }
     }
-    const nuevo = { id: uid(), created: today(), cliente: form.cliente, num: form.num, tipo: form.tipo, medida: form.medida, cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(form.rollos_totales), ancho: form.ancho, largo: form.largo, color: form.color, color2: form.color2 || null, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
+    const nuevo = { id: uid(), created: today(), cliente: unificarPorTexto(form.cliente, clientesSugeridos), num: form.num, tipo: form.tipo, medida: form.medida, cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(form.rollos_totales), ancho: form.ancho, largo: form.largo, color: form.color, color2: form.color2 || null, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
     try {
       const res = await fetch('/api/pedidos', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
       const data = await res.json();
@@ -247,7 +248,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
     if (!modalPedido.fecha_estimada) fechaOriginal = null;
     const actualizado = {
       id: modalPedido.id, created: modalPedido.created,
-      cliente: modalPedido.cliente, num: modalPedido.num,
+      cliente: unificarPorTexto(modalPedido.cliente, clientesSugeridos), num: modalPedido.num,
       tipo: modalPedido.tipo, medida: modalPedido.medida,
       cajas: n2(modalPedido.cajas), rollos_caja: n2(modalPedido.rollos_caja),
       rollos_totales: n2(modalPedido.rollos_totales),
@@ -262,7 +263,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
       merma: modalPedido.merma || null, merma_pct: mPct || null,
       notas: modalPedido.notas, status: modalPedido.status,
       rollos_usados: n2(modalPedido.rollos_usados),
-      tinta_tipo: modalPedido.tinta_tipo || null,
+      tinta_tipo: unificarPorTexto(modalPedido.tinta_tipo, tintasSugeridas) || null,
       tinta_kg: n2(modalPedido.tinta_kg),
       color2: modalPedido.color2 || null,
       tinta_kg2: n2(modalPedido.tinta_kg2),
@@ -488,7 +489,10 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
               <div style={{ fontSize: 12, color: "#c9922a", fontWeight: 700, marginBottom: 10 }}>📦 Consumos de producción</div>
               <div className="form-grid">
                 <div className="field"><label>Rollos usados</label><input type="number" step="0.5" value={modalPedido.rollos_usados || ""} onChange={e => setModalPedido(m => ({ ...m, rollos_usados: e.target.value }))} placeholder="36" /></div>
-                <div className="field"><label>Tipo de tinta</label><input value={modalPedido.tinta_tipo || ""} onChange={e => setModalPedido(m => ({ ...m, tinta_tipo: e.target.value }))} placeholder="Roja UV, Azul PMS…" /></div>
+                <div className="field"><label>Tipo de tinta</label>
+                  <input value={modalPedido.tinta_tipo || ""} onChange={e => setModalPedido(m => ({ ...m, tinta_tipo: e.target.value }))} placeholder="Roja UV, Azul PMS…" list="tintas-list" />
+                  <datalist id="tintas-list">{tintasSugeridas.map(t => <option key={t} value={t} />)}</datalist>
+                </div>
                 <div className="field"><label>Tinta usada (kg)</label><input type="number" step="0.01" value={modalPedido.tinta_kg || ""} onChange={e => setModalPedido(m => ({ ...m, tinta_kg: e.target.value }))} placeholder="0.5" /></div>
                 <div className="field"><label>2do color (opcional)</label><input value={modalPedido.color2 || ""} onChange={e => setModalPedido(m => ({ ...m, color2: e.target.value }))} placeholder="Solo si el pedido lleva 2 tintas" /></div>
                 <div className="field"><label>Tinta 2do color (kg)</label><input type="number" step="0.01" value={modalPedido.tinta_kg2 || ""} onChange={e => setModalPedido(m => ({ ...m, tinta_kg2: e.target.value }))} placeholder="0.5" /></div>
