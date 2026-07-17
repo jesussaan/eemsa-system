@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
 import { uid, today, fmt, subirConUrlFirmada, unificarPorTexto } from '../lib/utils';
@@ -118,7 +116,9 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
   };
 
   // Construye el PDF de una queja (datos + imágenes ya cargadas en memoria)
-  const construirPDFQueja = (queja, imgs) => {
+  const construirPDFQueja = async (queja, imgs) => {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const W = 210, H = 297, mg = 14;
     const PAGE_BOTTOM = 270;
@@ -210,7 +210,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
       } else if (queja.imagenes && queja.imagenes.length) {
         imgs = await Promise.all(queja.imagenes.map(urlToImgData));
       }
-      const doc = construirPDFQueja(queja, imgs);
+      const doc = await construirPDFQueja(queja, imgs);
       doc.save(`Queja_${queja.folio}_${(queja.proveedor || "proveedor").replace(/\s+/g, "_")}.pdf`);
     } catch (e) {
       showToast("❌ Error al generar PDF: " + e.message);

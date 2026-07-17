@@ -1,5 +1,3 @@
-import * as XLSX from 'xlsx';
-
 const SEV_LABEL = { leve: 'Leve', moderada: 'Moderada', critica: 'Crítica' };
 const STATUS_LABEL = { anotado: 'Anotado', proceso: 'En proceso', pendiente: 'Pendiente alta', terminado: 'Terminado' };
 
@@ -7,7 +5,7 @@ function colWidths(arr) {
   return arr.map(w => ({ wch: w }));
 }
 
-function sheetPedidos(pedidos) {
+function sheetPedidos(XLSX, pedidos) {
   const rows = pedidos.map(p => ({
     'No. Pedido':        p.num || '',
     'Cliente':           p.cliente || '',
@@ -36,7 +34,7 @@ function sheetPedidos(pedidos) {
   return ws;
 }
 
-function sheetFallas(fallas) {
+function sheetFallas(XLSX, fallas) {
   const rows = fallas.map(f => ({
     'Fecha':            f.fecha || '',
     'Máquina':          f.maq || '',
@@ -54,7 +52,7 @@ function sheetFallas(fallas) {
   return ws;
 }
 
-function sheetProduccion(prodDiaria) {
+function sheetProduccion(XLSX, prodDiaria) {
   const rows = [...prodDiaria]
     .sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
     .map(r => ({
@@ -70,7 +68,7 @@ function sheetProduccion(prodDiaria) {
   return ws;
 }
 
-function sheetCompras(proveedores) {
+function sheetCompras(XLSX, proveedores) {
   const rows = [...proveedores]
     .sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
     .map(p => ({
@@ -86,13 +84,14 @@ function sheetCompras(proveedores) {
   return ws;
 }
 
-export function exportarExcel({ pedidos, fallas, prodDiaria, proveedores }) {
+export async function exportarExcel({ pedidos, fallas, prodDiaria, proveedores }) {
+  const XLSX = await import('xlsx');
   const wb = XLSX.utils.book_new();
 
-  XLSX.utils.book_append_sheet(wb, sheetPedidos(pedidos),        'Pedidos');
-  XLSX.utils.book_append_sheet(wb, sheetFallas(fallas),          'Fallas');
-  XLSX.utils.book_append_sheet(wb, sheetProduccion(prodDiaria),  'Producción diaria');
-  XLSX.utils.book_append_sheet(wb, sheetCompras(proveedores),    'Compras');
+  XLSX.utils.book_append_sheet(wb, sheetPedidos(XLSX, pedidos),        'Pedidos');
+  XLSX.utils.book_append_sheet(wb, sheetFallas(XLSX, fallas),          'Fallas');
+  XLSX.utils.book_append_sheet(wb, sheetProduccion(XLSX, prodDiaria),  'Producción diaria');
+  XLSX.utils.book_append_sheet(wb, sheetCompras(XLSX, proveedores),    'Compras');
 
   const fecha = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `EEMSA_Datos_${fecha}.xlsx`);

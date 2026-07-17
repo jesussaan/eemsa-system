@@ -1,5 +1,3 @@
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { useState, useRef, useEffect } from "react";
 import ClicheImg from './ClicheImg';
 import CalculadoraProduccion from './CalculadoraProduccion';
@@ -146,7 +144,9 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
     showToast("🔁 Pedido clonado — ajusta los datos y anota");
   };
 
-  const generarNotaEntrega = (p) => {
+  const generarNotaEntrega = async (p) => {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
     const doc = new jsPDF();
     doc.setFillColor(26, 39, 68); doc.rect(0, 0, 210, 30, "F");
     doc.setTextColor(201, 146, 42); doc.setFontSize(18); doc.text("EEMSA System", 14, 13);

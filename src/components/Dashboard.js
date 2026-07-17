@@ -1,6 +1,4 @@
-import { useEffect, useState } from 'react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { useEffect, useMemo, useState } from 'react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart as ReBarChart, Bar, XAxis, YAxis } from 'recharts';
 import BarChart from './BarChart';
 import { today, fmt, diasHabilesRestantes, estadoPlazo } from '../lib/utils';
@@ -33,13 +31,27 @@ const ChartTip = ({ active, payload }) => {
   );
 };
 
+// Componentes de la SIAT L36 y de la Rebobinadora -- ambas maquinas
+// reportan fallas en la misma tabla, asi que las dos deben poder
+// aparecer en esta grafica.
+const LBL_COMP = {
+  "Rodillo anilox": "Anilox", "Sistema de tintas": "Tintas", "Cliché/portacliché": "Cliché",
+  "Motor principal": "Motor", "Sistema de corte": "Corte", "Banda transportadora": "Banda",
+  "Sistema eléctrico": "Eléct.", "Resortes de Mandriles Chicos": "Resortes",
+  "Cuchillas de corte": "Cuchillas", "Motor rebobinador": "Motor rebob.",
+  "Sistema de frenado": "Frenado", "Mandriles": "Mandriles",
+  "Otro": "Otro",
+};
+
+const delta = (curr, prev) => {
+  if (!prev) return null;
+  const pct = ((curr - prev) / prev * 100).toFixed(0);
+  return { pct: Math.abs(pct), sube: curr >= prev };
+};
+
 export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, proveedores, prodDiaria }) {
-  // Rebobinado es produccion de stock, no pedidos de cliente reales -- se
-  // excluye de Resumen/Produccion/Finanzas/Consumibles y tiene su propia
-  // pestana con sus propias metricas (ver mas abajo).
-  const pedidos = pedidosProp.filter(p => p.cliente !== REBOB_CLIENTE);
-  const pedidosRebobinado = pedidosProp.filter(p => p.cliente === REBOB_CLIENTE);
   const [seccion, setSeccion] = useState('resumen');
+
   useEffect(() => {
     const hoy = today();
     const yaAvisado = localStorage.getItem('vencidos_avisado');
@@ -53,157 +65,182 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       localStorage.setItem('vencidos_avisado', hoy);
     }
   }, [pedidosProp]);
-  const activos = pedidos.filter(p => p.status !== "terminado").length;
-  const fallasAbiertas = fallas.filter(f => f.status === "abierta").length;
-  const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) * Number(r.stock || 1)), 0);
-  const cajasTotal = pedidos.reduce((s, p) => s + Number(p.cajas || 0), 0);
-  const vencidos = pedidos.filter(p => p.status !== "terminado" && diasHabilesRestantes(p.fecha_solicitud) < 0).length;
-  const stockBajoDash = refacciones.filter(r => { const min = r.stock_min ?? 1; return min > 0 && Number(r.stock || 0) <= min; }).length;
-  const todayStr = today();
-  const cajasHoy = prodDiaria.filter(r => r.fecha === todayStr).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
-  const metaHoyCumplida = cajasHoy >= META_CAJAS;
-  const mesActual = today().slice(0, 7);
-  const cajasTerminadasMes = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual)).reduce((s, p) => s + Number(p.cajas || 0), 0);
-  const gastoRefMes = proveedores.filter(p => p.fecha?.startsWith(mesActual)).reduce((s, p) => s + Number(p.monto || 0), 0);
-  const mesPrev = (() => { const [y, m] = mesActual.split('-').map(Number); return m === 1 ? `${y-1}-12` : `${y}-${String(m-1).padStart(2,'0')}`; })();
-  const diasDelMes = [...new Set(prodDiaria.filter(r => r.fecha?.startsWith(mesActual)).map(r => r.fecha))];
-  const diasConMeta = diasDelMes.filter(fecha => prodDiaria.filter(r => r.fecha === fecha).reduce((s, r) => s + Number(r.cajas_dia || 0), 0) >= META_CAJAS).length;
-  const pctMeta = diasDelMes.length > 0 ? Math.round((diasConMeta / diasDelMes.length) * 100) : 0;
-  const pedidosUrgentes = pedidos.filter(p => p.status !== "terminado" && p.fecha_solicitud).map(p => ({ ...p, diasRest: diasHabilesRestantes(p.fecha_solicitud) })).sort((a, b) => a.diasRest - b.diasRest).slice(0, 5);
-  const ultimas14 = [...Array(14)].map((_, i) => { const d = new Date(today() + "T12:00:00"); d.setDate(d.getDate() - 13 + i); const fecha = d.toISOString().slice(0, 10); const val = prodDiaria.filter(r => r.fecha === fecha).reduce((s, r) => s + Number(r.cajas_dia || 0), 0); return { lbl: fecha.slice(8), val }; });
-  const pedidosMerma = pedidos.filter(p => p.status === "terminado" && p.merma_pct !== null && p.merma_pct !== "").slice(-10).map(p => ({ lbl: String(p.cliente).slice(0, 6), val: Number(p.merma_pct) }));
-  const pedConTiempo = pedidos.filter(p => p.status === "terminado" && p.fecha_inicio && p.fecha_termino);
-  const tiempoPromedio = pedConTiempo.length > 0 ? Math.round(pedConTiempo.reduce((s, p) => s + (new Date(p.fecha_termino + "T12:00:00") - new Date(p.fecha_inicio + "T12:00:00")) / 86400000 + 1, 0) / pedConTiempo.length) : null;
-  const componentesVencidos = analizarComponentes(fallas).filter(c => c.vencido);
 
-  // Componentes de la SIAT L36 y de la Rebobinadora -- ambas maquinas
-  // reportan fallas en la misma tabla, asi que las dos deben poder
-  // aparecer en esta grafica.
-  const LBL_COMP = {
-    "Rodillo anilox": "Anilox", "Sistema de tintas": "Tintas", "Cliché/portacliché": "Cliché",
-    "Motor principal": "Motor", "Sistema de corte": "Corte", "Banda transportadora": "Banda",
-    "Sistema eléctrico": "Eléct.", "Resortes de Mandriles Chicos": "Resortes",
-    "Cuchillas de corte": "Cuchillas", "Motor rebobinador": "Motor rebob.",
-    "Sistema de frenado": "Frenado", "Mandriles": "Mandriles",
-    "Otro": "Otro",
-  };
-  const fallasPorComp = Object.entries(LBL_COMP)
-    .map(([comp, lbl]) => ({ lbl, val: fallas.filter(f => f.comp === comp && f.fecha?.startsWith(mesActual)).reduce((s, f) => s + Number(f.min_paro || 0), 0) }))
-    .filter(d => d.val > 0).sort((a, b) => b.val - a.val);
+  // Todo lo derivado de las 5 tablas se recalcula solo cuando esas tablas
+  // cambian (p.ej. llega un evento realtime) -- no en cada cambio de
+  // sub-pestana (`seccion`) ni cuando el padre se re-renderiza por datos
+  // de otra pantalla que no se muestran aqui (lista_materiales, etc.).
+  const {
+    pedidos, activos, fallasAbiertas, valorInventario, cajasTotal, vencidos, stockBajoDash,
+    cajasHoy, metaHoyCumplida, mesActual, mesPrev, cajasTerminadasMes, gastoRefMes, diasDelMes, diasConMeta, pctMeta,
+    pedidosUrgentes, ultimas14, pedidosMerma, tiempoPromedio, componentesVencidos, fallasPorComp, topClientes,
+    rentabilidadClientes, historialCostos, valorProducido, perdidaMerma, valorProducidoMes, perdidaMermaMes,
+    cajasMes, cajasPrev, mermaPctMes, mermaPctPrev, valorMes, valorPrev, tintaMes, alcoholMes, rollosMes,
+    tintaPorColor, tipoCintaStats, rebPendientes, rebPiezasTotal, rebCajasTotal, rebMermaPctProm,
+    rebPorMaterial, rebPorAdhesivo, rebRecientes,
+  } = useMemo(() => {
+    // Rebobinado es produccion de stock, no pedidos de cliente reales -- se
+    // excluye de Resumen/Produccion/Finanzas/Consumibles y tiene su propia
+    // pestana con sus propias metricas (ver mas abajo).
+    const pedidos = pedidosProp.filter(p => p.cliente !== REBOB_CLIENTE);
+    const pedidosRebobinado = pedidosProp.filter(p => p.cliente === REBOB_CLIENTE);
+    const activos = pedidos.filter(p => p.status !== "terminado").length;
+    const fallasAbiertas = fallas.filter(f => f.status === "abierta").length;
+    const valorInventario = refacciones.reduce((s, r) => s + (Number(r.costo || 0) * Number(r.stock || 1)), 0);
+    const cajasTotal = pedidos.reduce((s, p) => s + Number(p.cajas || 0), 0);
+    const vencidos = pedidos.filter(p => p.status !== "terminado" && diasHabilesRestantes(p.fecha_solicitud) < 0).length;
+    const stockBajoDash = refacciones.filter(r => { const min = r.stock_min ?? 1; return min > 0 && Number(r.stock || 0) <= min; }).length;
+    const todayStr = today();
+    const mesActual = todayStr.slice(0, 7);
+    const mesPrev = (() => { const [y, m] = mesActual.split('-').map(Number); return m === 1 ? `${y-1}-12` : `${y}-${String(m-1).padStart(2,'0')}`; })();
 
-  const topClientes = Object.entries(
-    pedidos.filter(p => p.status === "terminado")
-      .reduce((acc, p) => { const k = p.cliente || "Sin nombre"; acc[k] = (acc[k] || 0) + Number(p.cajas || 0); return acc; }, {})
-  ).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([lbl, val]) => ({ lbl: lbl.slice(0, 14), val }));
+    // Agrupa prodDiaria por fecha en una sola pasada -- antes cada dia del
+    // mes (y cada una de las ultimas 14 fechas) volvia a recorrer toda la
+    // tabla con su propio filter+reduce, un O(n*m) que se pone lento con
+    // meses de historial acumulado.
+    const cajasPorFecha = prodDiaria.reduce((m, r) => {
+      if (r.fecha) m[r.fecha] = (m[r.fecha] || 0) + Number(r.cajas_dia || 0);
+      return m;
+    }, {});
+    const cajasHoy = cajasPorFecha[todayStr] || 0;
+    const metaHoyCumplida = cajasHoy >= META_CAJAS;
+    const cajasTerminadasMes = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual)).reduce((s, p) => s + Number(p.cajas || 0), 0);
+    const gastoRefMes = proveedores.filter(p => p.fecha?.startsWith(mesActual)).reduce((s, p) => s + Number(p.monto || 0), 0);
+    const diasDelMes = Object.keys(cajasPorFecha).filter(fecha => fecha.startsWith(mesActual));
+    const diasConMeta = diasDelMes.filter(fecha => cajasPorFecha[fecha] >= META_CAJAS).length;
+    const pctMeta = diasDelMes.length > 0 ? Math.round((diasConMeta / diasDelMes.length) * 100) : 0;
+    const pedidosUrgentes = pedidos.filter(p => p.status !== "terminado" && p.fecha_solicitud).map(p => ({ ...p, diasRest: diasHabilesRestantes(p.fecha_solicitud) })).sort((a, b) => a.diasRest - b.diasRest).slice(0, 5);
+    const ultimas14 = [...Array(14)].map((_, i) => { const d = new Date(todayStr + "T12:00:00"); d.setDate(d.getDate() - 13 + i); const fecha = d.toISOString().slice(0, 10); return { lbl: fecha.slice(8), val: cajasPorFecha[fecha] || 0 }; });
+    const pedidosMerma = pedidos.filter(p => p.status === "terminado" && p.merma_pct !== null && p.merma_pct !== "").slice(-10).map(p => ({ lbl: String(p.cliente).slice(0, 6), val: Number(p.merma_pct) }));
+    const pedConTiempo = pedidos.filter(p => p.status === "terminado" && p.fecha_inicio && p.fecha_termino);
+    const tiempoPromedio = pedConTiempo.length > 0 ? Math.round(pedConTiempo.reduce((s, p) => s + (new Date(p.fecha_termino + "T12:00:00") - new Date(p.fecha_inicio + "T12:00:00")) / 86400000 + 1, 0) / pedConTiempo.length) : null;
+    const componentesVencidos = analizarComponentes(fallas).filter(c => c.vencido);
 
-  const rentabilidadClientes = (() => {
-    const map = {};
-    pedidos.filter(p => p.status === "terminado" && p.costo_pieza != null).forEach(p => {
-      const k = p.cliente || "Sin nombre";
-      if (!map[k]) map[k] = { valor: 0, merma: 0, pedidos: 0 };
-      map[k].valor   += Number(p.costo_pieza) * Number(p.piezas_prod || 0);
-      map[k].merma   += Number(p.costo_pieza) * Number(p.merma || 0);
-      map[k].pedidos += 1;
-    });
-    return Object.entries(map)
-      .map(([nombre, d]) => ({ nombre, ...d }))
-      .sort((a, b) => b.valor - a.valor)
-      .slice(0, 8);
-  })();
+    const fallasPorComp = Object.entries(LBL_COMP)
+      .map(([comp, lbl]) => ({ lbl, val: fallas.filter(f => f.comp === comp && f.fecha?.startsWith(mesActual)).reduce((s, f) => s + Number(f.min_paro || 0), 0) }))
+      .filter(d => d.val > 0).sort((a, b) => b.val - a.val);
 
-  const pedidosConCosto  = pedidos.filter(p => p.status === "terminado" && p.costo_pieza != null);
-  // Historial por cinta -- una fila por corrida terminada, mas reciente primero.
-  const historialCostos = [...pedidosConCosto]
-    .sort((a, b) => (b.fecha_termino || "").localeCompare(a.fecha_termino || ""))
-    .map(p => ({
-      id: p.id, num: p.num, cliente: p.cliente, fecha: p.fecha_termino,
-      piezas: Number(p.piezas_prod || 0),
-      costoPieza: Number(p.costo_pieza),
-      valor: Number(p.costo_pieza) * Number(p.piezas_prod || 0),
-      merma: Number(p.costo_pieza) * Number(p.merma || 0),
-    }));
-  const valorProducido   = pedidosConCosto.reduce((s, p) => s + (Number(p.costo_pieza) * Number(p.piezas_prod || 0)), 0);
-  const perdidaMerma     = pedidosConCosto.reduce((s, p) => s + (Number(p.costo_pieza) * Number(p.merma || 0)), 0);
-  const valorProducidoMes= pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual) && p.costo_pieza != null)
-    .reduce((s, p) => s + (Number(p.costo_pieza) * Number(p.piezas_prod || 0)), 0);
-  const perdidaMermaMes  = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual) && p.costo_pieza != null)
-    .reduce((s, p) => s + (Number(p.costo_pieza) * Number(p.merma || 0)), 0);
-  const pedMes  = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual));
-  const pedPrev = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesPrev));
+    const topClientes = Object.entries(
+      pedidos.filter(p => p.status === "terminado")
+        .reduce((acc, p) => { const k = p.cliente || "Sin nombre"; acc[k] = (acc[k] || 0) + Number(p.cajas || 0); return acc; }, {})
+    ).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([lbl, val]) => ({ lbl: lbl.slice(0, 14), val }));
 
-  const cajasMes  = prodDiaria.filter(r => r.fecha?.startsWith(mesActual)).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
-  const cajasPrev = prodDiaria.filter(r => r.fecha?.startsWith(mesPrev)).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
+    const rentabilidadClientes = (() => {
+      const map = {};
+      pedidos.filter(p => p.status === "terminado" && p.costo_pieza != null).forEach(p => {
+        const k = p.cliente || "Sin nombre";
+        if (!map[k]) map[k] = { valor: 0, merma: 0, pedidos: 0 };
+        map[k].valor   += Number(p.costo_pieza) * Number(p.piezas_prod || 0);
+        map[k].merma   += Number(p.costo_pieza) * Number(p.merma || 0);
+        map[k].pedidos += 1;
+      });
+      return Object.entries(map)
+        .map(([nombre, d]) => ({ nombre, ...d }))
+        .sort((a, b) => b.valor - a.valor)
+        .slice(0, 8);
+    })();
 
-  const mermaPctMes  = (() => { const ps = pedMes.filter(p => p.merma_pct != null && p.merma_pct !== ""); return ps.length ? (ps.reduce((s,p) => s + Number(p.merma_pct), 0) / ps.length).toFixed(1) : null; })();
-  const mermaPctPrev = (() => { const ps = pedPrev.filter(p => p.merma_pct != null && p.merma_pct !== ""); return ps.length ? (ps.reduce((s,p) => s + Number(p.merma_pct), 0) / ps.length).toFixed(1) : null; })();
+    const pedidosConCosto  = pedidos.filter(p => p.status === "terminado" && p.costo_pieza != null);
+    // Historial por cinta -- una fila por corrida terminada, mas reciente primero.
+    const historialCostos = [...pedidosConCosto]
+      .sort((a, b) => (b.fecha_termino || "").localeCompare(a.fecha_termino || ""))
+      .map(p => ({
+        id: p.id, num: p.num, cliente: p.cliente, fecha: p.fecha_termino,
+        piezas: Number(p.piezas_prod || 0),
+        costoPieza: Number(p.costo_pieza),
+        valor: Number(p.costo_pieza) * Number(p.piezas_prod || 0),
+        merma: Number(p.costo_pieza) * Number(p.merma || 0),
+      }));
+    const valorProducido   = pedidosConCosto.reduce((s, p) => s + (Number(p.costo_pieza) * Number(p.piezas_prod || 0)), 0);
+    const perdidaMerma     = pedidosConCosto.reduce((s, p) => s + (Number(p.costo_pieza) * Number(p.merma || 0)), 0);
+    const valorProducidoMes= pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual) && p.costo_pieza != null)
+      .reduce((s, p) => s + (Number(p.costo_pieza) * Number(p.piezas_prod || 0)), 0);
+    const perdidaMermaMes  = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual) && p.costo_pieza != null)
+      .reduce((s, p) => s + (Number(p.costo_pieza) * Number(p.merma || 0)), 0);
+    const pedMes  = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual));
+    const pedPrev = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesPrev));
 
-  const valorMes  = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual) && p.costo_pieza != null).reduce((s, p) => s + Number(p.costo_pieza) * Number(p.piezas_prod || 0), 0);
-  const valorPrev = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesPrev)   && p.costo_pieza != null).reduce((s, p) => s + Number(p.costo_pieza) * Number(p.piezas_prod || 0), 0);
+    const cajasMes  = prodDiaria.filter(r => r.fecha?.startsWith(mesActual)).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
+    const cajasPrev = prodDiaria.filter(r => r.fecha?.startsWith(mesPrev)).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
 
-  const delta = (curr, prev) => {
-    if (!prev) return null;
-    const pct = ((curr - prev) / prev * 100).toFixed(0);
-    return { pct: Math.abs(pct), sube: curr >= prev };
-  };
-  const tintaMes = pedMes.reduce((s, p) => s + Number(p.tinta_kg || 0), 0);
-  const alcoholMes = pedMes.reduce((s, p) => s + Number(p.alcohol_litros || 0), 0);
-  const rollosMes = pedMes.reduce((s, p) => s + Number(p.rollos_usados || 0), 0);
+    const mermaPctMes  = (() => { const ps = pedMes.filter(p => p.merma_pct != null && p.merma_pct !== ""); return ps.length ? (ps.reduce((s,p) => s + Number(p.merma_pct), 0) / ps.length).toFixed(1) : null; })();
+    const mermaPctPrev = (() => { const ps = pedPrev.filter(p => p.merma_pct != null && p.merma_pct !== ""); return ps.length ? (ps.reduce((s,p) => s + Number(p.merma_pct), 0) / ps.length).toFixed(1) : null; })();
 
-  const tintaPorColor = (() => {
-    const map = {};
-    // Agrupa ignorando mayus/minusculas -- "Negro" y "NEGRO" son la misma
-    // tinta aunque se hayan escrito distinto en algun pedido viejo. Se
-    // muestra con la primera forma que se vio.
-    const sumar = (k, kg) => {
-      k = (k || "Sin color").trim();
-      const key = k.toLowerCase();
-      if (!map[key]) map[key] = { color: k, total: 0, pedidos: 0 };
-      map[key].total   += kg;
-      map[key].pedidos += 1;
+    const valorMes  = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual) && p.costo_pieza != null).reduce((s, p) => s + Number(p.costo_pieza) * Number(p.piezas_prod || 0), 0);
+    const valorPrev = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesPrev)   && p.costo_pieza != null).reduce((s, p) => s + Number(p.costo_pieza) * Number(p.piezas_prod || 0), 0);
+
+    const tintaMes = pedMes.reduce((s, p) => s + Number(p.tinta_kg || 0), 0);
+    const alcoholMes = pedMes.reduce((s, p) => s + Number(p.alcohol_litros || 0), 0);
+    const rollosMes = pedMes.reduce((s, p) => s + Number(p.rollos_usados || 0), 0);
+
+    const tintaPorColor = (() => {
+      const map = {};
+      // Agrupa ignorando mayus/minusculas -- "Negro" y "NEGRO" son la misma
+      // tinta aunque se hayan escrito distinto en algun pedido viejo. Se
+      // muestra con la primera forma que se vio.
+      const sumar = (k, kg) => {
+        k = (k || "Sin color").trim();
+        const key = k.toLowerCase();
+        if (!map[key]) map[key] = { color: k, total: 0, pedidos: 0 };
+        map[key].total   += kg;
+        map[key].pedidos += 1;
+      };
+      // Solo el mes actual -- antes tambien exigia costo_pieza calculado, lo
+      // que dejaba fuera pedidos con tinta_kg real pero sin costear (la mitad
+      // de los terminados en algunos meses no aparecian aqui).
+      pedidos.filter(p => p.status === "terminado" && p.tinta_kg && p.fecha_termino?.startsWith(mesActual)).forEach(p => {
+        sumar(p.color || p.tinta_tipo, Number(p.tinta_kg));
+        if (p.tinta_kg2) sumar(p.color2, Number(p.tinta_kg2));
+      });
+      return Object.values(map).sort((a, b) => b.total - a.total);
+    })();
+
+    const tipoCintaStats = (() => {
+      const map = {};
+      pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual)).forEach(p => {
+        const k = (p.tipo || "Sin tipo").trim();
+        if (!map[k]) map[k] = { rollos: 0, pedidos: 0 };
+        map[k].rollos   += Number(p.rollos_usados || 0);
+        map[k].pedidos  += 1;
+      });
+      return Object.entries(map).map(([tipo, d]) => ({ tipo, ...d })).sort((a, b) => b.rollos - a.rollos);
+    })();
+
+    // ── Rebobinado (stock, separado de los pedidos de cliente) ──
+    const rebPendientes = pedidosRebobinado.filter(p => p.status === "pendiente").length;
+    const rebPiezasTotal = pedidosRebobinado.reduce((s, p) => s + Number(p.piezas_prod || 0), 0);
+    const rebCajasTotal = pedidosRebobinado.reduce((s, p) => s + Number(p.cajas || 0), 0);
+    const rebConMerma = pedidosRebobinado.filter(p => p.merma_pct != null && p.merma_pct !== "");
+    const rebMermaPctProm = rebConMerma.length ? (rebConMerma.reduce((s, p) => s + Number(p.merma_pct), 0) / rebConMerma.length).toFixed(1) : null;
+    const rebPorGrupo = (campo) => {
+      const map = {};
+      pedidosRebobinado.forEach(p => {
+        const k = p[campo] || "Sin dato";
+        if (!map[k]) map[k] = { piezas: 0, cajas: 0, pedidos: 0 };
+        map[k].piezas += Number(p.piezas_prod || 0);
+        map[k].cajas  += Number(p.cajas || 0);
+        map[k].pedidos += 1;
+      });
+      return Object.entries(map).map(([k, d]) => ({ k, ...d })).sort((a, b) => b.piezas - a.piezas);
     };
-    // Solo el mes actual -- antes tambien exigia costo_pieza calculado, lo
-    // que dejaba fuera pedidos con tinta_kg real pero sin costear (la mitad
-    // de los terminados en algunos meses no aparecian aqui).
-    pedidos.filter(p => p.status === "terminado" && p.tinta_kg && p.fecha_termino?.startsWith(mesActual)).forEach(p => {
-      sumar(p.color || p.tinta_tipo, Number(p.tinta_kg));
-      if (p.tinta_kg2) sumar(p.color2, Number(p.tinta_kg2));
-    });
-    return Object.values(map).sort((a, b) => b.total - a.total);
-  })();
+    const rebPorMaterial = rebPorGrupo('tipo');
+    const rebPorAdhesivo = rebPorGrupo('color');
+    const rebRecientes = [...pedidosRebobinado].sort((a, b) => (b.created || "").localeCompare(a.created || "")).slice(0, 10);
 
-  const tipoCintaStats = (() => {
-    const map = {};
-    pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual)).forEach(p => {
-      const k = (p.tipo || "Sin tipo").trim();
-      if (!map[k]) map[k] = { rollos: 0, pedidos: 0 };
-      map[k].rollos   += Number(p.rollos_usados || 0);
-      map[k].pedidos  += 1;
-    });
-    return Object.entries(map).map(([tipo, d]) => ({ tipo, ...d })).sort((a, b) => b.rollos - a.rollos);
-  })();
+    return {
+      pedidos, activos, fallasAbiertas, valorInventario, cajasTotal, vencidos, stockBajoDash,
+      cajasHoy, metaHoyCumplida, mesActual, mesPrev, cajasTerminadasMes, gastoRefMes, diasDelMes, diasConMeta, pctMeta,
+      pedidosUrgentes, ultimas14, pedidosMerma, tiempoPromedio, componentesVencidos, fallasPorComp, topClientes,
+      rentabilidadClientes, historialCostos, valorProducido, perdidaMerma, valorProducidoMes, perdidaMermaMes,
+      cajasMes, cajasPrev, mermaPctMes, mermaPctPrev, valorMes, valorPrev, tintaMes, alcoholMes, rollosMes,
+      tintaPorColor, tipoCintaStats, rebPendientes, rebPiezasTotal, rebCajasTotal, rebMermaPctProm,
+      rebPorMaterial, rebPorAdhesivo, rebRecientes,
+    };
+  }, [pedidosProp, fallas, refacciones, proveedores, prodDiaria]);
 
-  // ── Rebobinado (stock, separado de los pedidos de cliente) ──
-  const rebPendientes = pedidosRebobinado.filter(p => p.status === "pendiente").length;
-  const rebPiezasTotal = pedidosRebobinado.reduce((s, p) => s + Number(p.piezas_prod || 0), 0);
-  const rebCajasTotal = pedidosRebobinado.reduce((s, p) => s + Number(p.cajas || 0), 0);
-  const rebConMerma = pedidosRebobinado.filter(p => p.merma_pct != null && p.merma_pct !== "");
-  const rebMermaPctProm = rebConMerma.length ? (rebConMerma.reduce((s, p) => s + Number(p.merma_pct), 0) / rebConMerma.length).toFixed(1) : null;
-  const rebPorGrupo = (campo) => {
-    const map = {};
-    pedidosRebobinado.forEach(p => {
-      const k = p[campo] || "Sin dato";
-      if (!map[k]) map[k] = { piezas: 0, cajas: 0, pedidos: 0 };
-      map[k].piezas += Number(p.piezas_prod || 0);
-      map[k].cajas  += Number(p.cajas || 0);
-      map[k].pedidos += 1;
-    });
-    return Object.entries(map).map(([k, d]) => ({ k, ...d })).sort((a, b) => b.piezas - a.piezas);
-  };
-  const rebPorMaterial = rebPorGrupo('tipo');
-  const rebPorAdhesivo = rebPorGrupo('color');
-  const rebRecientes = [...pedidosRebobinado].sort((a, b) => (b.created || "").localeCompare(a.created || "")).slice(0, 10);
-
-  const generarPDF = () => {
+  const generarPDF = async () => {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const W = 210, mg = 14;
     const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
