@@ -42,6 +42,16 @@ export default function AdminUsuarios({ onSalir }) {
     actualizar(u.id, { modos });
   };
 
+  const eliminar = async (u) => {
+    if (!window.confirm(`¿Eliminar la cuenta ${u.email}? Esto no se puede deshacer.`)) return;
+    setGuardando(u.id);
+    const res = await fetch("/api/usuarios", { method: "DELETE", headers: authHeaders(), body: JSON.stringify({ id: u.id }) });
+    if (!res.ok) { showToast("❌ No se pudo eliminar"); setGuardando(null); return; }
+    setUsuarios(us => us.filter(x => x.id !== u.id));
+    showToast(`✓ ${u.email} eliminado`);
+    setGuardando(null);
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--bg)" }}>
       <header style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--surface)", borderBottom: "2px solid var(--accent)", position: "sticky", top: 0, zIndex: 10 }}>
@@ -64,10 +74,17 @@ export default function AdminUsuarios({ onSalir }) {
                 <strong>{u.email}</strong>
                 {u.es_admin && <span className="badge b-orange" style={{ marginLeft: 8 }}>Admin</span>}
               </div>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, cursor: "pointer" }}>
-                <input type="checkbox" checked={!!u.activo} onChange={e => actualizar(u.id, { activo: e.target.checked })} />
-                <span className={`badge ${u.activo ? "b-green" : "b-orange"}`}>{u.activo ? "Activo" : "Pendiente"}</span>
-              </label>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, cursor: "pointer" }}>
+                  <input type="checkbox" checked={!!u.activo} onChange={e => actualizar(u.id, { activo: e.target.checked })} />
+                  <span className={`badge ${u.activo ? "b-green" : "b-orange"}`}>{u.activo ? "Activo" : "Pendiente"}</span>
+                </label>
+                {!u.es_admin && (
+                  <button onClick={() => eliminar(u)} style={{ background: "transparent", border: "none", color: "var(--red)", fontSize: 11, cursor: "pointer", padding: "2px 4px" }}>
+                    ✕ Eliminar
+                  </button>
+                )}
+              </div>
             </div>
             <div className="muted" style={{ marginBottom: 8 }}>Registrado: {(u.created_at || "").slice(0, 10)}</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
