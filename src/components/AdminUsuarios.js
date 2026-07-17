@@ -32,13 +32,22 @@ export default function AdminUsuarios({ onSalir }) {
   const actualizar = async (id, cambios) => {
     setGuardando(id);
     setUsuarios(us => us.map(u => u.id === id ? { ...u, ...cambios } : u));
-    const res = await fetch("/api/usuarios", { method: "PUT", headers: authHeaders(), body: JSON.stringify({ id, ...cambios }) });
-    if (!res.ok) { showToast("❌ No se pudo guardar"); cargar(); }
+    try {
+      const res = await fetch("/api/usuarios", { method: "PUT", headers: authHeaders(), body: JSON.stringify({ id, ...cambios }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { showToast("❌ " + (data.error || "No se pudo guardar")); cargar(); }
+    } catch (err) {
+      showToast("❌ Error de conexión: " + err.message);
+      cargar();
+    }
     setGuardando(null);
   };
 
+  // (u.modos || []) por si esa cuenta no trae el arreglo -- antes truena
+  // en silencio y el checkbox se queda como si no hiciera nada.
   const toggleModo = (u, modo) => {
-    const modos = u.modos.includes(modo) ? u.modos.filter(m => m !== modo) : [...u.modos, modo];
+    const actuales = u.modos || [];
+    const modos = actuales.includes(modo) ? actuales.filter(m => m !== modo) : [...actuales, modo];
     actualizar(u.id, { modos });
   };
 
@@ -90,7 +99,7 @@ export default function AdminUsuarios({ onSalir }) {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
               {MODOS.map(m => (
                 <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, cursor: "pointer" }}>
-                  <input type="checkbox" checked={u.modos.includes(m.id)} onChange={() => toggleModo(u, m.id)} />
+                  <input type="checkbox" checked={(u.modos || []).includes(m.id)} onChange={() => toggleModo(u, m.id)} />
                   {m.label}
                 </label>
               ))}
