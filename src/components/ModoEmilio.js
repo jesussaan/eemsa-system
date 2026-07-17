@@ -6,7 +6,20 @@ import { sendWhatsApp } from "../utils/whatsapp";
 import { sendPush } from "../lib/push";
 import NotifBell from "./NotifBell";
 import { IcoPalette, IcoFlask, IcoRoll, IcoProd, IcoAlertDot, IcoStore, IcoNote, IcoCal, IcoCheck, IcoPencil, IcoX, IcoEmilio, IcoRef, IcoBulb, IcoOperador, IcoCamera } from "./Icons";
-import { REBOB_CLIENTE, REBOB_COLOR } from "../lib/constants";
+import { REBOB_CLIENTE, REBOB_COLOR, REBOB_PIEZAS_POR_CAJA } from "../lib/constants";
+
+// Cajas fisicas de cartón realmente usadas: las completas + una caja
+// entera extra por cada medida que tenga piezas sueltas (aunque no la
+// llenen, de todos modos se usa una caja completa para meterlas -- no se
+// puede dar de baja del inventario "media caja"). Si en un mixto las dos
+// medidas tienen sobrante, son 2 cajas extra, no una fraccion.
+const cajasFisicasUsadas = (p) => {
+  const ancho = String(p.medida || '').split(' x ')[0];
+  const piezasPorCaja = REBOB_PIEZAS_POR_CAJA[ancho] || 1;
+  const cajasN = Number(p.cajas) || 0;
+  const piezasSueltas = Math.max(0, (Number(p.piezas_prod) || 0) - cajasN * piezasPorCaja);
+  return cajasN + (piezasSueltas > 0 ? 1 : 0);
+};
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
@@ -437,7 +450,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                 <div style={S.mini}>
                   <div style={S.miniLbl}>Cajas utilizadas</div>
                   <div style={{ color: "#e0e0e0", fontWeight: 800, fontSize: 20 }}>
-                    {grupo.reduce((s, p) => s + (Number(p.cajas) || 0), 0).toLocaleString()}
+                    {grupo.reduce((s, p) => s + cajasFisicasUsadas(p), 0).toLocaleString()}
                   </div>
                 </div>
                 <div style={S.mini}>
@@ -515,6 +528,11 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
             : (p.piezas_prod != null && p.rollos_caja
               ? Math.floor(Number(p.piezas_prod) / Number(p.rollos_caja))
               : null);
+          // "Cajas utilizadas" (Insumos) si cuenta la fraccion de las piezas
+          // sueltas que no llenaron una caja -- "Cajas producidas" de arriba
+          // se deja como cajas completas nada mas, para no confundir el conteo
+          // fisico de cajas reales con el consumo total de material.
+          const cajasUtilizadas = esRebobinado ? cajasFisicasUsadas(p) : cajasProducidas;
           const centros = p.piezas_prod != null
             ? Number(p.piezas_prod) + (Number(p.merma) || 0)
             : null;
@@ -660,10 +678,10 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                       )}
                     </div>
                   )}
-                  {cajasProducidas != null && (
+                  {cajasUtilizadas != null && (
                     <div style={S.mini}>
                       <div style={S.miniLbl}>Cajas utilizadas</div>
-                      <div style={{ color: "#e0e0e0", fontWeight: 800, fontSize: 20 }}>{cajasProducidas.toLocaleString()}</div>
+                      <div style={{ color: "#e0e0e0", fontWeight: 800, fontSize: 20 }}>{cajasUtilizadas.toLocaleString()}</div>
                     </div>
                   )}
                   <div style={S.mini}>
