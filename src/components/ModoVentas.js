@@ -234,8 +234,11 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
         {tab === "nuevo" && (() => {
           const sorted = [...pedidos].filter(p => p.cliente !== REBOB_CLIENTE).sort((a, b) => (b.fecha_solicitud || "").localeCompare(a.fecha_solicitud || ""));
           const q = form.cliente.trim().toLowerCase();
+          // Al escribir un cliente, solo se sugiere su ultimo pedido (el mas
+          // probable para repetir) -- antes se veian hasta 5 y era mas
+          // ruido que ayuda para escoger cual repetir.
           const recientes = q.length >= 2
-            ? sorted.filter(p => p.cliente?.toLowerCase().includes(q)).slice(0, 5)
+            ? sorted.filter(p => p.cliente?.toLowerCase().includes(q)).slice(0, 1)
             : sorted.slice(0, 6);
           return (
           <div>
@@ -244,7 +247,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
             {recientes.length > 0 && (
               <div style={{ background:"#13161e", borderRadius:12, padding:"10px 12px", marginBottom:18 }}>
                 <div style={{ fontSize:10, color:"#666", fontWeight:700, letterSpacing:".07em", textTransform:"uppercase", marginBottom:8 }}>
-                  {q.length >= 2 ? `Pedidos de ${form.cliente.trim()}` : "Pedidos recientes"}
+                  {q.length >= 2 ? `Último pedido de ${form.cliente.trim()}` : "Pedidos recientes"}
                 </div>
                 {recientes.map((p, i) => (
                   <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom: i < recientes.length - 1 ? "1px solid #1a1d26" : "none" }}>
