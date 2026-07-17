@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { authHeaders } from '../lib/auth';
 import { uid, today } from '../lib/utils';
-import { REBOB_CLIENTE, REBOB_COLOR, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, REBOB_PIEZAS_POR_VUELTA, calcularPiezasTeoricas } from '../lib/constants';
+import { REBOB_CLIENTE, REBOB_COLOR, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, calcularPiezasTeoricas } from '../lib/constants';
 import { IcoCheck } from './Icons';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
@@ -47,15 +47,14 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
     // Cuando el rollo sale mixto, cada medida solo se llevo una parte del
     // jumbo de 8000m, no un rollo completo -- antes se guardaba "1 rollo
     // usado" por cada medida, lo que inflaba el consumo si eran 2-3 cortes
-    // del mismo rollo fisico. Aqui se calcula que fraccion del rollo se fue
-    // en esta medida: piezas reales / piezas-por-vuelta = vueltas usadas;
-    // vueltas x largo de pieza = metros usados; metros / 8000m = fraccion.
-    const piezasPorVuelta = REBOB_PIEZAS_POR_VUELTA[c.ancho] || 0;
-    const vueltasUsadas = piezasPorVuelta > 0 ? piezasReal / piezasPorVuelta : 0;
-    const metrosUsados = vueltasUsadas * (Number(c.largoPieza) || 0);
-    const rollosUsadosFraccion = REBOB_LARGO_JUMBO_M > 0 ? metrosUsados / REBOB_LARGO_JUMBO_M : 0;
+    // del mismo rollo fisico. El 100% de un rollo NO es 8000m/largoPieza
+    // (division exacta) porque la ultima vuelta casi nunca se completa --
+    // el 100% real es piezasTeoricas (ya trae el floor de vueltas, ver
+    // calcularPiezasTeoricas). Por eso la fraccion usada es piezas reales
+    // entre piezas teoricas, no metros entre 8000.
+    const rollosUsadosFraccion = piezasTeoricas > 0 ? piezasReal / piezasTeoricas : 0;
 
-    return { vueltas, piezasTeoricas, piezasReal, diferencia, piezasPorCaja, cajasCompletasN, piezasSueltasN, mermaNum, mermaPct, vueltasUsadas, rollosUsadosFraccion };
+    return { vueltas, piezasTeoricas, piezasReal, diferencia, piezasPorCaja, cajasCompletasN, piezasSueltasN, mermaNum, mermaPct, rollosUsadosFraccion };
   };
 
   const esMixto = cortes.length > 1;
@@ -175,12 +174,11 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
   const guardarEdicion = async (p) => {
     const { ancho, largoPieza } = parseMedidaRebob(p.medida);
     const piezasPorCaja = REBOB_PIEZAS_POR_CAJA[ancho] || 1;
-    const piezasPorVuelta = REBOB_PIEZAS_POR_VUELTA[ancho] || 0;
+    const piezasTeoricas = calcularPiezasTeoricas(ancho, largoPieza);
     const cajasN = Number(editForm.cajasCompletas) || 0;
     const sueltasN = Number(editForm.piezasSueltas) || 0;
     const piezasReal = cajasN * piezasPorCaja + sueltasN;
-    const vueltasUsadas = piezasPorVuelta > 0 ? piezasReal / piezasPorVuelta : 0;
-    const rollosUsadosFraccion = REBOB_LARGO_JUMBO_M > 0 ? (vueltasUsadas * (Number(largoPieza) || 0)) / REBOB_LARGO_JUMBO_M : 0;
+    const rollosUsadosFraccion = piezasTeoricas > 0 ? piezasReal / piezasTeoricas : 0;
     const mermaNum = editForm.merma !== "" ? Number(editForm.merma) : null;
     const mermaPct = mermaNum != null && piezasReal > 0 ? ((mermaNum / piezasReal) * 100).toFixed(2) : null;
 
