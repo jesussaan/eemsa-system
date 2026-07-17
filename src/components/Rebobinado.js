@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { authHeaders } from '../lib/auth';
 import { uid, today } from '../lib/utils';
-import { REBOB_CLIENTE, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, calcularPiezasTeoricas } from '../lib/constants';
+import { REBOB_CLIENTE, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, REBOB_PIEZAS_POR_VUELTA, calcularPiezasTeoricas } from '../lib/constants';
 import { IcoCheck } from './Icons';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
@@ -43,7 +43,19 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
     const diferencia = hayDato ? piezasReal - piezasTeoricas : null;
     const mermaNum = c.merma !== "" ? Number(c.merma) : null;
     const mermaPct = mermaNum != null && piezasReal > 0 ? ((mermaNum / piezasReal) * 100).toFixed(2) : null;
-    return { vueltas, piezasTeoricas, piezasReal, diferencia, piezasPorCaja, cajasCompletasN, piezasSueltasN, mermaNum, mermaPct };
+
+    // Cuando el rollo sale mixto, cada medida solo se llevo una parte del
+    // jumbo de 8000m, no un rollo completo -- antes se guardaba "1 rollo
+    // usado" por cada medida, lo que inflaba el consumo si eran 2-3 cortes
+    // del mismo rollo fisico. Aqui se calcula que fraccion del rollo se fue
+    // en esta medida: piezas reales / piezas-por-vuelta = vueltas usadas;
+    // vueltas x largo de pieza = metros usados; metros / 8000m = fraccion.
+    const piezasPorVuelta = REBOB_PIEZAS_POR_VUELTA[c.ancho] || 0;
+    const vueltasUsadas = piezasPorVuelta > 0 ? piezasReal / piezasPorVuelta : 0;
+    const metrosUsados = vueltasUsadas * (Number(c.largoPieza) || 0);
+    const rollosUsadosFraccion = REBOB_LARGO_JUMBO_M > 0 ? metrosUsados / REBOB_LARGO_JUMBO_M : 0;
+
+    return { vueltas, piezasTeoricas, piezasReal, diferencia, piezasPorCaja, cajasCompletasN, piezasSueltasN, mermaNum, mermaPct, vueltasUsadas, rollosUsadosFraccion };
   };
 
   const esMixto = cortes.length > 1;
@@ -79,7 +91,7 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
         // asi la tarjeta de Modo Emilio los muestra en el encabezado y bajo "Rollos MP usados"
         // sin tocar su logica, igual que con los pedidos normales de cliente.
         tipo: form.material, color: form.adhesivo, medida: `${c.ancho} x ${c.largoPieza}m`,
-        cajas: calc.cajasCompletasN, piezas_prod: calc.piezasReal, rollos_usados: 1, op: REBOB_OPERADOR_EQUIPO,
+        cajas: calc.cajasCompletasN, piezas_prod: calc.piezasReal, rollos_usados: Number(calc.rollosUsadosFraccion.toFixed(4)), op: REBOB_OPERADOR_EQUIPO,
         merma: calc.mermaNum, merma_pct: calc.mermaPct,
         fecha_solicitud: today(), fecha_inicio: form.fecha_inicio, fecha_termino: form.fecha_termino,
         notas: (form.notas
@@ -169,6 +181,7 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
               <div className="field"><label>Cajas completas * <span style={{ color: "#666", fontWeight: 400 }}>({calc.piezasPorCaja}/caja)</span></label><input type="number" value={c.cajasCompletas} onChange={e => updCorte(c.id, "cajasCompletas", e.target.value)} placeholder="27" /></div>
               <div className="field"><label>Piezas sueltas <span style={{ color: "#666", fontWeight: 400 }}>(no completan caja)</span></label><input type="number" value={c.piezasSueltas} onChange={e => updCorte(c.id, "piezasSueltas", e.target.value)} placeholder="18" /></div>
               <div className="field"><label>Total piezas (automático)</label><input readOnly value={(c.cajasCompletas || c.piezasSueltas) ? `${calc.piezasReal} pzas` : "—"} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
+              <div className="field"><label>Rollo MP usado <span style={{ color: "#666", fontWeight: 400 }}>(fracción, automático)</span></label><input readOnly value={(c.cajasCompletas || c.piezasSueltas) ? calc.rollosUsadosFraccion.toFixed(2) : "—"} style={{ background: "#1a2744", color: "#4b8fe8" }} /></div>
               <div className="field"><label>Merma (piezas)</label><input type="number" value={c.merma} onChange={e => updCorte(c.id, "merma", e.target.value)} placeholder="0" /></div>
               <div className="field"><label>% Merma</label><input readOnly value={calc.mermaPct != null ? `${calc.mermaPct}%` : "—"} style={{ background: "#1a2744", color: calc.mermaPct > 3 ? "#ff4d4d" : "#4be87a" }} /></div>
             </div>
@@ -181,6 +194,14 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
           </div>
         );
       })}
+      {esMixto && (() => {
+        const sumaFraccion = cortes.reduce((s, c) => s + calcCorte(c).rollosUsadosFraccion, 0);
+        return (
+          <div style={{ textAlign: "right", fontSize: 12, color: "#aaa", marginBottom: 8 }}>
+            Suma de rollo usado entre las {cortes.length} medidas: <strong style={{ color: Math.abs(sumaFraccion - 1) > 0.1 ? "#ff4d4d" : "#4be87a" }}>{sumaFraccion.toFixed(2)}</strong> <span style={{ color: "#555" }}>(debería acercarse a 1 = un jumbo completo)</span>
+          </div>
+        );
+      })()}
       <button className="btn btn-ghost btn-block" style={{ marginBottom: 20 }} onClick={agregarCorte}>+ Agregar otra medida (rollo mixto)</button>
 
       <div className="form-grid">
