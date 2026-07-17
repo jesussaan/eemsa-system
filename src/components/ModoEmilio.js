@@ -446,7 +446,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                   <div style={{ color: "#e0e0e0", fontWeight: 800, fontSize: 20 }}>
                     {grupo.reduce((s, p) => s + (Number(p.piezas_prod) || 0) + (Number(p.merma) || 0), 0).toLocaleString()}
                   </div>
-                  <div style={{ fontSize: 11, color: "#8a90ac", marginTop: 2 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#e0e0e0", marginTop: 4 }}>
                     {[...new Set(grupo.map(p => String(p.medida || '').split(' x ')[0]).filter(Boolean))].join(' · ')}
                   </div>
                 </div>
@@ -461,7 +461,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                   <div style={{ color: "#4b8fe8", fontWeight: 800, fontSize: 20 }}>
                     {grupo.reduce((s, p) => s + (Number(p.rollos_usados) || 0), 0).toFixed(2)}
                   </div>
-                  <div style={{ fontSize: 11, color: "#8a90ac", marginTop: 2 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#e0e0e0", marginTop: 4 }}>
                     {grupo[0].tipo} · {grupo[0].color}
                   </div>
                 </div>
