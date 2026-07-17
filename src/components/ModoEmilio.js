@@ -62,6 +62,18 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
     .sort((a, b) => (a.fecha_solicitud || "").localeCompare(b.fecha_solicitud || ""));
   const pendientes = tabEmilio === "rebobinado" ? pendientesRebobinado : pendientesImpresora;
 
+  // Agrupa los cortes de un mismo rollo mixto (comparten folio_rebobinado)
+  // para que salgan pegados en la lista y no se confundan con otro lote --
+  // los pedidos de cliente normal (sin folio_rebobinado) quedan cada uno
+  // en su propio grupo de 1, igual que siempre.
+  const gruposPendientes = Object.values(
+    pendientes.reduce((acc, p) => {
+      const key = p.folio_rebobinado != null ? `f${p.folio_rebobinado}` : `solo${p.id}`;
+      (acc[key] = acc[key] || []).push(p);
+      return acc;
+    }, {})
+  ).map(grupo => [...grupo].sort((a, b) => String(a.num).localeCompare(String(b.num))));
+
   const darDeAlta = async (id) => {
     setLoading(id);
     const update = { status: "terminado", fecha_termino: today() };
@@ -356,10 +368,25 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
           </div>
         )}
 
-        {pendientes.map(p => {
-          const cajasProducidas = p.piezas_prod != null && p.rollos_caja
-            ? Math.floor(Number(p.piezas_prod) / Number(p.rollos_caja))
-            : null;
+        {gruposPendientes.map(grupo => (
+        <div key={grupo[0].id} style={grupo.length > 1 ? {
+          border: `1px solid ${REBOB_COLOR}55`, borderRadius: 14, padding: 10, marginBottom: 12, background: "rgba(62,207,192,0.04)",
+        } : undefined}>
+          {grupo.length > 1 && (
+            <div style={{ fontSize: 11, fontWeight: 800, color: REBOB_COLOR, letterSpacing: ".05em", marginBottom: 8 }}>
+              🧵 LOTE #{grupo[0].folio_rebobinado} — ROLLO MIXTO ({grupo.length} medidas)
+            </div>
+          )}
+          {grupo.map(p => {
+          const esRebobinado = p.cliente === REBOB_CLIENTE;
+          // Rebobinado guarda "cajas" directo (cajas completas del rollo),
+          // no "rollos_caja" -- por eso no se puede sacar cajasProducidas
+          // dividiendo piezas_prod/rollos_caja como con un pedido de cliente.
+          const cajasProducidas = esRebobinado
+            ? (p.cajas != null ? Number(p.cajas) : null)
+            : (p.piezas_prod != null && p.rollos_caja
+              ? Math.floor(Number(p.piezas_prod) / Number(p.rollos_caja))
+              : null);
           const centros = p.piezas_prod != null
             ? Number(p.piezas_prod) + (Number(p.merma) || 0)
             : null;
@@ -373,13 +400,10 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
 
           const esperaDesde = p.fin_ts ? new Date(p.fin_ts) : p.fecha_termino ? new Date(p.fecha_termino + 'T16:00:00') : null;
           const diasEsperando = esperaDesde ? Math.floor((Date.now() - esperaDesde.getTime()) / 86400000) : 0;
-          const esRebobinado = p.cliente === REBOB_CLIENTE;
           const bordeColor = confirming ? '#4be87a' : esRebobinado ? REBOB_COLOR : diasEsperando >= 2 ? '#ff4d4d' : '#3a3f5a';
           // Rollo mixto: Rebobinado le pone el mismo folio base + letra a
           // cada corte del mismo rollo fisico (1A, 1B, 1C...) -- se detecta
-          // aqui para mostrarlo agrupado y no confundirlo con un pedido de
-          // cliente cualquiera (que usa su propio consecutivo, no el de
-          // Rebobinado).
+          // aqui para mostrarlo tambien en el texto del encabezado.
           const loteMixto = esRebobinado ? String(p.num || '').match(/^(\d+)([A-Za-z])$/) : null;
 
           return (
@@ -608,7 +632,9 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
 
             </div>
           );
-        })}
+          })}
+        </div>
+        ))}
         </>}
 
       </main>

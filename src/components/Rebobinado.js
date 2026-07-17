@@ -259,9 +259,14 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
       })}
       {esMixto && (() => {
         const sumaFraccion = cortes.reduce((s, c) => s + calcCorte(c).rollosUsadosFraccion, 0);
+        // El redondeo de cada corte (piezas enteras / piezas por vuelta)
+        // deja un ruido minimo en la suma (ej. 1.006 en vez de 1.0) que no
+        // es un error real -- si esta bien cerca de un entero, se muestra
+        // ese entero limpio en vez del decimal con ruido.
+        const sumaMostrada = Math.abs(sumaFraccion - Math.round(sumaFraccion)) < 0.02 ? Math.round(sumaFraccion) : sumaFraccion;
         return (
           <div style={{ textAlign: "right", fontSize: 12, color: "#aaa", marginBottom: 8 }}>
-            Suma de rollo usado entre las {cortes.length} medidas: <strong style={{ color: Math.abs(sumaFraccion - 1) > 0.1 ? "#ff4d4d" : "#4be87a" }}>{sumaFraccion.toFixed(2)}</strong> <span style={{ color: "#555" }}>(debería acercarse a 1 = un jumbo completo)</span>
+            Suma de rollo usado entre las {cortes.length} medidas: <strong style={{ color: Math.abs(sumaFraccion - 1) > 0.1 ? "#ff4d4d" : "#4be87a" }}>{sumaMostrada.toFixed(2)}</strong> <span style={{ color: "#555" }}>(debería acercarse a 1 = un jumbo completo)</span>
           </div>
         );
       })()}
