@@ -6,7 +6,7 @@ import { IcoCheck } from './Icons';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
-const corteInicial = () => ({ id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0], piezas: "", merma: "" });
+const corteInicial = () => ({ id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0], cajasCompletas: "", piezasSueltas: "", merma: "" });
 
 export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
   const formInicial = {
@@ -30,26 +30,34 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
   const calcCorte = (c) => {
     const vueltas = Math.floor(REBOB_LARGO_JUMBO_M / (Number(c.largoPieza) || 1));
     const piezasTeoricas = calcularPiezasTeoricas(c.ancho, c.largoPieza);
-    const piezasReal = Number(c.piezas) || 0;
-    const diferencia = c.piezas !== "" ? piezasReal - piezasTeoricas : null;
     const piezasPorCaja = REBOB_PIEZAS_POR_CAJA[c.ancho] || 1;
-    const cajasCalc = piezasReal > 0 ? Math.ceil(piezasReal / piezasPorCaja) : 0;
+    // Cajas completas se escriben directo (2"=36, 3"=24 pzas/caja, mismo
+    // criterio que rollosPorCaja en pedidos normales) -- las piezas sueltas
+    // que no alcanzan a llenar una caja se capturan aparte, para no inflar
+    // "cajas" con una caja que en realidad no existe (antes se redondeaba
+    // hacia arriba con Math.ceil).
+    const cajasCompletasN = Number(c.cajasCompletas) || 0;
+    const piezasSueltasN  = Number(c.piezasSueltas)  || 0;
+    const piezasReal = cajasCompletasN * piezasPorCaja + piezasSueltasN;
+    const hayDato = c.cajasCompletas !== "" || c.piezasSueltas !== "";
+    const diferencia = hayDato ? piezasReal - piezasTeoricas : null;
     const mermaNum = c.merma !== "" ? Number(c.merma) : null;
     const mermaPct = mermaNum != null && piezasReal > 0 ? ((mermaNum / piezasReal) * 100).toFixed(2) : null;
-    return { vueltas, piezasTeoricas, piezasReal, diferencia, piezasPorCaja, cajasCalc, mermaNum, mermaPct };
+    return { vueltas, piezasTeoricas, piezasReal, diferencia, piezasPorCaja, cajasCompletasN, piezasSueltasN, mermaNum, mermaPct };
   };
 
   const esMixto = cortes.length > 1;
 
   const save = async () => {
-    const validos = cortes.filter(c => Number(c.piezas) > 0);
-    if (validos.length === 0) { showToast("⚠ Llena piezas reales en al menos una medida"); return; }
+    const validos = cortes.filter(c => (Number(c.cajasCompletas) || 0) > 0 || (Number(c.piezasSueltas) || 0) > 0);
+    if (validos.length === 0) { showToast("⚠ Llena cajas completas o piezas sueltas en al menos una medida"); return; }
     setLoading(true);
 
     let siguiente = parseInt(siguienteNumPedido(pedidos), 10);
     const nuevos = [];
     for (const c of validos) {
       const calc = calcCorte(c);
+      const notaSueltas = calc.piezasSueltasN > 0 ? ` · ${calc.piezasSueltasN} pzas sueltas (no completan caja)` : "";
       const nuevo = {
         id: uid(), created: today(),
         cliente: REBOB_CLIENTE, num: String(siguiente),
@@ -57,12 +65,12 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
         // asi la tarjeta de Modo Emilio los muestra en el encabezado y bajo "Rollos MP usados"
         // sin tocar su logica, igual que con los pedidos normales de cliente.
         tipo: form.material, color: form.adhesivo, medida: `${c.ancho} x ${c.largoPieza}m`,
-        cajas: calc.cajasCalc, piezas_prod: c.piezas, rollos_usados: 1, op: REBOB_OPERADOR_EQUIPO,
+        cajas: calc.cajasCompletasN, piezas_prod: calc.piezasReal, rollos_usados: 1, op: REBOB_OPERADOR_EQUIPO,
         merma: calc.mermaNum, merma_pct: calc.mermaPct,
         fecha_solicitud: today(), fecha_inicio: form.fecha_inicio, fecha_termino: form.fecha_termino,
-        notas: form.notas
+        notas: (form.notas
           ? (esMixto ? `${form.notas} (rollo mixto)` : form.notas)
-          : `Teórico: ${calc.piezasTeoricas} pzas (${calc.vueltas} vueltas x ${c.ancho})${esMixto ? " — rollo mixto" : ""}`,
+          : `Teórico: ${calc.piezasTeoricas} pzas (${calc.vueltas} vueltas x ${c.ancho})${esMixto ? " — rollo mixto" : ""}`) + notaSueltas,
         status: "pendiente",
       };
       const res = await fetch('/api/pedidos', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
@@ -134,8 +142,9 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
               <div className="field"><label>Largo de pieza (m)</label>
                 <select value={c.largoPieza} onChange={e => updCorte(c.id, "largoPieza", e.target.value)}>{REBOB_LARGOS_PIEZA.map(l => <option key={l} value={l}>{l}m</option>)}</select>
               </div>
-              <div className="field"><label>Piezas reales *</label><input type="number" value={c.piezas} onChange={e => updCorte(c.id, "piezas", e.target.value)} placeholder={String(calc.piezasTeoricas)} /></div>
-              <div className="field"><label>Cajas (automático, {calc.piezasPorCaja}/caja)</label><input readOnly value={c.piezas ? `${calc.cajasCalc} cajas` : "—"} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
+              <div className="field"><label>Cajas completas * <span style={{ color: "#666", fontWeight: 400 }}>({calc.piezasPorCaja}/caja)</span></label><input type="number" value={c.cajasCompletas} onChange={e => updCorte(c.id, "cajasCompletas", e.target.value)} placeholder="27" /></div>
+              <div className="field"><label>Piezas sueltas <span style={{ color: "#666", fontWeight: 400 }}>(no completan caja)</span></label><input type="number" value={c.piezasSueltas} onChange={e => updCorte(c.id, "piezasSueltas", e.target.value)} placeholder="18" /></div>
+              <div className="field"><label>Total piezas (automático)</label><input readOnly value={(c.cajasCompletas || c.piezasSueltas) ? `${calc.piezasReal} pzas` : "—"} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
               <div className="field"><label>Merma (piezas)</label><input type="number" value={c.merma} onChange={e => updCorte(c.id, "merma", e.target.value)} placeholder="0" /></div>
               <div className="field"><label>% Merma</label><input readOnly value={calc.mermaPct != null ? `${calc.mermaPct}%` : "—"} style={{ background: "#1a2744", color: calc.mermaPct > 3 ? "#ff4d4d" : "#4be87a" }} /></div>
             </div>
