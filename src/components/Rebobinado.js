@@ -110,7 +110,14 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
       nuevos.push(nuevo);
     }
 
-    setPedidos(ps => [...nuevos, ...ps]);
+    // Con varios cortes en un mixto, cada POST puede llegar por realtime
+    // (App.js) antes de que termine este loop -- sin este chequeo se
+    // duplicaba el registro (uno del realtime, otro de este prepend).
+    setPedidos(ps => {
+      const idsExistentes = new Set(ps.map(x => x.id));
+      const faltantes = nuevos.filter(n => !idsExistentes.has(n.id));
+      return [...faltantes, ...ps];
+    });
     setCortes([corteInicial()]);
     setForm(f => ({ ...formInicial, adhesivo: f.adhesivo, material: f.material }));
     showToast(nuevos.length > 1
