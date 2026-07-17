@@ -96,6 +96,17 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
 
   const historial = pedidos.filter(p => p.cliente === REBOB_CLIENTE).sort((a, b) => (b.created || "").localeCompare(a.created || ""));
 
+  // Solo se puede borrar mientras siga "pendiente" (antes de que Emilio le
+  // de de alta) -- para corregir un error de captura sin necesitar al
+  // supervisor. Una vez dado de alta, ya no aparece el boton.
+  const borrar = async (id) => {
+    if (!window.confirm("¿Borrar este registro para volver a capturarlo?")) return;
+    const res = await fetch('/api/pedidos', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
+    if (!res.ok) { showToast("❌ Error al borrar"); return; }
+    setPedidos(ps => ps.filter(p => p.id !== id));
+    showToast("✓ Borrado — ya lo puedes volver a capturar arriba");
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--bg)" }}>
       <header style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--surface)", borderBottom: "2px solid var(--teal)", position: "sticky", top: 0, zIndex: 10 }}>
@@ -169,11 +180,16 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
       <h3 className="sub-title" style={{ marginTop: 20 }}>Historial</h3>
       {historial.length === 0 ? <p className="empty">Sin registros todavía.</p> : historial.map(p => (
         <div key={p.id} className="list-item" style={{ marginTop: 4 }}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <div><strong>#{p.num}</strong> · {p.tipo} · {p.color} · {p.medida}</div>
             <span className={`badge ${p.status === "terminado" ? "b-green" : "b-orange"}`}>{p.status === "terminado" ? "Terminado" : "Falta dar de alta"}</span>
           </div>
-          <div className="muted">{p.cajas} cajas · {p.piezas_prod} piezas · {p.op}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <div className="muted">{p.cajas} cajas · {p.piezas_prod} piezas · {p.op}</div>
+            {p.status === "pendiente" && (
+              <button onClick={() => borrar(p.id)} style={{ background: "transparent", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: 11, flexShrink: 0 }}>🗑️ Borrar</button>
+            )}
+          </div>
         </div>
       ))}
 

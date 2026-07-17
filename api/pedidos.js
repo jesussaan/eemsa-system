@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { requiereAlgunModo, requiereModo } from './_lib/auth.js';
 import { uid, today } from '../src/lib/utils.js';
+import { REBOB_CLIENTE } from '../src/lib/constants.js';
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -67,9 +68,22 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
-    if (!(await requiereModo(req, 'supervisor'))) return res.status(401).json({ error: 'No autorizado' });
     const { id } = req.body || {};
     if (!id) return res.status(400).json({ error: 'id es requerido' });
+
+    const esSupervisor = await requiereModo(req, 'supervisor');
+    if (!esSupervisor) {
+      // Rebobinado puede borrar sus propios registros para corregir un error
+      // de captura, pero solo mientras sigan "pendiente" (antes de que Emilio
+      // les de de alta) -- no puede tocar pedidos de clientes reales ni algo
+      // que ya avanzo mas adelante en el flujo.
+      if (!(await requiereModo(req, 'rebobinado'))) return res.status(401).json({ error: 'No autorizado' });
+      const { data: pedido } = await supabase.from('pedidos').select('cliente, status').eq('id', id).single();
+      if (!pedido || pedido.cliente !== REBOB_CLIENTE || pedido.status !== 'pendiente') {
+        return res.status(401).json({ error: 'No autorizado' });
+      }
+    }
+
     const { error } = await supabase.from('pedidos').delete().eq('id', id);
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json({ ok: true });
