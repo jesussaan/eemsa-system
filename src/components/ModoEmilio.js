@@ -396,7 +396,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
           // "Dar de alta" confirma las dos medidas juntas de una vez,
           // porque fisicamente son el mismo rollo que Emilio revisa junto.
           <div key={grupo[0].id} style={{ ...S.card, borderLeft: `4px solid ${REBOB_COLOR}` }}>
-            <div style={{ marginBottom: 12 }}>
+            <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 19, fontWeight: 700, color: "#fff" }}>{grupo[0].cliente}</div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 13, marginTop: 6 }}>
                 <span style={{ color: "#aaa" }}>{grupo[0].tipo}</span>
@@ -404,24 +404,94 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                 <span style={{ color: REBOB_COLOR, fontWeight: 700 }}>🧵 Lote #{grupo[0].folio_rebobinado} — Rollo mixto ({grupo.length} medidas)</span>
               </div>
             </div>
-            <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
-              {grupo.map(p => (
-                <div key={p.id} style={{ background: "#13161e", borderRadius: 10, padding: "10px 12px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontSize: 17, fontWeight: 900, color: "#c9922a" }}>{p.medida}</span>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "#4be87a" }}>{p.cajas} cajas</span>
+
+            {/* ── PRODUCCIÓN POR MEDIDA (piezas no se suman entre medidas distintas) ── */}
+            <div style={S.section}>
+              <div style={{ ...S.secTitle, display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoProd} /> Producción por medida</div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {grupo.map(p => (
+                  <div key={p.id} style={{ background: "#13161e", borderRadius: 10, padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 16, fontWeight: 900, color: "#c9922a" }}>{p.medida}</div>
+                      <div style={{ fontSize: 11, color: "#8a90ac", marginTop: 2 }}>
+                        {p.cajas} cajas · {Number(p.piezas_prod || 0).toLocaleString()} piezas
+                        {p.merma_pct != null && <span style={{ color: Number(p.merma_pct) > 3 ? "#ff4d4d" : "#4be87a" }}> · {Number(p.merma_pct).toFixed(2)}% merma</span>}
+                      </div>
+                    </div>
+                    {p.rollos_usados != null && <div style={{ fontSize: 14, fontWeight: 800, color: "#4b8fe8" }}>{Number(p.rollos_usados).toFixed(2)} rollo</div>}
                   </div>
-                  <div style={{ display: "flex", gap: 14, fontSize: 12, color: "#8a90ac", flexWrap: "wrap" }}>
-                    <span>{Number(p.piezas_prod || 0).toLocaleString()} piezas</span>
-                    {p.rollos_usados != null && <span>{Number(p.rollos_usados).toFixed(2)} rollo MP</span>}
-                    {p.merma_pct != null && <span style={{ color: Number(p.merma_pct) > 3 ? "#ff4d4d" : "#4be87a" }}>{Number(p.merma_pct).toFixed(2)}% merma</span>}
+                ))}
+              </div>
+            </div>
+
+            {/* ── INSUMOS (combinados, si aplica entre medidas) ── */}
+            <div style={S.section}>
+              <div style={{ ...S.secTitle, display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoRef} /> Insumos</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div style={S.mini}>
+                  <div style={S.miniLbl}>Centros utilizados</div>
+                  <div style={{ color: "#e0e0e0", fontWeight: 800, fontSize: 20 }}>
+                    {grupo.reduce((s, p) => s + (Number(p.piezas_prod) || 0) + (Number(p.merma) || 0), 0).toLocaleString()}
                   </div>
                 </div>
-              ))}
+                <div style={S.mini}>
+                  <div style={S.miniLbl}>Cajas utilizadas</div>
+                  <div style={{ color: "#e0e0e0", fontWeight: 800, fontSize: 20 }}>
+                    {grupo.reduce((s, p) => s + (Number(p.cajas) || 0), 0).toLocaleString()}
+                  </div>
+                </div>
+                <div style={S.mini}>
+                  <div style={S.miniLbl}>Rollo MP usado (total)</div>
+                  <div style={{ color: "#4b8fe8", fontWeight: 800, fontSize: 20 }}>
+                    {grupo.reduce((s, p) => s + (Number(p.rollos_usados) || 0), 0).toFixed(2)}
+                  </div>
+                </div>
+              </div>
             </div>
-            <div style={{ textAlign: "right", fontSize: 11, color: "#555", marginBottom: 10 }}>
-              Rollo MP usado total: <strong style={{ color: "#4be87a" }}>{grupo.reduce((s, p) => s + (Number(p.rollos_usados) || 0), 0).toFixed(2)}</strong>
-            </div>
+
+            {/* ── TIEMPO DE PRODUCCIÓN (mismo rollo, mismas fechas para las dos medidas) ── */}
+            {(() => {
+              const p0 = grupo[0];
+              const tiempo0 = calcTiempo(p0);
+              const exacto0 = !!(p0.inicio_ts && p0.fin_ts);
+              return (
+                <div style={S.section}>
+                  <div style={S.secTitle}>⏱ Tiempo de producción</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#3a3f5a", marginBottom: 10 }}>
+                    <span>{fmtTS(p0.inicio_ts, p0.fecha_inicio)}</span>
+                    <span>→</span>
+                    <span>{fmtTS(p0.fin_ts, p0.fecha_termino)}</span>
+                  </div>
+                  {tiempo0 ? (
+                    <div style={{ background: "#0a0c10", borderRadius: 10, padding: "12px 16px", marginBottom: 12, display: "flex", alignItems: "baseline", gap: 8 }}>
+                      <span style={{ fontSize: 48, fontWeight: 900, color: "#fff", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>{tiempo0}</span>
+                      <span style={{ fontSize: 16, color: "#545a78", fontWeight: 600 }}>días</span>
+                      {exacto0 && <span style={{ fontSize: 10, color: "#2a4a2a", background: "#1a2e1a", padding: "2px 7px", borderRadius: 20, marginLeft: 4 }}>exacto</span>}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: "#3a3f5a", marginBottom: 12 }}>Sin datos de tiempo suficientes</div>
+                  )}
+                  {tiempo0 && (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+                      {[
+                        { ico: IcoRef, lbl: "Mant." },
+                        { ico: IcoBulb, lbl: "Luz" },
+                        { ico: IcoOperador, lbl: p0.op || "Operador" },
+                      ].map((row, i) => (
+                        <div key={i} style={{ background: "#0d0f14", border: "1px solid #1e2132", borderRadius: 8, padding: "7px 6px", textAlign: "center" }}>
+                          <div style={{ fontSize: 9, color: "#5a6080", display: "flex", alignItems: "center", justifyContent: "center", gap: 3, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 3 }}>
+                            <Ico icon={row.ico} size={10} /> {row.lbl}
+                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: "#e0e0e0", fontVariantNumeric: "tabular-nums" }}>{tiempo0}d</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {p0.notas && <div style={{ fontSize: 12, color: "#aaa", marginTop: 10, display: "flex", alignItems: "center", gap: 5 }}><Ico icon={IcoNote} /> {p0.notas}</div>}
+                </div>
+              );
+            })()}
+
             <button
               onClick={() => darDeAltaLote(grupo)}
               disabled={loading === grupo[0].id}
