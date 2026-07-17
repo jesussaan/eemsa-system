@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { authHeaders } from '../lib/auth';
 import { uid, today } from '../lib/utils';
-import { REBOB_CLIENTE, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, REBOB_PIEZAS_POR_VUELTA, calcularPiezasTeoricas } from '../lib/constants';
+import { REBOB_CLIENTE, REBOB_COLOR, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, REBOB_PIEZAS_POR_VUELTA, calcularPiezasTeoricas } from '../lib/constants';
 import { IcoCheck } from './Icons';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
@@ -121,15 +121,73 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
 
   const historial = pedidos.filter(p => p.cliente === REBOB_CLIENTE).sort((a, b) => (b.created || "").localeCompare(a.created || ""));
 
-  // Solo se puede borrar mientras siga "pendiente" (antes de que Emilio le
-  // de de alta) -- para corregir un error de captura sin necesitar al
-  // supervisor. Una vez dado de alta, ya no aparece el boton.
+  // Agrupa los cortes de un mismo rollo mixto (comparten folio_rebobinado)
+  // para que salgan juntos en el historial y no se confundan con otro
+  // lote registrado despues. Los registros viejos sin folio_rebobinado
+  // quedan cada uno en su propio grupo de 1.
+  const gruposHistorial = Object.values(
+    historial.reduce((acc, p, i) => {
+      const key = p.folio_rebobinado != null ? `f${p.folio_rebobinado}` : `legacy${i}`;
+      (acc[key] = acc[key] || []).push(p);
+      return acc;
+    }, {})
+  ).map(grupo => [...grupo].sort((a, b) => String(a.num).localeCompare(String(b.num))));
+
+  // Solo se puede borrar/editar mientras siga "pendiente" (antes de que
+  // Emilio le de de alta) -- para corregir un error de captura sin
+  // necesitar al supervisor. Una vez dado de alta, ya no aparecen los botones.
   const borrar = async (id) => {
     if (!window.confirm("¿Borrar este registro para volver a capturarlo?")) return;
     const res = await fetch('/api/pedidos', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
     if (!res.ok) { showToast("❌ Error al borrar"); return; }
     setPedidos(ps => ps.filter(p => p.id !== id));
     showToast("✓ Borrado — ya lo puedes volver a capturar arriba");
+  };
+
+  // Edicion inline: corrige cajas/piezas sueltas/merma sin borrar y volver
+  // a capturar. Ancho y largo de pieza se sacan de "medida" (ej. 2" x 100m,
+  // formato que el propio Rebobinado genera al guardar).
+  const parseMedidaRebob = (medida) => {
+    const [a, l] = String(medida || "").split(" x ");
+    return { ancho: a || "", largoPieza: (l || "").replace(/m$/i, "") };
+  };
+  const [editId, setEditId] = useState(null);
+  const [editForm, setEditForm] = useState({ cajasCompletas: "", piezasSueltas: "", merma: "" });
+  const abrirEdicion = (p) => {
+    const { ancho } = parseMedidaRebob(p.medida);
+    const piezasPorCaja = REBOB_PIEZAS_POR_CAJA[ancho] || 1;
+    const cajasN = Number(p.cajas) || 0;
+    const sueltasN = Math.max(0, (Number(p.piezas_prod) || 0) - cajasN * piezasPorCaja);
+    setEditId(p.id);
+    setEditForm({
+      cajasCompletas: p.cajas != null ? String(p.cajas) : "",
+      piezasSueltas: sueltasN > 0 ? String(sueltasN) : "",
+      merma: p.merma != null ? String(p.merma) : "",
+    });
+  };
+  const guardarEdicion = async (p) => {
+    const { ancho, largoPieza } = parseMedidaRebob(p.medida);
+    const piezasPorCaja = REBOB_PIEZAS_POR_CAJA[ancho] || 1;
+    const piezasPorVuelta = REBOB_PIEZAS_POR_VUELTA[ancho] || 0;
+    const cajasN = Number(editForm.cajasCompletas) || 0;
+    const sueltasN = Number(editForm.piezasSueltas) || 0;
+    const piezasReal = cajasN * piezasPorCaja + sueltasN;
+    const vueltasUsadas = piezasPorVuelta > 0 ? piezasReal / piezasPorVuelta : 0;
+    const rollosUsadosFraccion = REBOB_LARGO_JUMBO_M > 0 ? (vueltasUsadas * (Number(largoPieza) || 0)) / REBOB_LARGO_JUMBO_M : 0;
+    const mermaNum = editForm.merma !== "" ? Number(editForm.merma) : null;
+    const mermaPct = mermaNum != null && piezasReal > 0 ? ((mermaNum / piezasReal) * 100).toFixed(2) : null;
+
+    const body = {
+      action: "rebobinado_editar", id: p.id,
+      cajas: cajasN, piezas_prod: piezasReal,
+      merma: mermaNum, merma_pct: mermaPct,
+      rollos_usados: Number(rollosUsadosFraccion.toFixed(4)),
+    };
+    const res = await fetch('/api/pedidos', { method: 'PUT', headers: authHeaders(), body: JSON.stringify(body) });
+    if (!res.ok) { showToast("❌ Error al guardar"); return; }
+    setPedidos(ps => ps.map(x => x.id === p.id ? { ...x, ...body } : x));
+    setEditId(null);
+    showToast("✓ Corregido");
   };
 
   return (
@@ -212,18 +270,50 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
       </button>
 
       <h3 className="sub-title" style={{ marginTop: 20 }}>Historial</h3>
-      {historial.length === 0 ? <p className="empty">Sin registros todavía.</p> : historial.map(p => (
-        <div key={p.id} className="list-item" style={{ marginTop: 4 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-            <div><strong>#{p.num}</strong> · {p.tipo} · {p.color} · {p.medida}</div>
-            <span className={`badge ${p.status === "terminado" ? "b-green" : "b-orange"}`}>{p.status === "terminado" ? "Terminado" : "Falta dar de alta"}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-            <div className="muted">{p.cajas} cajas · {p.piezas_prod} piezas · {p.op}</div>
-            {p.status === "pendiente" && (
-              <button onClick={() => borrar(p.id)} style={{ background: "transparent", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: 11, flexShrink: 0 }}>🗑️ Borrar</button>
-            )}
-          </div>
+      {gruposHistorial.length === 0 ? <p className="empty">Sin registros todavía.</p> : gruposHistorial.map(grupo => (
+        <div key={grupo[0].id} style={{
+          background: grupo.length > 1 ? "rgba(62,207,192,0.06)" : "transparent",
+          border: grupo.length > 1 ? `1px solid ${REBOB_COLOR}44` : "none",
+          borderRadius: 10, padding: grupo.length > 1 ? 8 : 0, marginBottom: 12,
+        }}>
+          {grupo.length > 1 && (
+            <div style={{ fontSize: 11, fontWeight: 700, color: REBOB_COLOR, letterSpacing: ".05em", marginBottom: 6 }}>
+              🧵 LOTE #{grupo[0].folio_rebobinado} — ROLLO MIXTO ({grupo.length} medidas)
+            </div>
+          )}
+          {grupo.map(p => (
+            <div key={p.id} className="list-item" style={{ marginTop: 4 }}>
+              {editId === p.id ? (
+                <div>
+                  <div className="form-grid">
+                    <div className="field"><label>Cajas completas</label><input type="number" value={editForm.cajasCompletas} onChange={e => setEditForm(f => ({ ...f, cajasCompletas: e.target.value }))} /></div>
+                    <div className="field"><label>Piezas sueltas</label><input type="number" value={editForm.piezasSueltas} onChange={e => setEditForm(f => ({ ...f, piezasSueltas: e.target.value }))} /></div>
+                    <div className="field"><label>Merma (piezas)</label><input type="number" value={editForm.merma} onChange={e => setEditForm(f => ({ ...f, merma: e.target.value }))} /></div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <button className="btn btn-primary btn-sm" onClick={() => guardarEdicion(p)}>💾 Guardar</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setEditId(null)}>Cancelar</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <div><strong>#{p.num}</strong> · {p.tipo} · {p.color} · {p.medida}</div>
+                    <span className={`badge ${p.status === "terminado" ? "b-green" : "b-orange"}`}>{p.status === "terminado" ? "Terminado" : "Falta dar de alta"}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <div className="muted">{p.cajas} cajas · {p.piezas_prod} piezas · {p.op}</div>
+                    {p.status === "pendiente" && (
+                      <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+                        <button onClick={() => abrirEdicion(p)} style={{ background: "transparent", border: "none", color: "#4b8fe8", cursor: "pointer", fontSize: 11 }}>✏️ Editar</button>
+                        <button onClick={() => borrar(p.id)} style={{ background: "transparent", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: 11 }}>🗑️ Borrar</button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
         </div>
       ))}
 

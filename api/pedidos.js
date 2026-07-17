@@ -64,6 +64,29 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
+    if (action === 'rebobinado_editar') {
+      // Rebobinado corrige sus propios registros de stock (no son pedidos de
+      // cliente real) mientras sigan "pendiente" -- whitelist propia y mas
+      // angosta que CAMPOS_ESTADO porque aqui "cajas" es cajas completas del
+      // rollo, no cajas solicitadas de un pedido de cliente real, y no queremos
+      // que operador/emilio puedan tocar ese campo desde su flujo normal.
+      const esSupervisor = await requiereModo(req, 'supervisor');
+      if (!esSupervisor) {
+        if (!(await requiereModo(req, 'rebobinado'))) return res.status(401).json({ error: 'No autorizado' });
+        const { data: pedido } = await supabase.from('pedidos').select('cliente, status').eq('id', id).single();
+        if (!pedido || pedido.cliente !== REBOB_CLIENTE || pedido.status !== 'pendiente') {
+          return res.status(401).json({ error: 'No autorizado' });
+        }
+      }
+      const CAMPOS_REBOBINADO = ['cajas', 'piezas_prod', 'merma', 'merma_pct', 'rollos_usados', 'notas'];
+      const updates = {};
+      for (const k of CAMPOS_REBOBINADO) if (req.body[k] !== undefined) updates[k] = req.body[k];
+      if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'Sin campos válidos para actualizar' });
+      const { error } = await supabase.from('pedidos').update(updates).eq('id', id);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ ok: true });
+    }
+
     return res.status(400).json({ error: 'action inválido' });
   }
 
