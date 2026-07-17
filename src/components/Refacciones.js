@@ -9,6 +9,7 @@ import { sendWhatsApp } from '../utils/whatsapp';
 import { IcoPlus } from './Icons';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
+const mapsUrl = (direccion) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`;
 
 export default function Refacciones({ refs, setRefs, proveedores, setProveedores }) {
   const [subTab, setSubTab] = useState("compras");
@@ -476,7 +477,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
                     </div>
                   </div>
                   <div className="muted">{p.fecha} · {p.telefono}</div>
-                  {p.direccion && <div className="muted">📍 {p.direccion}</div>}
+                  {p.direccion && <div className="muted">📍 <a href={mapsUrl(p.direccion)} target="_blank" rel="noopener noreferrer" style={{ color: "inherit" }}>{p.direccion}</a></div>}
                   {p.que_compro && <div className="muted">🔧 {p.que_compro}</div>}
                 </div>
               ))}
@@ -561,7 +562,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
                         {(p.telefono || p.direccion) && (
                           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
                             {p.telefono && <span style={{ fontSize: 12, color: "#aaa" }}>📞 {p.telefono}</span>}
-                            {p.direccion && <span style={{ fontSize: 12, color: "#aaa" }}>📍 {p.direccion}</span>}
+                            {p.direccion && <a href={mapsUrl(p.direccion)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "#aaa", textDecoration: "underline" }}>📍 {p.direccion}</a>}
                           </div>
                         )}
 
