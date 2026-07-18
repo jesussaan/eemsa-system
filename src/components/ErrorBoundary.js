@@ -21,10 +21,10 @@ export default class ErrorBoundary extends Component {
           <div>
             <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
             <h2 style={{ color: "#c9922a", marginBottom: 8 }}>Ocurrió un error inesperado</h2>
-            <p style={{ color: "#aaa", marginBottom: 20 }}>La app encontró un problema y no puede continuar en esta pantalla. Tus datos en Supabase no se pierden.</p>
+            <p style={{ color: "#aaa", marginBottom: 20 }}>Algo falló en esta pantalla. No se perdió ningún dato — solo recarga la app.</p>
             <button onClick={() => window.location.reload()}
               style={{ background: "#c9922a", color: "#1a1d26", border: "none", borderRadius: 8, padding: "10px 24px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-              Recargar la app
+              Recargar app
             </button>
           </div>
         </div>
