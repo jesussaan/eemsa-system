@@ -118,6 +118,20 @@ html, body {
 }
 .sub-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
+.btn-dar-alta {
+  width: 100%; padding: 16px 0; border-radius: var(--r-md); border: none;
+  background: linear-gradient(145deg, #6bf29a, #2fcf68);
+  color: #06210f; font-size: 16px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  box-shadow: 0 4px 18px rgba(75,232,122,0.35), inset 0 1px 0 rgba(255,255,255,0.35);
+  cursor: pointer;
+  transition: transform 120ms var(--ease), box-shadow 120ms var(--ease), background 120ms var(--ease);
+}
+.btn-dar-alta:active { transform: scale(0.97); box-shadow: 0 2px 10px rgba(75,232,122,0.3); }
+.btn-dar-alta.is-loading {
+  background: #2a2d3a; color: #777; box-shadow: none; cursor: default;
+}
+
 .dash-tabs { display: flex; gap: 6px; margin-bottom: 20px; overflow-x: auto; scrollbar-width: none; }
 .dash-tabs::-webkit-scrollbar { display: none; }
 .dash-tab {

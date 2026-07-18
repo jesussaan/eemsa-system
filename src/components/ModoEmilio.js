@@ -514,14 +514,8 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
             <button
               onClick={() => darDeAltaLote(grupo)}
               disabled={loading === grupo[0].id}
-              style={{
-                width: "100%", padding: "14px 0", borderRadius: 10, border: "none",
-                background: loading === grupo[0].id ? "#2a2d3a" : "#4be87a",
-                color: "#000", fontSize: 15, fontWeight: 800,
-                cursor: loading === grupo[0].id ? "default" : "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              }}>
-              {loading === grupo[0].id ? "Guardando…" : <><Ico icon={IcoCheck} size={16} /> Ya di de alta el lote</>}
+              className={`btn-dar-alta ${loading === grupo[0].id ? "is-loading" : ""}`}>
+              {loading === grupo[0].id ? "Guardando…" : <><Ico icon={IcoCheck} size={18} /> Ya di de alta el lote</>}
             </button>
           </div>
         ) : grupo.map(p => {
@@ -772,14 +766,8 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
               <button
                 onClick={() => darDeAlta(p.id)}
                 disabled={loading === p.id}
-                style={{
-                  width: "100%", padding: "14px 0", borderRadius: 10, border: "none",
-                  background: loading === p.id ? "#2a2d3a" : "#4be87a",
-                  color: "#000", fontSize: 15, fontWeight: 800,
-                  cursor: loading === p.id ? "default" : "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                }}>
-                {loading === p.id ? "Guardando…" : <><Ico icon={IcoCheck} size={16} /> Ya lo di de alta</>}
+                className={`btn-dar-alta ${loading === p.id ? "is-loading" : ""}`}>
+                {loading === p.id ? "Guardando…" : <><Ico icon={IcoCheck} size={18} /> Ya lo di de alta</>}
               </button>
 
             </div>

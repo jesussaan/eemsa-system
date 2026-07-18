@@ -349,6 +349,8 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                     {p.rollos_totales && <span style={{ fontWeight: 700 }}>{p.rollos_totales} piezas/rollos</span>}
                     <span style={{ fontWeight: 700 }}>{p.tipo}</span>
                     {(p.color || p.tinta_tipo) && <ColorChip color={p.color || p.tinta_tipo} />}
+                    {p.color2 && <ColorChip color={p.color2} />}
+                    {p.color2 && <span className="badge b-blue">2 TINTAS</span>}
                     <span style={{ color: "#555", fontSize: 13, fontWeight: 400 }}>#Ped {p.num}</span>
                   </div>
                 </div>
@@ -384,6 +386,8 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                         <span style={{ color: "#c9922a", fontWeight: 800, fontSize: 18 }}>{p.medida}</span>
                         <span style={{ color: "#ddd", fontWeight: 700 }}>{p.tipo}</span>
                         {(p.color || p.tinta_tipo) && <ColorChip color={p.color || p.tinta_tipo} />}
+                        {p.color2 && <ColorChip color={p.color2} />}
+                        {p.color2 && <span className="badge b-blue">2 TINTAS</span>}
                         <span style={{ color: "#ddd", fontWeight: 700 }}>{p.cajas} cajas</span>
                         {p.rollos_caja && <span style={{ color: "#ddd", fontWeight: 700 }}>{p.rollos_caja} rollos/caja</span>}
                         {p.rollos_totales && <span style={{ color: "#ddd", fontWeight: 700 }}>{p.rollos_totales} piezas/rollos</span>}
