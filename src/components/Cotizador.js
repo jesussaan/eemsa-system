@@ -24,7 +24,7 @@ export default function Cotizador({ onSalir }) {
   const [portaliche2,  setPortaliche2]  = useState('30.9');
   const [diseno2,      setDiseno2]      = useState('normal');
   const [colorKey2,    setColorKey2]    = useState('azul');
-  const [stickyback, setStickyback] = useState(null);
+  const [stickyback, setStickyback] = useState(1);
   const [diasProd,   setDiasProd]   = useState(0.5);
   const [margen,     setMargen]     = useState(30);
 
@@ -79,8 +79,9 @@ export default function Cotizador({ onSalir }) {
                   setEsEngomado(v);
                   // Engomado siempre se corta a 137m (rinde 10 piezas = 1 caja).
                   // "Rollos/caja" normal (36) no aplica -- forzamos el valor real.
-                  if (v) { setLargo('137'); setRollosCaja('10'); }
-                  else    { setLargo('100'); setRollosCaja('36'); }
+                  // Engomado tambien se vende como 3" -- el centro sigue esa regla.
+                  if (v) { setLargo('137'); setRollosCaja('10'); setTipoCentro('3'); }
+                  else    { setLargo('100'); setRollosCaja(String(rollosPorCaja(ancho, false))); setTipoCentro(parseFloat(ancho) === 3 ? '3' : '2'); }
                 }}
                   style={{ padding: '4px 10px', borderRadius: 6, border: `1.5px solid ${esEngomado === v ? '#ff9900' : '#2a2d3a'}`, background: esEngomado === v ? '#ff990022' : 'transparent', color: esEngomado === v ? '#ff9900' : '#555', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>
                   {lbl}
@@ -95,11 +96,13 @@ export default function Cotizador({ onSalir }) {
           )}
           <div className="form-grid">
             <div className="field"><label>Ancho (") {esEngomado && <span style={{ color: '#3a3f5a' }}>· fijo</span>}</label><input type="number" step="0.5" min="0.5" value={esEngomado ? '3' : ancho} onChange={e => {
-              // Rollos/caja se autocompleta segun el ancho -- 2" = 36, 3" = 24
-              // (misma regla que Pedidos/Ventas, ver lib/produccion.js). Se
-              // puede seguir editando a mano despues si el caso lo requiere.
+              // Rollos/caja y Centro se autocompletan segun el ancho -- 2" =
+              // 36 rollos/centro 2", 3" = 24 rollos/centro 3" (misma regla que
+              // Pedidos/Ventas y Modo Operador). Se puede seguir ajustando a
+              // mano despues si el caso lo requiere.
               setAncho(e.target.value);
               setRollosCaja(String(rollosPorCaja(e.target.value, false)));
+              setTipoCentro(parseFloat(e.target.value) === 3 ? '3' : '2');
             }} disabled={esEngomado} /></div>
             <div className="field"><label>Largo (m)</label><input type="number" value={largo} onChange={e => setLargo(e.target.value)} /></div>
             <div className="field"><label>Cajas</label><input type="number" value={cajas} onChange={e => setCajas(e.target.value)} placeholder="50" /></div>
@@ -168,7 +171,7 @@ export default function Cotizador({ onSalir }) {
           {/* 2do color (opcional) -- pedidos a 2 tintas, mismas piezas, cada
               color con su propio portacliche y diseno/cobertura. */}
           {!mostrarColor2 ? (
-            <button type="button" onClick={() => setMostrarColor2(true)}
+            <button type="button" onClick={() => { setMostrarColor2(true); setStickyback(2); }}
               style={{ background: 'transparent', border: '1px dashed #2a2d3a', borderRadius: 8, color: '#9aa0bc', fontSize: 12, fontWeight: 700, padding: '8px 12px', cursor: 'pointer', width: '100%', marginBottom: 4 }}>
               + Agregar 2do color
             </button>
@@ -176,7 +179,7 @@ export default function Cotizador({ onSalir }) {
             <div style={{ background: '#0d0f14', borderRadius: 10, padding: 12, border: '1px solid #2a2d3a', marginBottom: 4 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <div style={{ fontSize: 10, color: '#9aa0bc', fontWeight: 700, letterSpacing: 1 }}>2DO COLOR</div>
-                <button type="button" onClick={() => setMostrarColor2(false)}
+                <button type="button" onClick={() => { setMostrarColor2(false); setStickyback(1); }}
                   style={{ background: 'transparent', border: 'none', color: '#545a78', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
               </div>
               <div className="form-grid" style={{ marginBottom: 10 }}>
