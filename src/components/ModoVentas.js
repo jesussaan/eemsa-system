@@ -27,7 +27,13 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
   // si sales de la app a revisar algo y regresas (o la app se recarga sola),
   // sigues donde ibas en vez de perder lo que llevabas escrito.
   const [tab, setTab]   = useState(() => cargarBorrador("eemsa_ventas_tab", "agenda"));
-  const [form, setForm] = useState(() => cargarBorrador("eemsa_ventas_form", null) || { ...FORM_INIT, num: siguienteNumPedido(pedidos) });
+  // El num sugerido se recalcula siempre al entrar (el "siguiente
+  // disponible" cambia aunque el resto del borrador se conserve tal cual
+  // quedo) -- si el borrador no traia nada guardado, arranca de FORM_INIT.
+  const [form, setForm] = useState(() => {
+    const guardado = cargarBorrador("eemsa_ventas_form", null);
+    return { ...(guardado || FORM_INIT), num: siguienteNumPedido(pedidos) };
+  });
   const [saving, setSaving] = useState(false);
   const [toast, setToast]   = useState("");
 
