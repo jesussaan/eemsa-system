@@ -3,7 +3,7 @@ import CalculadoraProduccion from './CalculadoraProduccion';
 import ClicheImg from './ClicheImg';
 import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
-import { today, alertaEntrega, subirConUrlFirmada } from '../lib/utils';
+import { today, alertaEntrega, subirConUrlFirmada, cargarBorrador, guardarBorrador } from '../lib/utils';
 import { anchoDePedido } from '../lib/produccion';
 import { sendPush } from '../lib/push';
 import { notificar } from '../lib/notificaciones';
@@ -25,10 +25,20 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
   const pedidosAnotados = pedidos
     .filter(p => p.status === "anotado")
     .sort((a, b) => (a.orden ?? 9999) - (b.orden ?? 9999) || (a.fecha_solicitud || "").localeCompare(b.fecha_solicitud || ""));
-  const [pedidoSel, setPedidoSel] = useState(null);
-  const [vista, setVista] = useState(null); // null | "finalizar" | "falla"
+  // El pedido abierto, la vista (finalizar/falla) y el borrador de la falla
+  // se recuerdan en localStorage -- si sales a revisar algo y regresas (o
+  // la app se recarga sola), sigues donde ibas. El pedido se guarda solo
+  // por id y se busca en `pedidos` (no el objeto completo) para siempre
+  // reflejar el dato mas reciente en vez de una copia vieja.
+  const [pedidoSelId, setPedidoSelId] = useState(() => cargarBorrador("eemsa_op_pedido_id", null));
+  const [vista, setVista] = useState(() => cargarBorrador("eemsa_op_vista", null)); // null | "finalizar" | "falla"
   const [fotoProducto, setFotoProducto] = useState(null);
-  const [formFalla, setFormFalla] = useState({ comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" });
+  const [formFalla, setFormFalla] = useState(() => cargarBorrador("eemsa_op_form_falla", { comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" }));
+  const pedidoSel = pedidoSelId ? (pedidos.find(p => p.id === pedidoSelId) || null) : null;
+
+  useEffect(() => guardarBorrador("eemsa_op_pedido_id", pedidoSelId), [pedidoSelId]);
+  useEffect(() => guardarBorrador("eemsa_op_vista", vista), [vista]);
+  useEffect(() => guardarBorrador("eemsa_op_form_falla", formFalla), [formFalla]);
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
@@ -51,7 +61,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
   };
 
   const seleccionarPedido = (p) => {
-    setPedidoSel(p);
+    setPedidoSelId(p.id);
     setVista(null);
     setFotoProducto(null);
     setFormFalla({ comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" });
@@ -83,7 +93,6 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     const res = await actualizarEstadoPedido(pedidoSel.id, update);
     if (!res.ok) { showToast("❌ Error al iniciar pedido"); setLoading(false); return; }
     setPedidos(ps => ps.map(p => p.id === pedidoSel.id ? { ...p, ...update } : p));
-    setPedidoSel(p => ({ ...p, ...update }));
     showToast("▶ Pedido en proceso");
     setLoading(false);
   };
@@ -172,7 +181,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
       tinta_kg: update.tinta_kg, alcohol_litros: update.alcohol_litros,
       notas: update.notas,
     });
-    setPedidoSel(null);
+    setPedidoSelId(null);
     setVista(null);
     showToast("✓ Pedido finalizado");
     setLoading(false);
@@ -430,7 +439,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
         {/* Detalle del pedido */}
         {pedidoSel && vista === null && (
           <>
-            <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setPedidoSel(null)}>← Volver</button>
+            <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setPedidoSelId(null)}>← Volver</button>
             <div style={{ ...card, borderLeft: "4px solid #4a9eff" }}>
               <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 10 }}>{pedidoSel.cliente}</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>

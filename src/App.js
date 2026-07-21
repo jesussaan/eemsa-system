@@ -94,7 +94,10 @@ function EemsaApp() {
   const [prodDiaria, setProdDiaria] = useState([]);
   const [listaMateriales, setListaMateriales] = useState([]);
   const [errorCarga, setErrorCarga] = useState(null);
-  const [modo, setModo] = useState(null);
+  // Se recuerda en localStorage -- si el celular/tablet mata la app en
+  // segundo plano (o la recarga por una actualizacion), regresa directo al
+  // modo donde estabas en vez de mandar siempre al menu.
+  const [modo, setModo] = useState(() => localStorage.getItem("eemsa_modo") || null);
 
   // undefined = todavia verificando si hay sesion guardada; null = sin sesion.
   const [sesion, setSesion] = useState(undefined);
@@ -109,13 +112,27 @@ function EemsaApp() {
 
   useEffect(() => {
     if (sesion === undefined) return;
-    if (!sesion) { setPerfil(null); return; }
+    if (!sesion) { setPerfil(null); localStorage.removeItem("eemsa_modo"); return; }
     setPerfil(undefined);
     fetch("/api/usuarios?propio=1", { headers: authHeaders() })
       .then(r => r.json())
       .then(d => setPerfil(d?.error ? null : d))
       .catch(() => setPerfil(null));
   }, [sesion]);
+
+  // Valida el modo recordado contra los permisos reales una vez que el
+  // perfil carga -- por si a alguien le quitaron acceso a ese modulo
+  // mientras la app estaba cerrada.
+  useEffect(() => {
+    if (!perfil || !modo) return;
+    const valido = modo === "usuarios" ? perfil.esAdmin : (perfil.esAdmin || perfil.modos.includes(modo));
+    if (!valido) setModo(null);
+  }, [perfil, modo]);
+
+  useEffect(() => {
+    if (modo) localStorage.setItem("eemsa_modo", modo);
+    else localStorage.removeItem("eemsa_modo");
+  }, [modo]);
 
   const cargarTablas = async (tablas) => {
     const mapa = {

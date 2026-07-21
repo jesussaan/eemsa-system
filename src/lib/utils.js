@@ -1,5 +1,23 @@
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 
+// Recuerda un borrador (form a medio llenar, pantalla en la que ibas) en
+// localStorage para que sobreviva si el celular/tablet mata la app en
+// segundo plano o hay una actualizacion -- se usan junto con un useState
+// perezoso (cargarBorrador) y un useEffect que llama a guardarBorrador
+// cada vez que cambia el valor.
+export const cargarBorrador = (key, valorPorDefecto) => {
+  try {
+    const guardado = localStorage.getItem(key);
+    return guardado != null ? JSON.parse(guardado) : valorPorDefecto;
+  } catch { return valorPorDefecto; }
+};
+export const guardarBorrador = (key, valor) => {
+  try {
+    if (valor == null) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(valor));
+  } catch {}
+};
+
 // Evita que "Azul PMS" y "azul pms" queden como dos valores distintos solo
 // por may/min. Si ya existe un valor igual ignorando mayusculas, se usa esa
 // forma (la primera que se escribio); si no, se guarda tal cual lo escribieron.
