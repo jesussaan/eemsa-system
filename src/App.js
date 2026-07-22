@@ -4,6 +4,7 @@ import { supabase } from "./lib/supabase";
 import { initAuth, authHeaders, cerrarSesion } from "./lib/auth";
 import NotifBell from "./components/NotifBell";
 import Login from "./components/Login";
+import ConfirmModal from "./components/ConfirmModal";
 import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoOperador, IcoVentas, IcoEmilio, IcoCotizador, IcoSpinner, IcoRoll } from "./components/Icons";
 
 // Cada pantalla se carga solo cuando se visita, en vez de todas juntas en el
@@ -78,6 +79,7 @@ export default function App() {
   return (
     <>
       <AvisoActualizacion />
+      <ConfirmModal />
       {portalMatch
         ? <Suspense fallback={<PantallaCargando />}><PortalCliente token={portalMatch[1]} /></Suspense>
         : <EemsaApp />}

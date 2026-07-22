@@ -4,6 +4,7 @@ import { uid, today } from '../lib/utils';
 import { sendPush } from '../lib/push';
 import { MAQUINAS, OPERADORES, COMPS, COMPS_REBOBINADORA, REBOB_OPERADORES, SEV } from '../lib/constants';
 import { analizarComponentes } from '../lib/mantenimiento';
+import { confirmar } from '../lib/confirm';
 import { IcoPlus } from './Icons';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
@@ -45,7 +46,7 @@ export default function Fallas({ fallas, setFallas }) {
   const compsSugeridos = [...new Set([...compsBase, ...fallas.filter(f => f.maq === form.maq).map(f => f.comp).filter(Boolean)])];
 
   const del = async id => {
-    if (!window.confirm("¿Eliminar?")) return;
+    if (!(await confirmar("¿Eliminar?"))) return;
     const res = await fetch('/api/registro?tabla=fallas', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
     if (!res.ok) { showToast("❌ Error al eliminar"); return; }
     setFallas(f => f.filter(x => x.id !== id));

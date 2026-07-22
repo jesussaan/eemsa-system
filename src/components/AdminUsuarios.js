@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { authHeaders } from "../lib/auth";
+import { confirmar } from "../lib/confirm";
 
 const MODOS = [
   { id: "operador", label: "Operador" },
@@ -52,7 +53,7 @@ export default function AdminUsuarios({ onSalir }) {
   };
 
   const eliminar = async (u) => {
-    if (!window.confirm(`¿Eliminar la cuenta ${u.email}? Esto no se puede deshacer.`)) return;
+    if (!(await confirmar(`¿Eliminar la cuenta ${u.email}? Esto no se puede deshacer.`))) return;
     setGuardando(u.id);
     const res = await fetch("/api/usuarios", { method: "DELETE", headers: authHeaders(), body: JSON.stringify({ id: u.id }) });
     if (!res.ok) { showToast("❌ No se pudo eliminar"); setGuardando(null); return; }

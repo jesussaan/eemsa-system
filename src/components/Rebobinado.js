@@ -2,6 +2,7 @@ import { useState } from "react";
 import { authHeaders } from '../lib/auth';
 import { uid, today } from '../lib/utils';
 import { REBOB_CLIENTE, REBOB_COLOR, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, REBOB_PIEZAS_POR_VUELTA, calcularPiezasTeoricas } from '../lib/constants';
+import { confirmar } from '../lib/confirm';
 import { IcoCheck } from './Icons';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
@@ -165,7 +166,7 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
   // Emilio le de de alta) -- para corregir un error de captura sin
   // necesitar al supervisor. Una vez dado de alta, ya no aparecen los botones.
   const borrar = async (id) => {
-    if (!window.confirm("¿Borrar este registro para volver a capturarlo?")) return;
+    if (!(await confirmar("¿Borrar este registro para volver a capturarlo?"))) return;
     const res = await fetch('/api/pedidos', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
     if (!res.ok) { showToast("❌ Error al borrar"); return; }
     setPedidos(ps => ps.filter(p => p.id !== id));

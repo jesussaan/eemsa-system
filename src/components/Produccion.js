@@ -3,6 +3,7 @@ import ClicheImg from './ClicheImg';
 import { authHeaders } from '../lib/auth';
 import { uid, today } from '../lib/utils';
 import { OPERADORES, META_CAJAS, REBOB_CLIENTE } from '../lib/constants';
+import { confirmar } from '../lib/confirm';
 import { IcoCheck } from './Icons';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
@@ -35,7 +36,7 @@ export default function Produccion({ prodDiaria, setProdDiaria, pedidos: pedidos
   };
 
   const del = async id => {
-    if (!window.confirm("¿Eliminar registro?")) return;
+    if (!(await confirmar("¿Eliminar registro?"))) return;
     await fetch('/api/registro?tabla=prod-diaria', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
     setProdDiaria(p => p.filter(x => x.id !== id));
   };

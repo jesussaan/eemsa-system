@@ -4,6 +4,7 @@ import { authHeaders } from '../lib/auth';
 import { uid, today, fmt, subirConUrlFirmada, unificarPorTexto } from '../lib/utils';
 import { MAQUINAS } from '../lib/constants';
 import { sendWhatsApp } from '../utils/whatsapp';
+import { confirmar } from '../lib/confirm';
 import { IcoPlus } from './Icons';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
@@ -264,7 +265,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
   };
 
   const eliminarQueja = async (q) => {
-    if (!window.confirm(`¿Eliminar la queja ${q.folio}? Esta acción no se puede deshacer.`)) return;
+    if (!(await confirmar(`¿Eliminar la queja ${q.folio}? Esta acción no se puede deshacer.`))) return;
     const res = await fetch('/api/quejas-mp', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id: q.id }) });
     if (!res.ok) { showToast("❌ Error al eliminar"); return; }
     setQuejas(qs => qs.filter(x => x.id !== q.id));
@@ -325,7 +326,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
   };
 
   const delRef = async id => {
-    if (!window.confirm("¿Eliminar?")) return;
+    if (!(await confirmar("¿Eliminar?"))) return;
     const res = await fetch('/api/refacciones', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
     if (!res.ok) { showToast("❌ Error al eliminar"); return; }
     setRefs(r => r.filter(x => x.id !== id));
@@ -358,7 +359,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
     }
   };
   const delCompra = async id => {
-    if (!window.confirm("¿Eliminar?")) return;
+    if (!(await confirmar("¿Eliminar?"))) return;
     const res = await fetch('/api/refacciones?tabla=proveedores', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
     if (!res.ok) { showToast("❌ Error al eliminar"); return; }
     setProveedores(p => p.filter(x => x.id !== id));

@@ -7,6 +7,7 @@ import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguiente
 import { rollosPorCaja, anchoDePedido, largoDePedido } from '../lib/produccion';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT, REBOB_CLIENTE } from '../lib/constants';
 import { sendWhatsApp, mensajePedidoNuevo } from '../utils/whatsapp';
+import { confirmar } from '../lib/confirm';
 
 export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   // Rebobinado es stock, no es un pedido de cliente real.
@@ -320,7 +321,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   };
 
   const del = async id => {
-    if (!window.confirm("¿Eliminar pedido?")) return;
+    if (!(await confirmar("¿Eliminar pedido?"))) return;
     const res = await fetch('/api/pedidos', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id }) });
     if (!res.ok) { showToast("❌ Error al eliminar"); return; }
     setPedidos(p => p.filter(x => x.id !== id));
