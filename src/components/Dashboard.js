@@ -75,7 +75,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
     cajasHoy, metaHoyCumplida, mesActual, mesPrev, cajasTerminadasMes, gastoRefMes, diasDelMes, diasConMeta, pctMeta,
     pedidosUrgentes, ultimas14, pedidosMerma, tiempoPromedio, componentesVencidos, fallasPorComp, topClientes,
     rentabilidadClientes, historialCostos, valorProducido, perdidaMerma, valorProducidoMes, perdidaMermaMes,
-    cajasMes, cajasPrev, mermaPctMes, mermaPctPrev, valorMes, valorPrev, tintaMes, alcoholMes, rollosMes,
+    mermaPctMes, mermaPctPrev, valorMes, valorPrev, tintaMes, alcoholMes, rollosMes,
     tintaPorColor, tipoCintaStats, rebPendientes, rebPiezasTotal, rebCajasTotal, rebMermaPctProm,
     rebPorMaterial, rebPorAdhesivo, rebRecientes,
   } = useMemo(() => {
@@ -160,9 +160,6 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
     const pedMes  = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual));
     const pedPrev = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesPrev));
 
-    const cajasMes  = prodDiaria.filter(r => r.fecha?.startsWith(mesActual)).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
-    const cajasPrev = prodDiaria.filter(r => r.fecha?.startsWith(mesPrev)).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
-
     const mermaPctMes  = (() => { const ps = pedMes.filter(p => p.merma_pct != null && p.merma_pct !== ""); return ps.length ? (ps.reduce((s,p) => s + Number(p.merma_pct), 0) / ps.length).toFixed(1) : null; })();
     const mermaPctPrev = (() => { const ps = pedPrev.filter(p => p.merma_pct != null && p.merma_pct !== ""); return ps.length ? (ps.reduce((s,p) => s + Number(p.merma_pct), 0) / ps.length).toFixed(1) : null; })();
 
@@ -232,7 +229,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       cajasHoy, metaHoyCumplida, mesActual, mesPrev, cajasTerminadasMes, gastoRefMes, diasDelMes, diasConMeta, pctMeta,
       pedidosUrgentes, ultimas14, pedidosMerma, tiempoPromedio, componentesVencidos, fallasPorComp, topClientes,
       rentabilidadClientes, historialCostos, valorProducido, perdidaMerma, valorProducidoMes, perdidaMermaMes,
-      cajasMes, cajasPrev, mermaPctMes, mermaPctPrev, valorMes, valorPrev, tintaMes, alcoholMes, rollosMes,
+      mermaPctMes, mermaPctPrev, valorMes, valorPrev, tintaMes, alcoholMes, rollosMes,
       tintaPorColor, tipoCintaStats, rebPendientes, rebPiezasTotal, rebCajasTotal, rebMermaPctProm,
       rebPorMaterial, rebPorAdhesivo, rebRecientes,
     };
@@ -690,15 +687,18 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       </div>
 
       {/* ── Comparativo mes a mes ── */}
-      {(cajasMes > 0 || valorMes > 0) && (cajasPrev > 0 || valorPrev > 0) && (() => {
+      {/* "Cajas producidas" (prodDiaria) se quito de aqui -- esa tabla no
+          se llena y siempre daba 0 vs 0, un renglon falso en la tarjeta.
+          Ahora la tarjeta solo aparece si de verdad hay algo que comparar. */}
+      {(() => {
         const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
         const lblMes  = MESES[parseInt(mesActual.split('-')[1]) - 1];
         const lblPrev = MESES[parseInt(mesPrev.split('-')[1]) - 1];
         const items = [
-          { lbl: "Cajas producidas", curr: cajasMes, prev: cajasPrev, fmt: v => v, menorEsMejor: false },
           ...(mermaPctMes && mermaPctPrev ? [{ lbl: "Merma %", curr: Number(mermaPctMes), prev: Number(mermaPctPrev), fmt: v => v + "%", menorEsMejor: true }] : []),
           ...(valorMes > 0 || valorPrev > 0 ? [{ lbl: "Valor producido", curr: valorMes, prev: valorPrev, fmt: v => "$" + fmt(Math.round(v)), menorEsMejor: false }] : []),
         ];
+        if (!items.length) return null;
         return (
           <>
             <SubTitle icon={IcoCompare}>{lblMes} vs {lblPrev}</SubTitle>
