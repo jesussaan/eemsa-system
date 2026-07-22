@@ -256,16 +256,34 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       ...proveedores.map(p => p.fecha?.slice(0, 4)),
     ].filter(Boolean))].sort();
 
-    let pgNum = 0;
+    // Logo real para la portada y el encabezado de cada pagina -- si por lo
+    // que sea no carga, el PDF se sigue generando sin el (nunca truena por esto).
+    let logoData = null;
+    try {
+      const resp = await fetch('/logo512.png');
+      const blob = await resp.blob();
+      logoData = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+    } catch (_) { /* sin logo */ }
+
+    // La portada cuenta como pag. 1 (no llama a drawHdr) -- arranca en 1
+    // para que el numero de pagina del encabezado normal ya salga correcto.
+    let pgNum = 1;
     const drawHdr = () => {
       pgNum++;
       doc.setFillColor(...C.hdr); doc.rect(0, 0, W, 26, "F");
       doc.setFillColor(...C.acc); doc.rect(0, 26, W, 1.5, "F");
+      if (logoData) doc.addImage(logoData, "PNG", mg, 5, 16, 16);
+      const tx = logoData ? mg + 20 : mg;
       doc.setTextColor(...C.acc); doc.setFontSize(15); doc.setFont(undefined, "bold");
-      doc.text("EEMSA System", mg, 12);
+      doc.text("EEMSA System", tx, 12);
       doc.setFontSize(8.5); doc.setFont(undefined, "normal");
       doc.setTextColor(185, 205, 235);
-      doc.text(`Reporte Histórico Mensual  ·  ${fechaGen}`, mg, 20);
+      doc.text(`Reporte Histórico Mensual  ·  ${fechaGen}`, tx, 20);
       doc.setTextColor(170); doc.setFontSize(8);
       doc.text(`Pág. ${pgNum}`, W - mg, 20, { align: "right" });
     };
@@ -288,8 +306,74 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       });
     };
 
-    // ── Página 1 ──
-    drawHdr();
+    // ── Portada: logo, titulo y resumen ejecutivo ──
+    doc.setFillColor(...C.hdr); doc.rect(0, 0, W, 92, "F");
+    doc.setFillColor(...C.acc); doc.rect(0, 92, W, 2, "F");
+    if (logoData) doc.addImage(logoData, "PNG", W / 2 - 18, 16, 36, 36);
+    doc.setTextColor(...C.acc); doc.setFontSize(24); doc.setFont(undefined, "bold");
+    doc.text("EEMSA System", W / 2, 64, { align: "center" });
+    doc.setFontSize(12); doc.setFont(undefined, "normal"); doc.setTextColor(200, 210, 235);
+    doc.text("Reporte Histórico Mensual", W / 2, 72, { align: "center" });
+    doc.setFontSize(9); doc.setTextColor(150, 165, 200);
+    doc.text(`Periodo: ${anios[0] || "—"} – ${anios[anios.length - 1] || "—"}   ·   Generado el ${fechaGen}`, W / 2, 80, { align: "center" });
+
+    // Resumen ejecutivo -- totales de todo el historial, para que quien
+    // solo quiera un vistazo rapido no tenga que hojear las tablas.
+    const pedidosTerminadosTotal = pedidos.filter(p => p.status === "terminado").length;
+    const cajasProducidasTotal = prodDiaria.reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
+    const mermaArrGlobal = pedidos.filter(p => p.status === "terminado" && p.merma_pct !== null && p.merma_pct !== "");
+    const mermaGlobalPct = mermaArrGlobal.length ? (mermaArrGlobal.reduce((s, p) => s + Number(p.merma_pct), 0) / mermaArrGlobal.length).toFixed(1) : null;
+    const minParoTotalGlobal = fallas.reduce((s, f) => s + Number(f.min_paro || 0), 0);
+    const gastoTotalGlobal = proveedores.reduce((s, p) => s + Number(p.monto || 0), 0);
+
+    const kpis = [
+      { val: cajasProducidasTotal.toLocaleString("es-MX"), lbl: "Cajas producidas", color: C.acc },
+      { val: pedidosTerminadosTotal.toLocaleString("es-MX"), lbl: "Pedidos terminados", color: [75, 143, 232] },
+      { val: mermaGlobalPct != null ? `${mermaGlobalPct}%` : "—", lbl: "Merma promedio", color: [232, 75, 75] },
+      { val: fallas.length.toLocaleString("es-MX"), lbl: `Fallas (${fmt(minParoTotalGlobal)} min. paro)`, color: [232, 137, 75] },
+      { val: `$${fmt(gastoTotalGlobal)}`, lbl: "Gasto en refacciones", color: [155, 111, 232] },
+      { val: `$${fmt(Math.round(valorProducido))}`, lbl: "Valor producido", color: [75, 232, 122] },
+    ];
+    const kpiGap = 6, kpiW = (W - mg * 2 - kpiGap * 2) / 3, kpiH = 30, kpiY0 = 104;
+    kpis.forEach((k, i) => {
+      const col = i % 3, row = Math.floor(i / 3);
+      const x = mg + col * (kpiW + kpiGap), y = kpiY0 + row * (kpiH + kpiGap);
+      doc.setFillColor(246, 247, 251); doc.rect(x, y, kpiW, kpiH, "F");
+      doc.setFillColor(...k.color); doc.rect(x, y, kpiW, 1.6, "F");
+      doc.setTextColor(...k.color); doc.setFontSize(16); doc.setFont(undefined, "bold");
+      doc.text(String(k.val), x + kpiW / 2, y + 15, { align: "center" });
+      doc.setTextColor(90, 95, 110); doc.setFontSize(7.3); doc.setFont(undefined, "normal");
+      doc.text(k.lbl, x + kpiW / 2, y + 23, { align: "center", maxWidth: kpiW - 6 });
+    });
+
+    // Grafica: cajas producidas de los ultimos 12 meses
+    const hoy = new Date();
+    const ultimos12 = [...Array(12)].map((_, i) => {
+      const d = new Date(hoy.getFullYear(), hoy.getMonth() - 11 + i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const cajasMesN = prodDiaria.filter(r => r.fecha?.startsWith(key)).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
+      return { lbl: `${fmtM(d.getMonth() + 1).slice(0, 3)} ${String(d.getFullYear()).slice(2)}`, val: cajasMesN };
+    });
+    const chartX = mg, chartY = 182, chartW = W - mg * 2, chartH = 64, barBase = chartY + chartH - 14;
+    doc.setTextColor(...C.hdr); doc.setFontSize(10); doc.setFont(undefined, "bold");
+    doc.text("Cajas producidas — últimos 12 meses", chartX, chartY - 6);
+    doc.setFont(undefined, "normal");
+    const maxVal = Math.max(...ultimos12.map(d => d.val), 1);
+    const barGap = 2, barW = (chartW - barGap * (ultimos12.length - 1)) / ultimos12.length;
+    ultimos12.forEach((d, i) => {
+      const x = chartX + i * (barW + barGap);
+      const h = (d.val / maxVal) * (chartH - 14);
+      const y = barBase - h;
+      doc.setFillColor(...C.acc); doc.rect(x, y, barW, h, "F");
+      if (d.val > 0) { doc.setFontSize(6); doc.setTextColor(90, 95, 110); doc.text(String(d.val), x + barW / 2, y - 1.5, { align: "center" }); }
+      doc.setFontSize(6.2); doc.setTextColor(120, 125, 140);
+      doc.text(d.lbl, x + barW / 2, chartY + chartH - 8, { align: "center" });
+    });
+    doc.setDrawColor(210, 215, 230); doc.setLineWidth(0.2);
+    doc.line(chartX, barBase, chartX + chartW, barBase);
+
+    // ── Resumen comparativo (pág. 2) ──
+    newPage();
 
     // Resumen comparativo
     doc.setTextColor(...C.hdr); doc.setFontSize(11); doc.setFont(undefined, "bold");
