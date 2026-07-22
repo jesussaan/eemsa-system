@@ -283,7 +283,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       doc.text("EEMSA System", tx, 12);
       doc.setFontSize(8.5); doc.setFont(undefined, "normal");
       doc.setTextColor(185, 205, 235);
-      doc.text(`Reporte Histórico Mensual  ·  ${fechaGen}`, tx, 20);
+      doc.text(`Reporte Mensual  ·  ${fechaGen}`, tx, 20);
       doc.setTextColor(170); doc.setFontSize(8);
       doc.text(`Pág. ${pgNum}`, W - mg, 20, { align: "right" });
     };
@@ -306,33 +306,36 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       });
     };
 
-    // ── Portada: logo, titulo y resumen ejecutivo ──
+    // ── Portada: logo, titulo del mes en curso y resumen ejecutivo ──
+    // El resumen y las graficas de la portada son del MES ACTUAL (lo que
+    // importa para tomar decisiones ya) -- el historial completo por año
+    // y mes sigue igual a partir de la pagina 2, sin ponerse a competir
+    // con la portada.
+    const [anioActualNum, mesNumActual] = mesActual.split("-").map(Number);
     doc.setFillColor(...C.hdr); doc.rect(0, 0, W, 92, "F");
     doc.setFillColor(...C.acc); doc.rect(0, 92, W, 2, "F");
-    if (logoData) doc.addImage(logoData, "PNG", W / 2 - 18, 16, 36, 36);
+    if (logoData) doc.addImage(logoData, "PNG", W / 2 - 18, 14, 36, 36);
     doc.setTextColor(...C.acc); doc.setFontSize(24); doc.setFont(undefined, "bold");
-    doc.text("EEMSA System", W / 2, 64, { align: "center" });
+    doc.text("EEMSA System", W / 2, 62, { align: "center" });
     doc.setFontSize(12); doc.setFont(undefined, "normal"); doc.setTextColor(200, 210, 235);
-    doc.text("Reporte Histórico Mensual", W / 2, 72, { align: "center" });
-    doc.setFontSize(9); doc.setTextColor(150, 165, 200);
-    doc.text(`Periodo: ${anios[0] || "—"} – ${anios[anios.length - 1] || "—"}   ·   Generado el ${fechaGen}`, W / 2, 80, { align: "center" });
+    doc.text(`Reporte Mensual — ${fmtM(mesNumActual)} ${anioActualNum}`, W / 2, 70, { align: "center" });
+    doc.setFontSize(8.5); doc.setTextColor(150, 165, 200);
+    doc.text(`Generado el ${fechaGen}`, W / 2, 78, { align: "center" });
+    doc.setFontSize(7.5); doc.setTextColor(130, 145, 180);
+    doc.text("Detalle histórico completo (todos los años y meses) a partir de la página 2", W / 2, 85, { align: "center" });
 
-    // Resumen ejecutivo -- totales de todo el historial, para que quien
-    // solo quiera un vistazo rapido no tenga que hojear las tablas.
-    const pedidosTerminadosTotal = pedidos.filter(p => p.status === "terminado").length;
-    const cajasProducidasTotal = prodDiaria.reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
-    const mermaArrGlobal = pedidos.filter(p => p.status === "terminado" && p.merma_pct !== null && p.merma_pct !== "");
-    const mermaGlobalPct = mermaArrGlobal.length ? (mermaArrGlobal.reduce((s, p) => s + Number(p.merma_pct), 0) / mermaArrGlobal.length).toFixed(1) : null;
-    const minParoTotalGlobal = fallas.reduce((s, f) => s + Number(f.min_paro || 0), 0);
-    const gastoTotalGlobal = proveedores.reduce((s, p) => s + Number(p.monto || 0), 0);
+    // Resumen ejecutivo del mes en curso
+    const pedidosTerminadosMesCount = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual)).length;
+    const fallasMesArr = fallas.filter(f => f.fecha?.startsWith(mesActual));
+    const minParoMes = fallasMesArr.reduce((s, f) => s + Number(f.min_paro || 0), 0);
 
     const kpis = [
-      { val: cajasProducidasTotal.toLocaleString("es-MX"), lbl: "Cajas producidas", color: C.acc },
-      { val: pedidosTerminadosTotal.toLocaleString("es-MX"), lbl: "Pedidos terminados", color: [75, 143, 232] },
-      { val: mermaGlobalPct != null ? `${mermaGlobalPct}%` : "—", lbl: "Merma promedio", color: [232, 75, 75] },
-      { val: fallas.length.toLocaleString("es-MX"), lbl: `Fallas (${fmt(minParoTotalGlobal)} min. paro)`, color: [232, 137, 75] },
-      { val: `$${fmt(gastoTotalGlobal)}`, lbl: "Gasto en refacciones", color: [155, 111, 232] },
-      { val: `$${fmt(Math.round(valorProducido))}`, lbl: "Valor producido", color: [75, 232, 122] },
+      { val: cajasMes.toLocaleString("es-MX"), lbl: "Cajas producidas (mes)", color: C.acc },
+      { val: pedidosTerminadosMesCount.toLocaleString("es-MX"), lbl: "Pedidos terminados (mes)", color: [75, 143, 232] },
+      { val: mermaPctMes != null ? `${mermaPctMes}%` : "—", lbl: "Merma promedio (mes)", color: [232, 75, 75] },
+      { val: fallasMesArr.length.toLocaleString("es-MX"), lbl: `Fallas del mes (${fmt(minParoMes)} min. paro)`, color: [232, 137, 75] },
+      { val: `$${fmt(gastoRefMes)}`, lbl: "Gasto en refacciones (mes)", color: [155, 111, 232] },
+      { val: `$${fmt(Math.round(valorProducidoMes))}`, lbl: "Valor producido (mes)", color: [75, 232, 122] },
     ];
     const kpiGap = 6, kpiW = (W - mg * 2 - kpiGap * 2) / 3, kpiH = 30, kpiY0 = 104;
     kpis.forEach((k, i) => {
@@ -346,31 +349,64 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       doc.text(k.lbl, x + kpiW / 2, y + 23, { align: "center", maxWidth: kpiW - 6 });
     });
 
-    // Grafica: cajas producidas de los ultimos 12 meses
+    // ── Graficas: tendencia de los ultimos 12 meses ──
+    // Helper generico para no duplicar el dibujo entre las dos graficas
+    // (cajas producidas y % merma comparten el mismo eje de tiempo).
+    const drawBarChart = (x, y, w, h, titulo, datos, opts = {}) => {
+      doc.setTextColor(...C.hdr); doc.setFontSize(8.7); doc.setFont(undefined, "bold");
+      doc.text(titulo, x, y - 6, { maxWidth: w });
+      doc.setFont(undefined, "normal");
+      const vals = datos.map(d => d.val ?? 0);
+      const maxVal = Math.max(...vals, opts.refLineVal || 0, 1);
+      const barBase = y + h - 12;
+      const barGap = 1.4;
+      const barW = (w - barGap * (datos.length - 1)) / datos.length;
+      datos.forEach((d, i) => {
+        const bx = x + i * (barW + barGap);
+        const val = d.val ?? 0;
+        const bh = (val / maxVal) * (h - 12);
+        const by = barBase - bh;
+        const color = opts.colorFn ? opts.colorFn(d.val) : C.acc;
+        if (d.val != null) {
+          doc.setFillColor(...color); doc.rect(bx, by, barW, Math.max(bh, 0.3), "F");
+          doc.setFontSize(5.2); doc.setTextColor(90, 95, 110);
+          doc.text(opts.fmtVal ? opts.fmtVal(d.val) : String(Math.round(d.val)), bx + barW / 2, by - 1, { align: "center" });
+        }
+        doc.setFontSize(5.4); doc.setTextColor(120, 125, 140);
+        doc.text(d.lbl, bx + barW / 2, y + h - 6, { align: "center" });
+      });
+      if (opts.refLineVal != null) {
+        const refY = barBase - (opts.refLineVal / maxVal) * (h - 12);
+        doc.setDrawColor(232, 75, 75); doc.setLineWidth(0.35);
+        doc.line(x, refY, x + w, refY);
+      }
+      doc.setDrawColor(210, 215, 230); doc.setLineWidth(0.2);
+      doc.line(x, barBase, x + w, barBase);
+    };
+
     const hoy = new Date();
-    const ultimos12 = [...Array(12)].map((_, i) => {
-      const d = new Date(hoy.getFullYear(), hoy.getMonth() - 11 + i, 1);
+    const ultimos12Fechas = [...Array(12)].map((_, i) => new Date(hoy.getFullYear(), hoy.getMonth() - 11 + i, 1));
+    const ultimos12 = ultimos12Fechas.map(d => {
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const cajasMesN = prodDiaria.filter(r => r.fecha?.startsWith(key)).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
-      return { lbl: `${fmtM(d.getMonth() + 1).slice(0, 3)} ${String(d.getFullYear()).slice(2)}`, val: cajasMesN };
+      const val = prodDiaria.filter(r => r.fecha?.startsWith(key)).reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
+      return { lbl: `${fmtM(d.getMonth() + 1).slice(0, 3)} ${String(d.getFullYear()).slice(2)}`, val };
     });
-    const chartX = mg, chartY = 182, chartW = W - mg * 2, chartH = 64, barBase = chartY + chartH - 14;
-    doc.setTextColor(...C.hdr); doc.setFontSize(10); doc.setFont(undefined, "bold");
-    doc.text("Cajas producidas — últimos 12 meses", chartX, chartY - 6);
-    doc.setFont(undefined, "normal");
-    const maxVal = Math.max(...ultimos12.map(d => d.val), 1);
-    const barGap = 2, barW = (chartW - barGap * (ultimos12.length - 1)) / ultimos12.length;
-    ultimos12.forEach((d, i) => {
-      const x = chartX + i * (barW + barGap);
-      const h = (d.val / maxVal) * (chartH - 14);
-      const y = barBase - h;
-      doc.setFillColor(...C.acc); doc.rect(x, y, barW, h, "F");
-      if (d.val > 0) { doc.setFontSize(6); doc.setTextColor(90, 95, 110); doc.text(String(d.val), x + barW / 2, y - 1.5, { align: "center" }); }
-      doc.setFontSize(6.2); doc.setTextColor(120, 125, 140);
-      doc.text(d.lbl, x + barW / 2, chartY + chartH - 8, { align: "center" });
+    const ultimosMerma12 = ultimos12Fechas.map(d => {
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const ps = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(key) && p.merma_pct !== null && p.merma_pct !== "");
+      const val = ps.length ? ps.reduce((s, p) => s + Number(p.merma_pct), 0) / ps.length : null;
+      return { lbl: `${fmtM(d.getMonth() + 1).slice(0, 3)} ${String(d.getFullYear()).slice(2)}`, val };
     });
-    doc.setDrawColor(210, 215, 230); doc.setLineWidth(0.2);
-    doc.line(chartX, barBase, chartX + chartW, barBase);
+
+    const chartY = 182, chartH = 64, chartGap = 6, chartW = (W - mg * 2 - chartGap) / 2;
+    drawBarChart(mg, chartY, chartW, chartH, "Cajas producidas — últimos 12 meses", ultimos12, {
+      fmtVal: v => String(v),
+    });
+    drawBarChart(mg + chartW + chartGap, chartY, chartW, chartH, `% Merma — últimos 12 meses (meta ${META_MERMA_PCT}%)`, ultimosMerma12, {
+      colorFn: v => v == null ? [200, 200, 200] : (v > META_MERMA_PCT ? [232, 75, 75] : [75, 232, 122]),
+      fmtVal: v => v.toFixed(1) + "%",
+      refLineVal: META_MERMA_PCT,
+    });
 
     // ── Resumen comparativo (pág. 2) ──
     newPage();
