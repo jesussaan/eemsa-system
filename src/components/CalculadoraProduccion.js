@@ -18,6 +18,12 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const [portaliche, setPortaliche] = useState(String(sugerido?.portaliche || '30.9'));
   const [diseno,     setDiseno]     = useState(sugerido?.diseno || 'normal');
   const [clicheNA,   setClicheNA]   = useState(false);
+  // Portacliche/diseno siempre traen un valor (sugerido o default) -- para
+  // que la marca de color sirva de algo, se cuenta como "pendiente" hasta
+  // que el operador de verdad los toca (los revisa/confirma), no solo
+  // porque ya traigan algo prellenado.
+  const [portalicheTocado, setPortalicheTocado] = useState(false);
+  const [disenoTocado,     setDisenoTocado]     = useState(false);
 
   // Engomado: rollo de MP fijo (136mm x 685m, $900/rollo, corte real 6.8cm
   // aunque se venda como "3\""), en vez de la formula normal de la SIAT L36.
@@ -32,6 +38,8 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const tieneColor2   = !!pedidoInicial?.color2;
   const [portaliche2, setPortaliche2] = useState(String(sugerido?.portaliche2 || '30.9'));
   const [diseno2,     setDiseno2]     = useState(sugerido?.diseno2 || 'normal');
+  const [portaliche2Tocado, setPortaliche2Tocado] = useState(false);
+  const [diseno2Tocado,     setDiseno2Tocado]     = useState(false);
 
   // Datos reales (flujo finalizar) -- se captura "cajas producidas" y las
   // piezas se calculan solas (cajas x rollos/caja), en vez de escribirlas
@@ -91,9 +99,9 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
 
       {/* Formulario */}
       <div className="form-grid">
-        <div className="field"><label>Ancho (")</label><input type="number" step="0.5" min="0.5" value={ancho} onChange={e => setAncho(e.target.value)} placeholder="2" /></div>
-        <div className="field"><label>Largo (m)</label><input type="number" value={largo} onChange={e => setLargo(e.target.value)} placeholder="100" /></div>
-        <div className="field"><label>Cajas</label><input type="number" value={cajas} onChange={e => setCajas(e.target.value)} placeholder="50" /></div>
+        <div className="field"><label>Ancho (")</label><input className={ancho ? 'campo-listo' : 'campo-pendiente'} type="number" step="0.5" min="0.5" value={ancho} onChange={e => setAncho(e.target.value)} placeholder="2" /></div>
+        <div className="field"><label>Largo (m)</label><input className={largo ? 'campo-listo' : 'campo-pendiente'} type="number" value={largo} onChange={e => setLargo(e.target.value)} placeholder="100" /></div>
+        <div className="field"><label>Cajas</label><input className={cajas ? 'campo-listo' : 'campo-pendiente'} type="number" value={cajas} onChange={e => setCajas(e.target.value)} placeholder="50" /></div>
         <div className="field"><label>Rollos / caja (automático)</label><input type="number" readOnly value={rollosCaja} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
 
         {/* Portacliché con botón N/A */}
@@ -105,7 +113,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
               N/A
             </button>
           </label>
-          <select value={portaliche} onChange={e => setPortaliche(e.target.value)} disabled={clicheNA} style={{ opacity: clicheNA ? 0.35 : 1 }}>
+          <select className={clicheNA ? '' : (portalicheTocado ? 'campo-listo' : 'campo-pendiente')} value={portaliche} onChange={e => { setPortaliche(e.target.value); setPortalicheTocado(true); }} disabled={clicheNA} style={{ opacity: clicheNA ? 0.35 : 1 }}>
             {PORTALICHES.map(p => <option key={p.largo} value={p.largo}>{p.label}</option>)}
           </select>
           <AvisoSugerido visible={!clicheNA && portacliheIgualSugerido} />
@@ -114,7 +122,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
         {!clicheNA && (
           <div className="field">
             <label>Diseño</label>
-            <select value={diseno} onChange={e => setDiseno(e.target.value)}>
+            <select className={disenoTocado ? 'campo-listo' : 'campo-pendiente'} value={diseno} onChange={e => { setDiseno(e.target.value); setDisenoTocado(true); }}>
               {DISENOS.map(d => <option key={d.key} value={d.key}>{d.label} ({Math.round(d.cob * 100)}%)</option>)}
             </select>
             <AvisoSugerido visible={disenoIgualSugerido} />
@@ -126,13 +134,13 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             <div style={{ fontSize: 11, color: '#c9922a', fontWeight: 700, marginBottom: 8 }}>2do color: {pedidoInicial.color2}</div>
             <div className="form-grid">
               <div className="field"><label>Portacliché</label>
-                <select value={portaliche2} onChange={e => setPortaliche2(e.target.value)}>
+                <select className={portaliche2Tocado ? 'campo-listo' : 'campo-pendiente'} value={portaliche2} onChange={e => { setPortaliche2(e.target.value); setPortaliche2Tocado(true); }}>
                   {PORTALICHES.map(p => <option key={p.largo} value={p.largo}>{p.label}</option>)}
                 </select>
                 <AvisoSugerido visible={portaliche2IgualSugerido} />
               </div>
               <div className="field"><label>Diseño</label>
-                <select value={diseno2} onChange={e => setDiseno2(e.target.value)}>
+                <select className={diseno2Tocado ? 'campo-listo' : 'campo-pendiente'} value={diseno2} onChange={e => { setDiseno2(e.target.value); setDiseno2Tocado(true); }}>
                   {DISENOS.map(d => <option key={d.key} value={d.key}>{d.label} ({Math.round(d.cob * 100)}%)</option>)}
                 </select>
                 <AvisoSugerido visible={diseno2IgualSugerido} />
@@ -141,25 +149,25 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
           </div>
         )}
 
-        <div className="field full"><label>Merma esperada (piezas)</label><input type="number" value={merma} onChange={e => setMerma(e.target.value)} placeholder="0" /></div>
+        <div className="field full"><label>Merma esperada (piezas)</label><input className={merma !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" value={merma} onChange={e => setMerma(e.target.value)} placeholder="0" /></div>
 
         {onConfirmar && (<>
           <div className="field full" style={{ borderTop: '1px solid #1e2132', paddingTop: 14, marginTop: 4 }}>
             <div style={{ fontSize: 11, color: '#4be87a', fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>DATOS REALES DE LA CORRIDA</div>
           </div>
-          <div className="field"><label>Cajas producidas</label><input type="number" placeholder="50" value={cajasProd} onChange={e => {
+          <div className="field"><label>Cajas producidas</label><input className={cajasProd !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" placeholder="50" value={cajasProd} onChange={e => {
             const v = e.target.value;
             setCajasProd(v);
             setPiezasProd(v !== '' ? String(Number(v) * rollosCajaN) : '');
           }} /></div>
-          <div className="field"><label>Piezas producidas *</label><input type="number" placeholder="1800" value={piezasProd} onChange={e => { setPiezasProd(e.target.value); setCajasProd(''); }} /></div>
-          <div className="field"><label>Merma real (piezas)</label><input type="number" placeholder="0" value={mermaReal} onChange={e => setMermaReal(e.target.value)} /></div>
+          <div className="field"><label>Piezas producidas *</label><input className={piezasProd !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" placeholder="1800" value={piezasProd} onChange={e => { setPiezasProd(e.target.value); setCajasProd(''); }} /></div>
+          <div className="field"><label>Merma real (piezas)</label><input className={mermaReal !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" placeholder="0" value={mermaReal} onChange={e => setMermaReal(e.target.value)} /></div>
           {mermaPct !== null && (
             <div className="field"><label>% Merma real</label><input readOnly value={mermaPct + "%"} style={{ background: "#1a2744", color: Number(mermaPct) > 3 ? "#ff4d4d" : "#4be87a" }} /></div>
           )}
           <div className="field">
             <label>Stickybacks</label>
-            <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+            <div style={{ display: "flex", gap: 6, marginTop: 4, padding: 3, borderRadius: 8, border: `1.5px solid ${stickyback == null ? 'var(--orange)' : 'var(--green)'}`, background: stickyback == null ? 'var(--orange-dim)' : 'var(--green-dim)' }}>
               {[1, 2].map(n => (
                 <button key={n} type="button" onClick={() => setStickyback(stickyback === n ? null : n)}
                   style={{ flex: 1, padding: "6px 0", borderRadius: 6, border: "2px solid", borderColor: stickyback === n ? "#c9922a" : "#2a2d3a", background: stickyback === n ? "#c9922a22" : "transparent", color: stickyback === n ? "#c9922a" : "#555", fontWeight: 900, fontSize: 16, cursor: "pointer", transition: "all .15s" }}>

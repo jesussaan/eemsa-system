@@ -36,6 +36,10 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
   });
   const [saving, setSaving] = useState(false);
   const [toast, setToast]   = useState("");
+  // "Tipo de cinta" siempre trae un valor (Blanca por default) -- se marca
+  // como pendiente hasta que se toca de verdad, para no dejarlo en Blanca
+  // sin querer cuando en realidad es Canela o Transparente.
+  const [tipoTocado, setTipoTocado] = useState(false);
 
   useEffect(() => guardarBorrador("eemsa_ventas_tab", tab), [tab]);
   useEffect(() => guardarBorrador("eemsa_ventas_form", form), [form]);
@@ -47,6 +51,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(""), 3000); };
   const upd = (k, v) => setForm(f => {
+    if (k === "tipo") setTipoTocado(true);
     const nf = {...f, [k]: v};
     // Rollos/caja ya no se escribe a mano -- se calcula solo de tipo + las
     // pulgadas que trae la Medida (2"=36, 3"=24, Engomado=10).
@@ -63,6 +68,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
   });
 
   const repetirPedido = (p) => {
+    setTipoTocado(true);
     const tipo  = p.tipo || "Blanca";
     const cajas = p.cajas ? String(p.cajas) : "";
     const rollosCaja = String(rollosPorCaja(anchoDeMedida(p.medida || ""), tipo === "Engomado"));
@@ -131,6 +137,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
     const guardado = data || nuevo;
     setPedidos(ps => [guardado, ...ps]);
     setForm({ ...FORM_INIT, num: siguienteNumPedido([guardado, ...pedidos]) });
+    setTipoTocado(false);
     sendWhatsApp(mensajePedidoNuevo(guardado));
     showToast("✅ Pedido registrado correctamente");
     setTab("agenda");
@@ -140,6 +147,9 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
   const selPeds = diaSel ? porDia(diaSel) : [];
 
   const inputStyle = { width:"100%", background:"var(--card)", border:"1px solid var(--border-light)", borderRadius:"var(--r-sm)", padding:"11px 12px", color:"var(--text)", fontSize:14, boxSizing:"border-box" };
+  // Naranja si el campo esta vacio, verde en cuanto se llena -- para no
+  // dejar datos a medias sin darse cuenta al anotar un pedido.
+  const campoEstilo = (val) => (val ? { border: "1px solid var(--green)", background: "var(--green-dim)" } : { border: "1px solid var(--orange)", background: "var(--orange-dim)" });
 
   return (
     <div style={{ display:"flex", flexDirection:"column", minHeight:"100vh", background:"var(--bg)" }}>
@@ -284,7 +294,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
 
               <div style={{ gridColumn:"1/-1" }}>
                 <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Cliente *</label>
-                <input value={form.cliente} onChange={e=>upd("cliente",e.target.value)} placeholder="Nombre del cliente" style={inputStyle} list="clientes-list-ventas" />
+                <input value={form.cliente} onChange={e=>upd("cliente",e.target.value)} placeholder="Nombre del cliente" style={{ ...inputStyle, ...campoEstilo(form.cliente) }} list="clientes-list-ventas" />
                 <datalist id="clientes-list-ventas">{clientesSugeridos.map(c => <option key={c} value={c} />)}</datalist>
               </div>
 
@@ -295,19 +305,19 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
 
               <div>
                 <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Tipo de cinta</label>
-                <select value={form.tipo} onChange={e=>upd("tipo",e.target.value)} style={inputStyle}>
+                <select value={form.tipo} onChange={e=>upd("tipo",e.target.value)} style={{ ...inputStyle, ...campoEstilo(tipoTocado) }}>
                   {TIPOS.map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
 
               <div>
                 <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Medida *</label>
-                <input value={form.medida} onChange={e=>upd("medida",e.target.value)} placeholder="Ej: 2x100" style={inputStyle} />
+                <input value={form.medida} onChange={e=>upd("medida",e.target.value)} placeholder="Ej: 2x100" style={{ ...inputStyle, ...campoEstilo(form.medida) }} />
               </div>
 
               <div>
                 <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Cajas *</label>
-                <input type="number" min="0" value={form.cajas} onChange={e=>upd("cajas",e.target.value)} placeholder="0" style={inputStyle} />
+                <input type="number" min="0" value={form.cajas} onChange={e=>upd("cajas",e.target.value)} placeholder="0" style={{ ...inputStyle, ...campoEstilo(form.cajas) }} />
               </div>
 
               <div>
@@ -322,7 +332,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
 
               <div>
                 <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Tinta</label>
-                <input value={form.tinta_tipo} onChange={e=>upd("tinta_tipo",e.target.value)} placeholder="Ej: Roja UV, Azul PMS…" style={inputStyle} list="tintas-list-ventas" />
+                <input value={form.tinta_tipo} onChange={e=>upd("tinta_tipo",e.target.value)} placeholder="Ej: Roja UV, Azul PMS…" style={{ ...inputStyle, ...campoEstilo(form.tinta_tipo) }} list="tintas-list-ventas" />
                 <datalist id="tintas-list-ventas">{tintasSugeridas.map(t => <option key={t} value={t} />)}</datalist>
               </div>
 
