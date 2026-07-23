@@ -44,11 +44,35 @@ const AvisoActualizacion = () => {
   }, []);
   if (!hayActualizacion) return null;
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 1000, background: "var(--accent)", color: "#0b0d11", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 12, fontSize: 13, fontWeight: 700, boxShadow: "0 2px 12px rgba(0,0,0,0.4)" }}>
+    <div style={{ background: "var(--accent)", color: "#0b0d11", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 12, fontSize: 13, fontWeight: 700, boxShadow: "0 2px 12px rgba(0,0,0,0.4)" }}>
       Hay una actualización disponible
       <button onClick={() => window.location.reload()} style={{ background: "#0b0d11", color: "var(--accent)", border: "none", borderRadius: 8, padding: "6px 14px", fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
         Actualizar ahora
       </button>
+    </div>
+  );
+};
+
+// Avisa cuando el celular/tablet pierde la conexion -- el piso a veces
+// tiene wifi inestable, y sin esto la pantalla se queda con datos viejos
+// (sin realtime) sin que nadie se de cuenta de que lo que anote podria no
+// haberse guardado.
+const AvisoConexion = () => {
+  const [online, setOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const onOnline = () => setOnline(true);
+    const onOffline = () => setOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
+  if (online) return null;
+  return (
+    <div style={{ background: "var(--red)", color: "#fff", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, fontWeight: 700, boxShadow: "0 2px 12px rgba(0,0,0,0.4)" }}>
+      ⚠ Sin conexión — reconectando…
     </div>
   );
 };
@@ -78,7 +102,10 @@ export default function App() {
   const portalMatch = window.location.pathname.match(/^\/cliente\/([^/]+)\/?$/);
   return (
     <>
-      <AvisoActualizacion />
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 1000, display: "flex", flexDirection: "column" }}>
+        <AvisoConexion />
+        <AvisoActualizacion />
+      </div>
       <ConfirmModal />
       {portalMatch
         ? <Suspense fallback={<PantallaCargando />}><PortalCliente token={portalMatch[1]} /></Suspense>
