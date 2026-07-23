@@ -56,6 +56,18 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const mermaPct = piezasProd && mermaReal && Number(piezasProd) > 0
     ? ((Number(mermaReal) / Number(piezasProd)) * 100).toFixed(2) : null;
 
+  // Portacliche/diseno se prellenan con "sugerido" (ultima corrida igual)
+  // y es facil no notar que hay que cambiarlos si esta vez el cliche es
+  // distinto -- se avisa mientras el valor siga igual al sugerido, para
+  // que salte a la vista antes de confirmar en vez de pasar desapercibido.
+  const AvisoSugerido = ({ visible }) => !visible ? null : (
+    <div style={{ fontSize: 10, color: '#ff9900', fontWeight: 700, marginTop: 4 }}>⚠ Igual que la última corrida — revisa si cambió</div>
+  );
+  const portacliheIgualSugerido = sugerido?.portaliche != null && String(portaliche) === String(sugerido.portaliche);
+  const disenoIgualSugerido     = sugerido?.diseno != null && diseno === sugerido.diseno;
+  const portaliche2IgualSugerido = sugerido?.portaliche2 != null && String(portaliche2) === String(sugerido.portaliche2);
+  const diseno2IgualSugerido     = sugerido?.diseno2 != null && diseno2 === sugerido.diseno2;
+
   const content = (
     <div
       style={{ background: '#181b24', borderRadius: inline ? 0 : 18, padding: inline ? '0 0 24px' : 24, width: '100%', maxWidth: inline ? '100%' : 460, border: inline ? 'none' : '1px solid #2d3249', boxShadow: inline ? 'none' : '0 8px 40px rgba(0,0,0,0.6)', ...(inline ? {} : { maxHeight: '94vh', overflowY: 'auto' }) }}
@@ -96,6 +108,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
           <select value={portaliche} onChange={e => setPortaliche(e.target.value)} disabled={clicheNA} style={{ opacity: clicheNA ? 0.35 : 1 }}>
             {PORTALICHES.map(p => <option key={p.largo} value={p.largo}>{p.label}</option>)}
           </select>
+          <AvisoSugerido visible={!clicheNA && portacliheIgualSugerido} />
         </div>
 
         {!clicheNA && (
@@ -104,6 +117,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             <select value={diseno} onChange={e => setDiseno(e.target.value)}>
               {DISENOS.map(d => <option key={d.key} value={d.key}>{d.label} ({Math.round(d.cob * 100)}%)</option>)}
             </select>
+            <AvisoSugerido visible={disenoIgualSugerido} />
           </div>
         )}
 
@@ -115,11 +129,13 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
                 <select value={portaliche2} onChange={e => setPortaliche2(e.target.value)}>
                   {PORTALICHES.map(p => <option key={p.largo} value={p.largo}>{p.label}</option>)}
                 </select>
+                <AvisoSugerido visible={portaliche2IgualSugerido} />
               </div>
               <div className="field"><label>Diseño</label>
                 <select value={diseno2} onChange={e => setDiseno2(e.target.value)}>
                   {DISENOS.map(d => <option key={d.key} value={d.key}>{d.label} ({Math.round(d.cob * 100)}%)</option>)}
                 </select>
+                <AvisoSugerido visible={diseno2IgualSugerido} />
               </div>
             </div>
           </div>
