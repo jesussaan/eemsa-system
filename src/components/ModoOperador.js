@@ -34,11 +34,18 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
   const [vista, setVista] = useState(() => cargarBorrador("eemsa_op_vista", null)); // null | "finalizar" | "falla"
   const [fotoProducto, setFotoProducto] = useState(null);
   const [formFalla, setFormFalla] = useState(() => cargarBorrador("eemsa_op_form_falla", { comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" }));
+  // Componente y Severidad siempre traen un valor por default -- se marcan
+  // pendiente hasta que se tocan de verdad, igual que portacliche/tipo en
+  // los otros formularios, para no dejar el default puesto sin querer.
+  const [compTocado, setCompTocado] = useState(() => cargarBorrador("eemsa_op_comp_tocado", false));
+  const [sevTocado,  setSevTocado]  = useState(() => cargarBorrador("eemsa_op_sev_tocado", false));
   const pedidoSel = pedidoSelId ? (pedidos.find(p => p.id === pedidoSelId) || null) : null;
 
   useEffect(() => guardarBorrador("eemsa_op_pedido_id", pedidoSelId), [pedidoSelId]);
   useEffect(() => guardarBorrador("eemsa_op_vista", vista), [vista]);
   useEffect(() => guardarBorrador("eemsa_op_form_falla", formFalla), [formFalla]);
+  useEffect(() => guardarBorrador("eemsa_op_comp_tocado", compTocado), [compTocado]);
+  useEffect(() => guardarBorrador("eemsa_op_sev_tocado", sevTocado), [sevTocado]);
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2500); };
@@ -65,6 +72,8 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     setVista(null);
     setFotoProducto(null);
     setFormFalla({ comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" });
+    setCompTocado(false);
+    setSevTocado(false);
   };
 
   const actualizarEstadoPedido = (id, campos) => fetch('/api/pedidos', {
@@ -203,6 +212,8 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     setFallas(fs => [nueva, ...fs]);
     setVista(null);
     setFormFalla({ comp: "Rodillo anilox", min_paro: "", sev: "leve", descripcion: "" });
+    setCompTocado(false);
+    setSevTocado(false);
     showToast("✓ Falla reportada");
     setLoading(false);
   };
@@ -558,22 +569,22 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
             <div className="form-grid">
               <div className="field">
                 <label>Componente</label>
-                <input list="comps-list-op" value={formFalla.comp} onChange={e => setFormFalla(f => ({ ...f, comp: e.target.value }))} placeholder="Escribe o elige un componente" />
+                <input className={compTocado ? 'campo-listo' : 'campo-pendiente'} list="comps-list-op" value={formFalla.comp} onChange={e => { setFormFalla(f => ({ ...f, comp: e.target.value })); setCompTocado(true); }} placeholder="Escribe o elige un componente" />
                 <datalist id="comps-list-op">{compsSugeridos.map(c => <option key={c} value={c} />)}</datalist>
               </div>
               <div className="field">
                 <label>Minutos de paro *</label>
-                <input type="number" placeholder="30" value={formFalla.min_paro} onChange={e => setFormFalla(f => ({ ...f, min_paro: e.target.value }))} />
+                <input className={formFalla.min_paro !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" placeholder="30" value={formFalla.min_paro} onChange={e => setFormFalla(f => ({ ...f, min_paro: e.target.value }))} />
               </div>
               <div className="field">
                 <label>Severidad</label>
-                <select value={formFalla.sev} onChange={e => setFormFalla(f => ({ ...f, sev: e.target.value }))}>
+                <select className={sevTocado ? 'campo-listo' : 'campo-pendiente'} value={formFalla.sev} onChange={e => { setFormFalla(f => ({ ...f, sev: e.target.value })); setSevTocado(true); }}>
                   {Object.entries(SEV).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
               <div className="field full">
                 <label>Descripción *</label>
-                <textarea placeholder="¿Qué ocurrió?" value={formFalla.descripcion} onChange={e => setFormFalla(f => ({ ...f, descripcion: e.target.value }))} />
+                <textarea className={formFalla.descripcion !== '' ? 'campo-listo' : 'campo-pendiente'} placeholder="¿Qué ocurrió?" value={formFalla.descripcion} onChange={e => setFormFalla(f => ({ ...f, descripcion: e.target.value }))} />
               </div>
             </div>
             <button className="btn btn-danger btn-block" onClick={guardarFalla} disabled={loading} style={{ padding: 16, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>

@@ -186,6 +186,13 @@ input, select, textarea {
   -webkit-appearance: none;
 }
 input:hover, select:hover, textarea:hover { background: rgba(255,255,255,0.05); }
+
+/* Marca campos vacios vs ya llenados -- para no dejar datos a medias sin
+   darse cuenta (Finalizar pedido, Anotar pedido nuevo). Border grueso (no
+   solo border-color) para que se note fuerte, igual que el marco de
+   Stickybacks -- el border-color solo no se notaba lo suficiente. */
+input.campo-pendiente, select.campo-pendiente, textarea.campo-pendiente { border: 2px solid var(--orange); background: rgba(232,137,75,0.14); }
+input.campo-listo, select.campo-listo, textarea.campo-listo { border: 2px solid var(--green); background: rgba(75,232,122,0.12); }
 input:focus, select:focus, textarea:focus {
   border-color: var(--accent);
   background: rgba(232,184,75,0.04);
