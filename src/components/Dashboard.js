@@ -671,12 +671,12 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
         <div className="stat-card green">
           <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(valorProducidoMes))}</div>
           <div className="stat-lbl">Valor producido este mes</div>
-          {valorProducido !== valorProducidoMes && <div className="muted" style={{ marginTop: 3 }}>Total: ${fmt(Math.round(valorProducido))}</div>}
+          {valorProducido !== valorProducidoMes && <div className="muted" style={{ marginTop: 3 }}>Total histórico: ${fmt(Math.round(valorProducido))}</div>}
         </div>
         <div className="stat-card red">
           <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(perdidaMermaMes))}</div>
           <div className="stat-lbl">Perdido en merma este mes</div>
-          {perdidaMerma !== perdidaMermaMes && <div className="muted" style={{ marginTop: 3 }}>Total: ${fmt(Math.round(perdidaMerma))}</div>}
+          {perdidaMerma !== perdidaMermaMes && <div className="muted" style={{ marginTop: 3 }}>Total histórico: ${fmt(Math.round(perdidaMerma))}</div>}
         </div>
         {valorProducido > 0 && perdidaMerma > 0 && (
           <div className="stat-card accent">
