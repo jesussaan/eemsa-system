@@ -30,6 +30,8 @@ export const IcoAlertDot = () => (<svg viewBox="0 0 24 24" {...S} fill="currentC
 export const IcoStore = () => (<svg viewBox="0 0 24 24" {...S}><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v10a1 1 0 001 1h14a1 1 0 001-1V9"/><path d="M9 20v-6h6v6"/><line x1="3" y1="9" x2="21" y2="9"/></svg>);
 export const IcoNote = () => (<svg viewBox="0 0 24 24" {...S}><path d="M6 3h9l5 5v13a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M15 3v5h5"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>);
 export const IcoBulb = () => (<svg viewBox="0 0 24 24" {...S}><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 00-3.5 10.9c.6.45 1 1.15 1 1.9V17h5v-1.2c0-.75.4-1.45 1-1.9A6 6 0 0012 3z"/></svg>);
+export const IcoSol = () => (<svg viewBox="0 0 24 24" {...S}><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8L6 18M18 6l1.8-1.8"/></svg>);
+export const IcoLuna = () => (<svg viewBox="0 0 24 24" {...S}><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>);
 export const IcoCheck = () => (<svg viewBox="0 0 24 24" {...S}><polyline points="4 12.5 9.5 18 20 5"/></svg>);
 export const IcoPlus  = () => (<svg viewBox="0 0 24 24" {...S}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>);
 export const IcoPencil = () => (<svg viewBox="0 0 24 24" {...S}><path d="M4 20l1-4.5L16.5 4 20 7.5 8.5 19 4 20z"/><line x1="14" y1="6" x2="18" y2="10"/></svg>);

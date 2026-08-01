@@ -24,9 +24,9 @@ const PIE_COLORS = ['#e84b4b','#e8894b','#e8b84b','#4be87a','#4b8fe8','#9b59b6',
 const ChartTip = ({ active, payload }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: '#181b24', border: '1px solid #2d3249', borderRadius: 8, padding: '7px 12px', fontSize: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
-      <div style={{ color: '#9aa0bc', marginBottom: 2 }}>{payload[0].name}</div>
-      <div style={{ color: payload[0].fill || '#e8ecf4', fontWeight: 700, fontSize: 14 }}>{payload[0].value}</div>
+    <div style={{ background: 'var(--card)', border: '1px solid var(--border-light)', borderRadius: 8, padding: '7px 12px', fontSize: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
+      <div style={{ color: 'var(--text-2)', marginBottom: 2 }}>{payload[0].name}</div>
+      <div style={{ color: payload[0].fill || 'var(--text)', fontWeight: 700, fontSize: 14 }}>{payload[0].value}</div>
     </div>
   );
 };
@@ -584,9 +584,9 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
     doc.save(`EEMSA_Reporte_${new Date().getFullYear()}.pdf`);
   };
 
-  const chartCard = { background: "#181b24", borderRadius: 12, padding: "14px 16px", marginBottom: 14, border: "1px solid #22263a" };
+  const chartCard = { background: "var(--card)", borderRadius: 12, padding: "14px 16px", marginBottom: 14, border: "1px solid var(--border)" };
   const mermaPctMesShow = mermaPctMes != null ? Number(mermaPctMes) : 0;
-  const mermaColor = mermaPctMesShow > META_MERMA_PCT ? "#ff4d4d" : "#4be87a";
+  const mermaColor = mermaPctMesShow > META_MERMA_PCT ? "var(--red)" : "var(--green)";
 
   return (
     <div>
@@ -624,7 +624,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
           <div className="list" style={{ marginBottom: 20 }}>
             {pedidosUrgentes.map(p => {
               const ep = estadoPlazo(p.diasRest);
-              const bordeColor = p.status === "terminado" ? "#4be87a" : p.status === "proceso" ? "#4a9eff" : "#ff9900";
+              const bordeColor = p.status === "terminado" ? "var(--green)" : p.status === "proceso" ? "var(--blue)" : "var(--orange)";
               return (
                 <div key={p.id} className="list-item" style={{ borderLeft: `3px solid ${bordeColor}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -633,7 +633,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
                   </div>
                   <div className="muted">{p.tipo} · {p.medida} · {p.cajas} cajas</div>
                   {p.merma_pct !== undefined && p.merma_pct !== null && p.merma_pct !== "" && (
-                    <div className="muted">Merma: <span style={{ color: Number(p.merma_pct) > META_MERMA_PCT ? "#ff4d4d" : "#4be87a", fontWeight: 600 }}>{p.merma_pct}%</span></div>
+                    <div className="muted">Merma: <span style={{ color: Number(p.merma_pct) > META_MERMA_PCT ? "var(--red)" : "var(--green)", fontWeight: 600 }}>{p.merma_pct}%</span></div>
                   )}
                 </div>
               );
@@ -702,18 +702,18 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
         return (
           <>
             <SubTitle icon={IcoCompare}>{lblMes} vs {lblPrev}</SubTitle>
-            <div style={{ background: "#181b24", borderRadius: 12, padding: "12px 16px", marginBottom: 20, border: "1px solid #22263a" }}>
+            <div style={{ background: "var(--card)", borderRadius: 12, padding: "12px 16px", marginBottom: 20, border: "1px solid var(--border)" }}>
               {items.map(it => {
                 const d = delta(it.curr, it.prev);
                 const mejora = d ? (it.menorEsMejor ? !d.sube : d.sube) : null;
                 return (
-                  <div key={it.lbl} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #13161e" }}>
-                    <span style={{ fontSize: 13, color: "#9aa0bc" }}>{it.lbl}</span>
+                  <div key={it.lbl} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid var(--surface)" }}>
+                    <span style={{ fontSize: 13, color: "var(--text-2)" }}>{it.lbl}</span>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontSize: 11, color: "#3a3f5a" }}>{it.fmt(it.prev)}</span>
-                      <span style={{ fontSize: 11, color: "#3a3f5a" }}>→</span>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: "#e0e0e0" }}>{it.fmt(it.curr)}</span>
-                      {d && <span style={{ fontSize: 12, fontWeight: 700, color: mejora ? "#4be87a" : "#ff4d4d" }}>{d.sube ? "▲" : "▼"}{d.pct}%</span>}
+                      <span style={{ fontSize: 11, color: "var(--muted)" }}>{it.fmt(it.prev)}</span>
+                      <span style={{ fontSize: 11, color: "var(--muted)" }}>→</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{it.fmt(it.curr)}</span>
+                      {d && <span style={{ fontSize: 12, fontWeight: 700, color: mejora ? "var(--green)" : "var(--red)" }}>{d.sube ? "▲" : "▼"}{d.pct}%</span>}
                     </div>
                   </div>
                 );
@@ -736,10 +736,10 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       </div>
       <div style={chartCard}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <span style={{ fontSize: 12, color: "#9aa0bc", fontWeight: 600 }}>Cajas diarias — últimas 2 semanas</span>
-          <div style={{ display: "flex", gap: 10, fontSize: 10, color: "#545a78" }}>
-            <span><span style={{ color: "#4be87a" }}>■</span> Con meta</span>
-            <span><span style={{ color: "#ff4d4d" }}>■</span> Sin meta</span>
+          <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>Cajas diarias — últimas 2 semanas</span>
+          <div style={{ display: "flex", gap: 10, fontSize: 10, color: "var(--muted)" }}>
+            <span><span style={{ color: "var(--green)" }}>■</span> Con meta</span>
+            <span><span style={{ color: "var(--red)" }}>■</span> Sin meta</span>
           </div>
         </div>
         <BarChart data={ultimas14} meta={META_CAJAS} />
@@ -753,20 +753,20 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       </div>
       <div style={{ ...chartCard, padding: "12px 16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-          <span style={{ fontSize: 12, color: "#9aa0bc", fontWeight: 600 }}>Merma del mes vs meta máx. {META_MERMA_PCT}%</span>
+          <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>Merma del mes vs meta máx. {META_MERMA_PCT}%</span>
           <span style={{ fontSize: 13, color: mermaColor, fontWeight: 700 }}>{mermaPctMesShow}%</span>
         </div>
-        <div style={{ background: "#22263a", borderRadius: 6, height: 9, overflow: "hidden" }}>
+        <div style={{ background: "var(--border)", borderRadius: 6, height: 9, overflow: "hidden" }}>
           <div style={{ width: `${Math.min(100, (mermaPctMesShow / META_MERMA_PCT) * 100)}%`, height: "100%", background: mermaColor, borderRadius: 6, transition: "width .5s" }} />
         </div>
       </div>
       {pedidosMerma.length > 0 && (
         <div style={chartCard}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <span style={{ fontSize: 12, color: "#9aa0bc", fontWeight: 600 }}>% Merma por pedido (últimos 10)</span>
-            <div style={{ display: "flex", gap: 10, fontSize: 10, color: "#545a78" }}>
-              <span><span style={{ color: "#4be87a" }}>■</span> OK</span>
-              <span><span style={{ color: "#ff4d4d" }}>■</span> Alta</span>
+            <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>% Merma por pedido (últimos 10)</span>
+            <div style={{ display: "flex", gap: 10, fontSize: 10, color: "var(--muted)" }}>
+              <span><span style={{ color: "var(--green)" }}>■</span> OK</span>
+              <span><span style={{ color: "var(--red)" }}>■</span> Alta</span>
             </div>
           </div>
           <BarChart data={pedidosMerma} meta={META_MERMA_PCT} lowerIsBetter />
@@ -784,22 +784,22 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
             <div style={{ maxHeight: 420, overflowY: 'auto', overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #22263a' }}>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
                     {['Fecha','Pedido','Cliente','Piezas','Costo/pza','Valor producido','Pérd. merma'].map(h => (
-                      <th key={h} style={{ padding: '6px 10px', color: '#545a78', fontWeight: 600, textAlign: (h === 'Cliente' || h === 'Fecha') ? 'left' : 'right', whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#181b24' }}>{h}</th>
+                      <th key={h} style={{ padding: '6px 10px', color: 'var(--muted)', fontWeight: 600, textAlign: (h === 'Cliente' || h === 'Fecha') ? 'left' : 'right', whiteSpace: 'nowrap', position: 'sticky', top: 0, background: 'var(--card)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {historialCostos.map((r, i) => (
-                    <tr key={r.id} style={{ borderBottom: '1px solid #13161e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
-                      <td style={{ padding: '8px 10px', color: '#545a78', whiteSpace: 'nowrap' }}>{r.fecha || '—'}</td>
-                      <td style={{ padding: '8px 10px', color: '#9aa0bc', whiteSpace: 'nowrap' }}>#{r.num || '—'}</td>
-                      <td style={{ padding: '8px 10px', color: '#e0e0e0', fontWeight: 600, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.cliente}</td>
-                      <td style={{ padding: '8px 10px', color: '#545a78', textAlign: 'right' }}>{r.piezas.toLocaleString()}</td>
-                      <td style={{ padding: '8px 10px', color: '#9aa0bc', textAlign: 'right' }}>${r.costoPieza.toFixed(3)}</td>
-                      <td style={{ padding: '8px 10px', color: '#4b8fe8', textAlign: 'right', fontWeight: 700 }}>${fmt(Math.round(r.valor))}</td>
-                      <td style={{ padding: '8px 10px', color: '#ff4d4d', textAlign: 'right' }}>${fmt(Math.round(r.merma))}</td>
+                    <tr key={r.id} style={{ borderBottom: '1px solid var(--surface)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                      <td style={{ padding: '8px 10px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{r.fecha || '—'}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>#{r.num || '—'}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--text)', fontWeight: 600, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.cliente}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--muted)', textAlign: 'right' }}>{r.piezas.toLocaleString()}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--text-2)', textAlign: 'right' }}>${r.costoPieza.toFixed(3)}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--blue)', textAlign: 'right', fontWeight: 700 }}>${fmt(Math.round(r.valor))}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--red)', textAlign: 'right' }}>${fmt(Math.round(r.merma))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -817,19 +817,19 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #22263a' }}>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
                     {['Cliente','Pedidos','Valor producido','Pérd. merma'].map(h => (
-                      <th key={h} style={{ padding: '6px 10px', color: '#545a78', fontWeight: 600, textAlign: h === 'Cliente' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '6px 10px', color: 'var(--muted)', fontWeight: 600, textAlign: h === 'Cliente' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {rentabilidadClientes.map((r, i) => (
-                    <tr key={r.nombre} style={{ borderBottom: '1px solid #13161e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
-                      <td style={{ padding: '8px 10px', color: '#e0e0e0', fontWeight: 600, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.nombre}</td>
-                      <td style={{ padding: '8px 10px', color: '#545a78', textAlign: 'right' }}>{r.pedidos}</td>
-                      <td style={{ padding: '8px 10px', color: '#4b8fe8', textAlign: 'right', fontWeight: 700 }}>${fmt(Math.round(r.valor))}</td>
-                      <td style={{ padding: '8px 10px', color: '#ff4d4d', textAlign: 'right' }}>${fmt(Math.round(r.merma))}</td>
+                    <tr key={r.nombre} style={{ borderBottom: '1px solid var(--surface)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                      <td style={{ padding: '8px 10px', color: 'var(--text)', fontWeight: 600, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.nombre}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--muted)', textAlign: 'right' }}>{r.pedidos}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--blue)', textAlign: 'right', fontWeight: 700 }}>${fmt(Math.round(r.valor))}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--red)', textAlign: 'right' }}>${fmt(Math.round(r.merma))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -844,13 +844,13 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
         <>
           <SubTitle icon={IcoTrophy}>Clientes</SubTitle>
           <div style={chartCard}>
-            <span style={{ fontSize: 12, color: "#9aa0bc", fontWeight: 600 }}>Top clientes por cajas terminadas</span>
+            <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>Top clientes por cajas terminadas</span>
             <ResponsiveContainer width="100%" height={topClientes.length * 44 + 16}>
               <ReBarChart data={topClientes} layout="vertical" margin={{ top: 10, right: 40, bottom: 0, left: 0 }}>
                 <XAxis type="number" hide />
-                <YAxis type="category" dataKey="lbl" tick={{ fill: '#9aa0bc', fontSize: 11 }} axisLine={false} tickLine={false} width={100} />
-                <Tooltip formatter={v => [`${v} cajas`]} contentStyle={{ background: '#181b24', border: '1px solid #2d3249', borderRadius: 8, fontSize: 12 }} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-                <Bar dataKey="val" radius={[0, 4, 4, 0]} label={{ position: 'right', fill: '#545a78', fontSize: 11 }}>
+                <YAxis type="category" dataKey="lbl" tick={{ fill: 'var(--text-2)', fontSize: 11 }} axisLine={false} tickLine={false} width={100} />
+                <Tooltip formatter={v => [`${v} cajas`]} contentStyle={{ background: 'var(--card)', border: '1px solid var(--border-light)', borderRadius: 8, fontSize: 12 }} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                <Bar dataKey="val" radius={[0, 4, 4, 0]} label={{ position: 'right', fill: 'var(--muted)', fontSize: 11 }}>
                   {topClientes.map((_, i) => <Cell key={i} fill={['#4b8fe8','#4be87a','#e8b84b','#e8894b','#e84b4b'][i]} />)}
                 </Bar>
               </ReBarChart>
@@ -866,22 +866,22 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       <SubTitle icon={IcoDroplet}>Tinta por color — este mes</SubTitle>
       <div style={chartCard}>
         {tintaPorColor.length === 0
-          ? <div style={{ textAlign: 'center', color: '#3a3f5a', fontSize: 13, padding: '12px 0' }}>Sin datos aún — se llena al finalizar pedidos</div>
+          ? <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: '12px 0' }}>Sin datos aún — se llena al finalizar pedidos</div>
           : <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #22263a' }}>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
                     {['Color','Pedidos','Kg'].map(h => (
-                      <th key={h} style={{ padding: '6px 10px', color: '#545a78', fontWeight: 600, textAlign: h === 'Color' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '6px 10px', color: 'var(--muted)', fontWeight: 600, textAlign: h === 'Color' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {tintaPorColor.map((r, i) => (
-                    <tr key={r.color} style={{ borderBottom: '1px solid #13161e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
-                      <td style={{ padding: '8px 10px', color: '#e0e0e0', fontWeight: 600 }}>{r.color}</td>
-                      <td style={{ padding: '8px 10px', color: '#545a78', textAlign: 'right' }}>{r.pedidos}</td>
-                      <td style={{ padding: '8px 10px', color: '#4be87a', textAlign: 'right', fontWeight: 700 }}>{r.total.toFixed(2)} kg</td>
+                    <tr key={r.color} style={{ borderBottom: '1px solid var(--surface)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                      <td style={{ padding: '8px 10px', color: 'var(--text)', fontWeight: 600 }}>{r.color}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--muted)', textAlign: 'right' }}>{r.pedidos}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--green)', textAlign: 'right', fontWeight: 700 }}>{r.total.toFixed(2)} kg</td>
                     </tr>
                   ))}
                 </tbody>
@@ -894,22 +894,22 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       <SubTitle icon={IcoTapeRoll}>Por tipo de cinta — este mes</SubTitle>
       <div style={chartCard}>
         {tipoCintaStats.length === 0
-          ? <div style={{ textAlign: 'center', color: '#3a3f5a', fontSize: 13, padding: '12px 0' }}>Sin datos aún — se llena al finalizar pedidos</div>
+          ? <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: '12px 0' }}>Sin datos aún — se llena al finalizar pedidos</div>
           : <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #22263a' }}>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
                     {['Tipo','Pedidos','Rollos MP'].map(h => (
-                      <th key={h} style={{ padding: '6px 10px', color: '#545a78', fontWeight: 600, textAlign: h === 'Tipo' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '6px 10px', color: 'var(--muted)', fontWeight: 600, textAlign: h === 'Tipo' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {tipoCintaStats.map((r, i) => (
-                    <tr key={r.tipo} style={{ borderBottom: '1px solid #13161e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
-                      <td style={{ padding: '8px 10px', color: '#e0e0e0', fontWeight: 600, textTransform: 'capitalize' }}>{r.tipo}</td>
-                      <td style={{ padding: '8px 10px', color: '#545a78', textAlign: 'right' }}>{r.pedidos}</td>
-                      <td style={{ padding: '8px 10px', color: '#4be87a', textAlign: 'right', fontWeight: 700 }}>{r.rollos.toFixed(2)}</td>
+                    <tr key={r.tipo} style={{ borderBottom: '1px solid var(--surface)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                      <td style={{ padding: '8px 10px', color: 'var(--text)', fontWeight: 600, textTransform: 'capitalize' }}>{r.tipo}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--muted)', textAlign: 'right' }}>{r.pedidos}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--green)', textAlign: 'right', fontWeight: 700 }}>{r.rollos.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -931,22 +931,22 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       <SubTitle icon={IcoRoll}>Por material del rollo</SubTitle>
       <div style={chartCard}>
         {rebPorMaterial.length === 0
-          ? <div style={{ textAlign: 'center', color: '#3a3f5a', fontSize: 13, padding: '12px 0' }}>Sin datos aún — se llena al registrar en Modo Rebobinado</div>
+          ? <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: '12px 0' }}>Sin datos aún — se llena al registrar en Modo Rebobinado</div>
           : <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #22263a' }}>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
                     {['Material','Registros','Cajas','Piezas'].map(h => (
-                      <th key={h} style={{ padding: '6px 10px', color: '#545a78', fontWeight: 600, textAlign: h === 'Material' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '6px 10px', color: 'var(--muted)', fontWeight: 600, textAlign: h === 'Material' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {rebPorMaterial.map((r, i) => (
-                    <tr key={r.k} style={{ borderBottom: '1px solid #13161e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
-                      <td style={{ padding: '8px 10px', color: '#e0e0e0', fontWeight: 600 }}>{r.k}</td>
-                      <td style={{ padding: '8px 10px', color: '#545a78', textAlign: 'right' }}>{r.pedidos}</td>
-                      <td style={{ padding: '8px 10px', color: '#4b8fe8', textAlign: 'right', fontWeight: 700 }}>{r.cajas.toLocaleString()}</td>
+                    <tr key={r.k} style={{ borderBottom: '1px solid var(--surface)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                      <td style={{ padding: '8px 10px', color: 'var(--text)', fontWeight: 600 }}>{r.k}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--muted)', textAlign: 'right' }}>{r.pedidos}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--blue)', textAlign: 'right', fontWeight: 700 }}>{r.cajas.toLocaleString()}</td>
                       <td style={{ padding: '8px 10px', color: REBOB_COLOR, textAlign: 'right', fontWeight: 700 }}>{r.piezas.toLocaleString()}</td>
                     </tr>
                   ))}
@@ -959,22 +959,22 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       <SubTitle icon={IcoDroplet}>Por adhesivo</SubTitle>
       <div style={chartCard}>
         {rebPorAdhesivo.length === 0
-          ? <div style={{ textAlign: 'center', color: '#3a3f5a', fontSize: 13, padding: '12px 0' }}>Sin datos aún</div>
+          ? <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: '12px 0' }}>Sin datos aún</div>
           : <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #22263a' }}>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
                     {['Adhesivo','Registros','Cajas','Piezas'].map(h => (
-                      <th key={h} style={{ padding: '6px 10px', color: '#545a78', fontWeight: 600, textAlign: h === 'Adhesivo' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '6px 10px', color: 'var(--muted)', fontWeight: 600, textAlign: h === 'Adhesivo' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {rebPorAdhesivo.map((r, i) => (
-                    <tr key={r.k} style={{ borderBottom: '1px solid #13161e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
-                      <td style={{ padding: '8px 10px', color: '#e0e0e0', fontWeight: 600 }}>{r.k}</td>
-                      <td style={{ padding: '8px 10px', color: '#545a78', textAlign: 'right' }}>{r.pedidos}</td>
-                      <td style={{ padding: '8px 10px', color: '#4b8fe8', textAlign: 'right', fontWeight: 700 }}>{r.cajas.toLocaleString()}</td>
+                    <tr key={r.k} style={{ borderBottom: '1px solid var(--surface)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                      <td style={{ padding: '8px 10px', color: 'var(--text)', fontWeight: 600 }}>{r.k}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--muted)', textAlign: 'right' }}>{r.pedidos}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--blue)', textAlign: 'right', fontWeight: 700 }}>{r.cajas.toLocaleString()}</td>
                       <td style={{ padding: '8px 10px', color: REBOB_COLOR, textAlign: 'right', fontWeight: 700 }}>{r.piezas.toLocaleString()}</td>
                     </tr>
                   ))}
@@ -996,7 +996,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
                 </div>
                 <div className="muted">{p.medida} · {p.cajas} cajas · {Number(p.piezas_prod || 0).toLocaleString()} piezas</div>
                 {p.merma_pct != null && p.merma_pct !== "" && (
-                  <div className="muted">Merma: <span style={{ color: Number(p.merma_pct) > META_MERMA_PCT ? "#ff4d4d" : "#4be87a", fontWeight: 600 }}>{p.merma_pct}%</span></div>
+                  <div className="muted">Merma: <span style={{ color: Number(p.merma_pct) > META_MERMA_PCT ? "var(--red)" : "var(--green)", fontWeight: 600 }}>{p.merma_pct}%</span></div>
                 )}
               </div>
             ))}
@@ -1011,14 +1011,14 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
         <>
           <SubTitle icon={IcoFal}>Fallas</SubTitle>
           <div style={chartCard}>
-            <span style={{ fontSize: 12, color: "#9aa0bc", fontWeight: 600 }}>Minutos de paro por componente</span>
+            <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>Minutos de paro por componente</span>
             <ResponsiveContainer width="100%" height={210}>
               <PieChart>
                 <Pie data={fallasPorComp.map(d => ({ name: d.lbl, value: d.val }))} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={52} outerRadius={82} paddingAngle={3}>
                   {fallasPorComp.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                 </Pie>
                 <Tooltip content={<ChartTip />} />
-                <Legend wrapperStyle={{ fontSize: 11, color: '#9aa0bc', paddingTop: 8 }} />
+                <Legend wrapperStyle={{ fontSize: 11, color: 'var(--text-2)', paddingTop: 8 }} />
               </PieChart>
             </ResponsiveContainer>
           </div>

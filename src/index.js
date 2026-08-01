@@ -5,6 +5,11 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
+import { cargarTema, aplicarTema } from './lib/theme';
+
+// Se aplica antes de pintar nada -- si alguien ya eligio modo claro antes,
+// evita el parpadeo de un oscuro-luego-claro al abrir la app.
+aplicarTema(cargarTema());
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

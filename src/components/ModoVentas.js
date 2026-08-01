@@ -158,10 +158,10 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
       <header style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 16px", background:"var(--surface)", borderBottom:"2px solid var(--green)", position:"sticky", top:0, zIndex:10 }}>
         <img src="/logo192.png" alt="EEMSA" style={{ height:36, width:"auto" }} />
         <div>
-          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:16, color:"#e0e0e0", letterSpacing:".06em" }}>EEMSA System</div>
-          <div style={{ fontSize:10, color:"#c9922a", fontWeight:700, letterSpacing:".08em" }}>MÓDULO VENTAS</div>
+          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:16, color:"var(--text)", letterSpacing:".06em" }}>EEMSA System</div>
+          <div style={{ fontSize:10, color:"var(--accent)", fontWeight:700, letterSpacing:".08em" }}>MÓDULO VENTAS</div>
         </div>
-        <button onClick={onSalir} style={{ marginLeft:"auto", fontSize:11, color:"#666", background:"transparent", border:"none", cursor:"pointer", padding:"4px 8px" }}>← Salir</button>
+        <button onClick={onSalir} style={{ marginLeft:"auto", fontSize:11, color:"var(--text-2)", background:"transparent", border:"none", cursor:"pointer", padding:"4px 8px" }}>← Salir</button>
       </header>
 
       {/* Main */}
@@ -170,17 +170,17 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
         {/* ── AGENDA ── */}
         {tab === "agenda" && (
           <div>
-            <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:800, color:"#e8b84b", letterSpacing:".06em", margin:"0 0 14px" }}>Agenda de Entregas</h2>
+            <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:800, color:"var(--accent)", letterSpacing:".06em", margin:"0 0 14px" }}>Agenda de Entregas</h2>
 
             {/* Stats */}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:14 }}>
-              <div style={{ background:"#13161e", borderRadius:12, padding:"12px 14px" }}>
-                <div style={{ fontSize:24, fontWeight:800, color:"#e8b84b" }}>{proximos.length}</div>
-                <div style={{ fontSize:11, color:"#666" }}>Próximas entregas</div>
+              <div style={{ background:"var(--surface)", borderRadius:12, padding:"12px 14px" }}>
+                <div style={{ fontSize:24, fontWeight:800, color:"var(--accent)" }}>{proximos.length}</div>
+                <div style={{ fontSize:11, color:"var(--text-2)" }}>Próximas entregas</div>
               </div>
-              <div style={{ background:"#13161e", borderRadius:12, padding:"12px 14px" }}>
-                <div style={{ fontSize:24, fontWeight:800, color:"#e84b4b" }}>{pedActivos.filter(p => p.fecha_estimada && p.fecha_estimada < hoy).length}</div>
-                <div style={{ fontSize:11, color:"#666" }}>Vencidas</div>
+              <div style={{ background:"var(--surface)", borderRadius:12, padding:"12px 14px" }}>
+                <div style={{ fontSize:24, fontWeight:800, color:"var(--red)" }}>{pedActivos.filter(p => p.fecha_estimada && p.fecha_estimada < hoy).length}</div>
+                <div style={{ fontSize:11, color:"var(--text-2)" }}>Vencidas</div>
               </div>
             </div>
 
@@ -195,22 +195,22 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
 
             {/* Panel día seleccionado */}
             {diaSel !== null && (
-              <div style={{ background:"#13161e", borderRadius:14, padding:14, marginBottom:16 }}>
-                <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:18, fontWeight:700, color:"#e8b84b", marginBottom:10 }}>
+              <div style={{ background:"var(--surface)", borderRadius:14, padding:14, marginBottom:16 }}>
+                <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:18, fontWeight:700, color:"var(--accent)", marginBottom:10 }}>
                   {diaSel} de {MESES[mes.m]} {mes.y}
                 </div>
                 {selPeds.length === 0
-                  ? <p style={{ color:"#444", fontSize:13, margin:0 }}>Sin entregas programadas para este día.</p>
+                  ? <p style={{ color:"var(--muted)", fontSize:13, margin:0 }}>Sin entregas programadas para este día.</p>
                   : selPeds.map(p => {
                       const cc = chipColor(p);
                       return (
                         <div key={p.id} style={{ background:cc+"22", border:`1px solid ${cc}`, borderRadius:10, padding:"10px 12px", marginBottom:8 }}>
                           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
-                            <span style={{ fontWeight:700, fontSize:15, color:"#e0e0e0" }}>Ped. {p.num}</span>
+                            <span style={{ fontWeight:700, fontSize:15, color:"var(--text)" }}>Ped. {p.num}</span>
                             <span style={{ background:cc+"33", color:cc, borderRadius:6, padding:"2px 8px", fontSize:11, fontWeight:700 }}>{STATUS_LBL[p.status]||p.status}</span>
                           </div>
-                          <div style={{ fontSize:13, color:"#aaa" }}>{p.cliente}</div>
-                          <div style={{ fontSize:12, color:"#666", marginTop:2 }}>{p.medida} · {p.cajas} cajas{p.rollos_totales ? ` · ${p.rollos_totales} piezas/rollos` : ""}</div>
+                          <div style={{ fontSize:13, color:"var(--text-2)" }}>{p.cliente}</div>
+                          <div style={{ fontSize:12, color:"var(--text-2)", marginTop:2 }}>{p.medida} · {p.cajas} cajas{p.rollos_totales ? ` · ${p.rollos_totales} piezas/rollos` : ""}</div>
                         </div>
                       );
                     })
@@ -221,23 +221,23 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
             {/* Próximas entregas */}
             {proximos.length > 0 && (
               <>
-                <div style={{ fontSize:12, fontWeight:700, color:"#666", letterSpacing:".06em", marginBottom:8, marginTop:4 }}>PRÓXIMAS ENTREGAS</div>
+                <div style={{ fontSize:12, fontWeight:700, color:"var(--text-2)", letterSpacing:".06em", marginBottom:8, marginTop:4 }}>PRÓXIMAS ENTREGAS</div>
                 {proximos.map(p => {
                   const cc = chipColor(p);
                   const diasFaltan = Math.round((new Date(p.fecha_estimada+"T12:00:00") - new Date(hoy+"T12:00:00")) / 86400000);
                   return (
-                    <div key={p.id} style={{ background:"#13161e", borderLeft:`3px solid ${cc}`, borderRadius:"0 10px 10px 0", padding:"10px 14px", marginBottom:6 }}>
+                    <div key={p.id} style={{ background:"var(--surface)", borderLeft:`3px solid ${cc}`, borderRadius:"0 10px 10px 0", padding:"10px 14px", marginBottom:6 }}>
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                         <div>
-                          <strong style={{ color:"#e0e0e0", fontSize:14 }}>{p.num}</strong>
-                          <span style={{ color:"#666", fontSize:13 }}> — {p.cliente}</span>
+                          <strong style={{ color:"var(--text)", fontSize:14 }}>{p.num}</strong>
+                          <span style={{ color:"var(--text-2)", fontSize:13 }}> — {p.cliente}</span>
                         </div>
                         <div style={{ textAlign:"right", flexShrink:0, marginLeft:8 }}>
                           <div style={{ fontSize:13, fontWeight:700, color:cc }}>{p.fecha_estimada}</div>
-                          <div style={{ fontSize:11, color:"#555" }}>{diasFaltan===0?"Hoy":diasFaltan>0?`en ${diasFaltan}d`:`hace ${Math.abs(diasFaltan)}d`}</div>
+                          <div style={{ fontSize:11, color:"var(--muted)" }}>{diasFaltan===0?"Hoy":diasFaltan>0?`en ${diasFaltan}d`:`hace ${Math.abs(diasFaltan)}d`}</div>
                         </div>
                       </div>
-                      <div style={{ fontSize:12, color:"#555", marginTop:2 }}>{p.medida} · {p.cajas} cajas{p.rollos_totales ? ` · ${p.rollos_totales} piezas/rollos` : ""}</div>
+                      <div style={{ fontSize:12, color:"var(--muted)", marginTop:2 }}>{p.medida} · {p.cajas} cajas{p.rollos_totales ? ` · ${p.rollos_totales} piezas/rollos` : ""}</div>
                     </div>
                   );
                 })}
@@ -245,7 +245,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
             )}
 
             {proximos.length === 0 && conFecha.length === 0 && (
-              <div style={{ textAlign:"center", padding:"32px 0", color:"#444", fontSize:13 }}>
+              <div style={{ textAlign:"center", padding:"32px 0", color:"var(--muted)", fontSize:13 }}>
                 No hay entregas con fecha asignada.<br />El supervisor las asigna desde el módulo Agenda.
               </div>
             )}
@@ -264,24 +264,24 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
             : sorted.slice(0, 6);
           return (
           <div>
-            <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:800, color:"#e8b84b", letterSpacing:".06em", margin:"0 0 14px" }}>Nuevo Pedido</h2>
+            <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:800, color:"var(--accent)", letterSpacing:".06em", margin:"0 0 14px" }}>Nuevo Pedido</h2>
 
             {recientes.length > 0 && (
-              <div style={{ background:"#13161e", borderRadius:12, padding:"10px 12px", marginBottom:18 }}>
-                <div style={{ fontSize:10, color:"#666", fontWeight:700, letterSpacing:".07em", textTransform:"uppercase", marginBottom:8 }}>
+              <div style={{ background:"var(--surface)", borderRadius:12, padding:"10px 12px", marginBottom:18 }}>
+                <div style={{ fontSize:10, color:"var(--text-2)", fontWeight:700, letterSpacing:".07em", textTransform:"uppercase", marginBottom:8 }}>
                   {q.length >= 2 ? `Último pedido de ${form.cliente.trim()}` : "Pedidos recientes"}
                 </div>
                 {recientes.map((p, i) => (
-                  <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom: i < recientes.length - 1 ? "1px solid #1a1d26" : "none" }}>
+                  <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom: i < recientes.length - 1 ? "1px solid var(--border)" : "none" }}>
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, color:"#e0e0e0", fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.cliente}</div>
-                      <div style={{ fontSize:11, color:"#555", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                      <div style={{ fontSize:13, color:"var(--text)", fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.cliente}</div>
+                      <div style={{ fontSize:11, color:"var(--muted)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
                         #{p.num} · {p.medida} · {p.cajas} cajas · {p.tipo}
                       </div>
                     </div>
                     <button
                       onClick={() => repetirPedido(p)}
-                      style={{ flexShrink:0, background:"#0f1a2e", border:"1px solid #2a4a7a", borderRadius:8, color:"#4b8fe8", fontSize:12, fontWeight:700, padding:"6px 14px", cursor:"pointer" }}
+                      style={{ flexShrink:0, background:"var(--blue-dim)", border:"1px solid var(--blue)", borderRadius:8, color:"var(--blue)", fontSize:12, fontWeight:700, padding:"6px 14px", cursor:"pointer" }}
                     >
                       Repetir
                     </button>
@@ -293,66 +293,66 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
 
               <div style={{ gridColumn:"1/-1" }}>
-                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Cliente *</label>
+                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Cliente *</label>
                 <input value={form.cliente} onChange={e=>upd("cliente",e.target.value)} placeholder="Nombre del cliente" style={{ ...inputStyle, ...campoEstilo(form.cliente) }} list="clientes-list-ventas" />
                 <datalist id="clientes-list-ventas">{clientesSugeridos.map(c => <option key={c} value={c} />)}</datalist>
               </div>
 
               <div>
-                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>No. Pedido <span style={{ color:"#555", fontWeight:400 }}>(sugerido, edítalo si no aplica)</span></label>
+                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>No. Pedido <span style={{ color:"var(--muted)", fontWeight:400 }}>(sugerido, edítalo si no aplica)</span></label>
                 <input value={form.num} onChange={e=>upd("num",e.target.value)} placeholder="Ej: 1042" style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Tipo de cinta</label>
+                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Tipo de cinta</label>
                 <select value={form.tipo} onChange={e=>upd("tipo",e.target.value)} style={{ ...inputStyle, ...campoEstilo(tipoTocado) }}>
                   {TIPOS.map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
 
               <div>
-                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Medida *</label>
+                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Medida *</label>
                 <input value={form.medida} onChange={e=>upd("medida",e.target.value)} placeholder="Ej: 2x100" style={{ ...inputStyle, ...campoEstilo(form.medida) }} />
               </div>
 
               <div>
-                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Cajas *</label>
+                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Cajas *</label>
                 <input type="number" min="0" value={form.cajas} onChange={e=>upd("cajas",e.target.value)} placeholder="0" style={{ ...inputStyle, ...campoEstilo(form.cajas) }} />
               </div>
 
               <div>
-                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Rollos / caja <span style={{ color:"#555", fontWeight:400 }}>(automático)</span></label>
-                <input type="number" readOnly value={form.rollos_caja} placeholder="Ej: 36" style={{ ...inputStyle, background: "#1a2744", color: "#c9922a" }} />
+                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Rollos / caja <span style={{ color:"var(--muted)", fontWeight:400 }}>(automático)</span></label>
+                <input type="number" readOnly value={form.rollos_caja} placeholder="Ej: 36" style={{ ...inputStyle, background: "var(--blue-dim)", color: "var(--accent)" }} />
               </div>
 
               <div>
-                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Piezas / rollos totales <span style={{ color:"#555", fontWeight:400 }}>(automático)</span></label>
-                <input type="number" readOnly value={form.rollos_totales} placeholder="Cajas × Rollos/caja" style={{ ...inputStyle, background: "#1a2744", color: "#c9922a" }} />
+                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Piezas / rollos totales <span style={{ color:"var(--muted)", fontWeight:400 }}>(automático)</span></label>
+                <input type="number" readOnly value={form.rollos_totales} placeholder="Cajas × Rollos/caja" style={{ ...inputStyle, background: "var(--blue-dim)", color: "var(--accent)" }} />
               </div>
 
               <div>
-                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Tinta</label>
+                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Tinta</label>
                 <input value={form.tinta_tipo} onChange={e=>upd("tinta_tipo",e.target.value)} placeholder="Ej: Roja UV, Azul PMS…" style={{ ...inputStyle, ...campoEstilo(form.tinta_tipo) }} list="tintas-list-ventas" />
                 <datalist id="tintas-list-ventas">{tintasSugeridas.map(t => <option key={t} value={t} />)}</datalist>
               </div>
 
               <div>
-                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>2do color (opcional)</label>
+                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>2do color (opcional)</label>
                 <input value={form.color2} onChange={e=>upd("color2",e.target.value)} placeholder="Solo si el pedido lleva 2 tintas" style={inputStyle} />
               </div>
 
               <div>
-                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>📅 Fecha de solicitud</label>
+                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>📅 Fecha de solicitud</label>
                 <input type="date" value={form.fecha_solicitud||hoy} onChange={e=>upd("fecha_solicitud",e.target.value)} style={inputStyle} />
               </div>
 
               <div style={{ gridColumn:"1/-1" }}>
-                <label style={{ fontSize:12, color:"#888", display:"block", marginBottom:5, fontWeight:600 }}>Notas / Especificaciones</label>
+                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Notas / Especificaciones</label>
                 <textarea value={form.notas} onChange={e=>upd("notas",e.target.value)} placeholder="Color, instrucciones especiales, urgencia…" rows={3} style={{ ...inputStyle, resize:"vertical" }} />
               </div>
             </div>
 
-            <button onClick={save} disabled={saving} style={{ width:"100%", marginTop:20, padding:"15px 0", borderRadius:12, border:"none", background:saving?"#2a2d3a":"#e8b84b", color:saving?"#666":"#000", fontSize:16, fontWeight:800, cursor:saving?"default":"pointer", letterSpacing:".04em" }}>
+            <button onClick={save} disabled={saving} style={{ width:"100%", marginTop:20, padding:"15px 0", borderRadius:12, border:"none", background:saving?"var(--border-light)":"var(--accent)", color:saving?"var(--text-2)":"#000", fontSize:16, fontWeight:800, cursor:saving?"default":"pointer", letterSpacing:".04em" }}>
               {saving ? "Guardando…" : "📋 Registrar Pedido"}
             </button>
           </div>
@@ -365,7 +365,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
 
       {/* Toast */}
       {toast && (
-        <div style={{ position:"fixed", top:20, left:"50%", transform:"translateX(-50%)", background:"#1e2130", border:"1px solid #3a3d4a", borderRadius:10, padding:"10px 22px", color:"#e0e0e0", fontSize:13, fontWeight:600, zIndex:300, whiteSpace:"nowrap", boxShadow:"0 4px 20px #0008" }}>
+        <div style={{ position:"fixed", top:20, left:"50%", transform:"translateX(-50%)", background:"var(--card-hover)", border:"1px solid var(--border-light)", borderRadius:10, padding:"10px 22px", color:"var(--text)", fontSize:13, fontWeight:600, zIndex:300, whiteSpace:"nowrap", boxShadow:"var(--shadow-lg)" }}>
           {toast}
         </div>
       )}
@@ -377,7 +377,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
           { id:"nuevo",    Icon:IcoNuevo,  lbl:"Nuevo Pedido" },
           { id:"clientes", Icon:IcoCli,    lbl:"Clientes" },
         ].map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{ flex:1, background:"transparent", border:"none", padding:"9px 4px 7px", display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer", color:tab===t.id?"#e8b84b":"#555", borderTop:tab===t.id?"2px solid #e8b84b":"2px solid transparent" }}>
+          <button key={t.id} onClick={() => setTab(t.id)} style={{ flex:1, background:"transparent", border:"none", padding:"9px 4px 7px", display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer", color:tab===t.id?"var(--accent)":"var(--muted)", borderTop:tab===t.id?"2px solid var(--accent)":"2px solid transparent" }}>
             <span style={{ width:22, height:22 }}><t.Icon /></span>
             <span style={{ fontSize:10, fontWeight:700, letterSpacing:".04em" }}>{t.lbl}</span>
           </button>

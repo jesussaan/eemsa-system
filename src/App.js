@@ -5,6 +5,7 @@ import { initAuth, authHeaders, cerrarSesion } from "./lib/auth";
 import NotifBell from "./components/NotifBell";
 import Login from "./components/Login";
 import ConfirmModal from "./components/ConfirmModal";
+import ThemeToggle from "./components/ThemeToggle";
 import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoOperador, IcoVentas, IcoEmilio, IcoCotizador, IcoSpinner, IcoRoll } from "./components/Icons";
 import { REBOB_CLIENTE } from "./lib/constants";
 
@@ -254,6 +255,7 @@ function EemsaApp() {
   if (!modo) return (
     <div className="mode-screen">
       <div className="mode-glow" aria-hidden="true" />
+      <ThemeToggle style={{ position: "absolute", top: 16, right: 16, zIndex: 2 }} />
       <div className="mode-top">EEMSA System</div>
 
       <div className="mode-hero">
@@ -348,6 +350,7 @@ function EemsaApp() {
           <div className="header-sub">Control SIAT L36 · Asesoría · Calidad · Innovación</div>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          <ThemeToggle />
           <NotifBell />
           <button onClick={() => setModo(null)} style={{ fontSize: 11, color: "#aaa", background: "transparent", border: "none", cursor: "pointer", padding: "4px 8px" }}>← Salir</button>
         </div>

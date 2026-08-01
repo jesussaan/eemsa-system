@@ -251,9 +251,9 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     if (!color) return null;
     const bg = chipColor(color);
     return (
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#0d0f14", borderRadius: 20, padding: "3px 10px 3px 6px", border: "1px solid #2a2d3a" }}>
-        <span style={{ width: 14, height: 14, borderRadius: "50%", background: bg || "transparent", border: bg ? (bg === "#FFFFFF" ? "1.5px solid #aaa" : "none") : "2px dashed #aaa", display: "inline-block", flexShrink: 0 }} />
-        <span style={{ fontSize: 13, color: "#e0e0e0", fontWeight: 600 }}>{color}</span>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "var(--surface)", borderRadius: 20, padding: "3px 10px 3px 6px", border: "1px solid var(--border-light)" }}>
+        <span style={{ width: 14, height: 14, borderRadius: "50%", background: bg || "transparent", border: bg ? (bg === "#FFFFFF" ? "1.5px solid var(--muted)" : "none") : "2px dashed var(--muted)", display: "inline-block", flexShrink: 0 }} />
+        <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>{color}</span>
       </span>
     );
   };
@@ -352,26 +352,26 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
         {!pedidoSel && vista !== "colores" && (
           <>
             <button className="btn btn-ghost btn-sm btn-block" style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }} onClick={() => setVista("colores")}><Ico icon={IcoPalette} /> Carta de colores</button>
-            <h2 style={{ color: "#4a9eff", fontSize: 13, margin: "12px 0 8px", textTransform: "uppercase", letterSpacing: ".08em" }}>▶ En proceso</h2>
+            <h2 style={{ color: "var(--blue)", fontSize: 13, margin: "12px 0 8px", textTransform: "uppercase", letterSpacing: ".08em" }}>▶ En proceso</h2>
             {pedidosEnProceso.length === 0
-              ? <p style={{ color: "#555", fontSize: 13, marginBottom: 16 }}>Sin pedidos en proceso.</p>
+              ? <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 16 }}>Sin pedidos en proceso.</p>
               : pedidosEnProceso.map(p => {
                 const al = alertaEntrega(p.fecha_estimada, p.status);
                 return (
-                <div key={p.id} onClick={() => seleccionarPedido(p)} style={{ ...card, borderLeft: `4px solid ${al ? al.borde : "#4a9eff"}`, background: al ? al.bg : card.background, cursor: "pointer" }}>
+                <div key={p.id} onClick={() => seleccionarPedido(p)} style={{ ...card, borderLeft: `4px solid ${al ? al.borde : "var(--blue)"}`, background: al ? al.bg : card.background, cursor: "pointer" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ fontSize: 19, fontWeight: 700, color: "#fff", marginBottom: 4 }}>{p.cliente}</div>
+                    <div style={{ fontSize: 19, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>{p.cliente}</div>
                     {al && <span style={{ fontSize: 12, fontWeight: 700, color: al.color, whiteSpace: "nowrap" }}>{al.txt}</span>}
                   </div>
-                  <div style={{ color: "#c9922a", fontSize: 23, fontWeight: 800, marginBottom: 6 }}>{p.medida}</div>
-                  <div style={{ display: "flex", gap: 10, fontSize: 16, color: "#ddd", flexWrap: "wrap", alignItems: "center" }}>
+                  <div style={{ color: "var(--accent)", fontSize: 23, fontWeight: 800, marginBottom: 6 }}>{p.medida}</div>
+                  <div style={{ display: "flex", gap: 10, fontSize: 16, color: "var(--text-2)", flexWrap: "wrap", alignItems: "center" }}>
                     <span style={{ fontWeight: 700 }}>{p.cajas} cajas</span>
                     {p.rollos_totales && <span style={{ fontWeight: 700 }}>{p.rollos_totales} piezas/rollos</span>}
                     <span style={{ fontWeight: 700 }}>{p.tipo}</span>
                     {(p.color || p.tinta_tipo) && <ColorChip color={p.color || p.tinta_tipo} />}
                     {p.color2 && <ColorChip color={p.color2} />}
                     {p.color2 && <span className="badge b-blue">2 TINTAS</span>}
-                    <span style={{ color: "#555", fontSize: 13, fontWeight: 400 }}>#Ped {p.num}</span>
+                    <span style={{ color: "var(--muted)", fontSize: 13, fontWeight: 400 }}>#Ped {p.num}</span>
                   </div>
                 </div>
                 );
@@ -379,41 +379,41 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
 
             {pedidosAnotados.length > 0 && (
               <>
-                <h2 style={{ color: "#ff9900", fontSize: 13, margin: "16px 0 8px", textTransform: "uppercase", letterSpacing: ".08em", display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoClipboard} /> Próximos anotados — orden de salida</h2>
+                <h2 style={{ color: "var(--orange)", fontSize: 13, margin: "16px 0 8px", textTransform: "uppercase", letterSpacing: ".08em", display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoClipboard} /> Próximos anotados — orden de salida</h2>
                 {pedidosAnotados.map((p, i) => {
                   const al = alertaEntrega(p.fecha_estimada, p.status);
                   return (
-                  <div key={p.id} onClick={() => seleccionarPedido(p)} style={{ ...card, borderLeft: `4px solid ${al ? al.borde : "#ff9900"}`, background: al ? al.bg : card.background, cursor: "pointer", display: "flex", gap: 10, alignItems: "stretch" }}>
+                  <div key={p.id} onClick={() => seleccionarPedido(p)} style={{ ...card, borderLeft: `4px solid ${al ? al.borde : "var(--orange)"}`, background: al ? al.bg : card.background, cursor: "pointer", display: "flex", gap: 10, alignItems: "stretch" }}>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                      <div style={{ color: "#ff9900", fontWeight: 800, fontSize: 16, marginBottom: 2 }}>{i + 1}</div>
+                      <div style={{ color: "var(--orange)", fontWeight: 800, fontSize: 16, marginBottom: 2 }}>{i + 1}</div>
                       <button
                         onClick={e => { e.stopPropagation(); moverPedido(p.id, -1); }}
                         disabled={i === 0}
-                        style={{ background: "#0d0f14", border: "1px solid #2a2d3a", borderRadius: 6, color: i === 0 ? "#333" : "#e0e0e0", width: 28, height: 28, cursor: i === 0 ? "default" : "pointer" }}
+                        style={{ background: "var(--surface)", border: "1px solid var(--border-light)", borderRadius: 6, color: i === 0 ? "var(--border-light)" : "var(--text)", width: 28, height: 28, cursor: i === 0 ? "default" : "pointer" }}
                       >▲</button>
                       <button
                         onClick={e => { e.stopPropagation(); moverPedido(p.id, 1); }}
                         disabled={i === pedidosAnotados.length - 1}
-                        style={{ background: "#0d0f14", border: "1px solid #2a2d3a", borderRadius: 6, color: i === pedidosAnotados.length - 1 ? "#333" : "#e0e0e0", width: 28, height: 28, cursor: i === pedidosAnotados.length - 1 ? "default" : "pointer" }}
+                        style={{ background: "var(--surface)", border: "1px solid var(--border-light)", borderRadius: 6, color: i === pedidosAnotados.length - 1 ? "var(--border-light)" : "var(--text)", width: 28, height: 28, cursor: i === pedidosAnotados.length - 1 ? "default" : "pointer" }}
                       >▼</button>
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: "#e0e0e0" }}>{p.cliente}</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text)" }}>{p.cliente}</div>
                         {al && <span style={{ fontSize: 11, fontWeight: 700, color: al.color, whiteSpace: "nowrap", marginLeft: 6 }}>{al.txt}</span>}
                       </div>
                       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 15, alignItems: "center" }}>
-                        <span style={{ color: "#c9922a", fontWeight: 800, fontSize: 18 }}>{p.medida}</span>
-                        <span style={{ color: "#ddd", fontWeight: 700 }}>{p.tipo}</span>
+                        <span style={{ color: "var(--accent)", fontWeight: 800, fontSize: 18 }}>{p.medida}</span>
+                        <span style={{ color: "var(--text-2)", fontWeight: 700 }}>{p.tipo}</span>
                         {(p.color || p.tinta_tipo) && <ColorChip color={p.color || p.tinta_tipo} />}
                         {p.color2 && <ColorChip color={p.color2} />}
                         {p.color2 && <span className="badge b-blue">2 TINTAS</span>}
-                        <span style={{ color: "#ddd", fontWeight: 700 }}>{p.cajas} cajas</span>
-                        {p.rollos_caja && <span style={{ color: "#ddd", fontWeight: 700 }}>{p.rollos_caja} rollos/caja</span>}
-                        {p.rollos_totales && <span style={{ color: "#ddd", fontWeight: 700 }}>{p.rollos_totales} piezas/rollos</span>}
+                        <span style={{ color: "var(--text-2)", fontWeight: 700 }}>{p.cajas} cajas</span>
+                        {p.rollos_caja && <span style={{ color: "var(--text-2)", fontWeight: 700 }}>{p.rollos_caja} rollos/caja</span>}
+                        {p.rollos_totales && <span style={{ color: "var(--text-2)", fontWeight: 700 }}>{p.rollos_totales} piezas/rollos</span>}
                       </div>
-                      {p.fecha_solicitud && <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>Solicitud: {p.fecha_solicitud}</div>}
-                      {p.cliche_url && <div style={{ fontSize: 11, color: "#ff9900", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><Ico icon={IcoCamera} /> Ver diseño →</div>}
+                      {p.fecha_solicitud && <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>Solicitud: {p.fecha_solicitud}</div>}
+                      {p.cliche_url && <div style={{ fontSize: 11, color: "var(--orange)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><Ico icon={IcoCamera} /> Ver diseño →</div>}
                     </div>
                   </div>
                   );
@@ -427,11 +427,11 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
         {!pedidoSel && vista === "colores" && (
           <>
             <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setVista(null)}>← Volver</button>
-            <h2 style={{ color: "#c9922a", fontSize: 13, margin: "0 0 12px", textTransform: "uppercase", letterSpacing: ".08em", display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoPalette} /> Carta de colores — combinaciones</h2>
+            <h2 style={{ color: "var(--accent)", fontSize: 13, margin: "0 0 12px", textTransform: "uppercase", letterSpacing: ".08em", display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoPalette} /> Carta de colores — combinaciones</h2>
             {combinaciones.map(c => (
               <div key={c.titulo} style={card}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 4 }}>{c.titulo}</div>
-                <div style={{ fontSize: 12, color: "#aaa", marginBottom: 10 }}>{c.desc}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>{c.titulo}</div>
+                <div style={{ fontSize: 12, color: "var(--text-2)", marginBottom: 10 }}>{c.desc}</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   {c.tonos.map(t => (
                     <div key={t.prop} style={{ background: t.hex, borderRadius: 8, padding: "10px 6px", textAlign: "center" }}>
@@ -443,7 +443,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                 </div>
               </div>
             ))}
-            <p style={{ fontSize: 11, color: "#666", marginTop: -4 }}>Los colores son aproximados. Siempre haz una prueba antes de producción.</p>
+            <p style={{ fontSize: 11, color: "var(--text-2)", marginTop: -4 }}>Los colores son aproximados. Siempre haz una prueba antes de producción.</p>
           </>
         )}
 
@@ -451,22 +451,22 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
         {pedidoSel && vista === null && (
           <>
             <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setPedidoSelId(null)}>← Volver</button>
-            <div style={{ ...card, borderLeft: "4px solid #4a9eff" }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 10 }}>{pedidoSel.cliente}</div>
+            <div style={{ ...card, borderLeft: "4px solid var(--blue)" }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "var(--text)", marginBottom: 10 }}>{pedidoSel.cliente}</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                <div style={miniCard}><div style={miniLbl}>Medida</div><div style={{ color: "#c9922a", fontWeight: 700, fontSize: 18 }}>{pedidoSel.medida}</div></div>
-                <div style={miniCard}><div style={miniLbl}>Cajas</div><div style={{ color: "#4be87a", fontWeight: 700, fontSize: 18 }}>{pedidoSel.cajas}</div></div>
-                {pedidoSel.rollos_totales && <div style={miniCard}><div style={miniLbl}>Piezas / rollos totales</div><div style={{ color: "#4be87a", fontWeight: 700, fontSize: 18 }}>{pedidoSel.rollos_totales}</div></div>}
-                <div style={miniCard}><div style={miniLbl}>Tipo</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{pedidoSel.tipo}</div></div>
-                <div style={miniCard}><div style={miniLbl}>Máquina</div><div style={{ color: "#e0e0e0", fontSize: 14 }}>{pedidoSel.maq}</div></div>
+                <div style={miniCard}><div style={miniLbl}>Medida</div><div style={{ color: "var(--accent)", fontWeight: 700, fontSize: 18 }}>{pedidoSel.medida}</div></div>
+                <div style={miniCard}><div style={miniLbl}>Cajas</div><div style={{ color: "var(--green)", fontWeight: 700, fontSize: 18 }}>{pedidoSel.cajas}</div></div>
+                {pedidoSel.rollos_totales && <div style={miniCard}><div style={miniLbl}>Piezas / rollos totales</div><div style={{ color: "var(--green)", fontWeight: 700, fontSize: 18 }}>{pedidoSel.rollos_totales}</div></div>}
+                <div style={miniCard}><div style={miniLbl}>Tipo</div><div style={{ color: "var(--text)", fontSize: 14 }}>{pedidoSel.tipo}</div></div>
+                <div style={miniCard}><div style={miniLbl}>Máquina</div><div style={{ color: "var(--text)", fontSize: 14 }}>{pedidoSel.maq}</div></div>
                 {(pedidoSel.color || pedidoSel.tinta_tipo) && <div style={miniCard}><div style={miniLbl}>Tinta / Color</div><div style={{ marginTop: 4 }}><ColorChip color={pedidoSel.color || pedidoSel.tinta_tipo} /></div></div>}
                 {pedidoSel.color2 && <div style={miniCard}><div style={miniLbl}>2do color</div><div style={{ marginTop: 4 }}><ColorChip color={pedidoSel.color2} /></div></div>}
               </div>
             </div>
             {pedidoSel.cliche_url && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, color: "#aaa", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}><Ico icon={IcoCamera} /> Cliché</div>
-                <ClicheImg src={pedidoSel.cliche_url} style={{ width: "100%", borderRadius: 10, border: "1px solid #2a2d3a" }} />
+                <div style={{ fontSize: 12, color: "var(--text-2)", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}><Ico icon={IcoCamera} /> Cliché</div>
+                <ClicheImg src={pedidoSel.cliche_url} style={{ width: "100%", borderRadius: 10, border: "1px solid var(--border-light)" }} />
               </div>
             )}
             {/* Bloque rollos MP necesarios */}
@@ -484,10 +484,10 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
               const rollosExacto = rendimiento > 0 ? piezasBuenas / rendimiento : 0;
               const rollosMP     = Math.ceil(rollosExacto);
               return (
-                <div style={{ background: "#0e1a2e", border: "1px solid #1e3a5f", borderRadius: 12, padding: "14px 16px", marginBottom: 14, textAlign: "center" }}>
-                  <div style={{ fontSize: 11, color: "#4a9eff", fontWeight: 700, letterSpacing: ".07em", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Ico icon={IcoRoll} /> ROLLOS MP A UTILIZAR</div>
-                  <div style={{ fontSize: 52, fontWeight: 900, color: "#4a9eff", lineHeight: 1 }}>{rollosMP}</div>
-                  <div style={{ fontSize: 12, color: "#3a3f5a", marginTop: 4 }}>{rollosExacto.toFixed(2)} exacto</div>
+                <div style={{ background: "var(--blue-dim)", border: "1px solid var(--blue)", borderRadius: 12, padding: "14px 16px", marginBottom: 14, textAlign: "center" }}>
+                  <div style={{ fontSize: 11, color: "var(--blue)", fontWeight: 700, letterSpacing: ".07em", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Ico icon={IcoRoll} /> ROLLOS MP A UTILIZAR</div>
+                  <div style={{ fontSize: 52, fontWeight: 900, color: "var(--blue)", lineHeight: 1 }}>{rollosMP}</div>
+                  <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 4 }}>{rollosExacto.toFixed(2)} exacto</div>
                 </div>
               );
             })()}
@@ -509,9 +509,9 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
               return (
                 <>
                   {elapsed && (
-                    <div style={{ textAlign: "center", background: "#0d1a0d", border: "1px solid #1e3a1e", borderRadius: 12, padding: "12px 16px", marginBottom: 14 }}>
-                      <div style={{ fontSize: 11, color: "#4be87a", fontWeight: 700, letterSpacing: ".07em", marginBottom: 4 }}>⏱ TIEMPO EN PRODUCCIÓN</div>
-                      <div style={{ fontSize: 36, fontWeight: 900, color: "#4be87a", fontVariantNumeric: "tabular-nums" }}>{elapsed}</div>
+                    <div style={{ textAlign: "center", background: "var(--green-dim)", border: "1px solid var(--green)", borderRadius: 12, padding: "12px 16px", marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, color: "var(--green)", fontWeight: 700, letterSpacing: ".07em", marginBottom: 4 }}>⏱ TIEMPO EN PRODUCCIÓN</div>
+                      <div style={{ fontSize: 36, fontWeight: 900, color: "var(--green)", fontVariantNumeric: "tabular-nums" }}>{elapsed}</div>
                     </div>
                   )}
                   <button className="btn btn-primary btn-block" style={{ marginBottom: 10, padding: 16, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={() => setVista("calc")}><Ico icon={IcoCheck} size={16} /> Finalizar pedido</button>
@@ -532,7 +532,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
           <>
             <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setVista(null)}>← Volver</button>
             {loading
-              ? <div style={{ textAlign: "center", padding: 32, color: "#4be87a", fontSize: 15 }}>Guardando…</div>
+              ? <div style={{ textAlign: "center", padding: 32, color: "var(--green)", fontSize: 15 }}>Guardando…</div>
               : <CalculadoraProduccion
                   pedidoInicial={pedidoSel}
                   inline
@@ -565,7 +565,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
         {pedidoSel && vista === "falla" && (
           <>
             <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setVista(null)}>← Volver</button>
-            <h3 style={{ color: "#ff4d4d", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoFal} /> Reportar falla</h3>
+            <h3 style={{ color: "var(--red)", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoFal} /> Reportar falla</h3>
             <div className="form-grid">
               <div className="field">
                 <label>Componente</label>

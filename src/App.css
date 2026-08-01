@@ -29,6 +29,35 @@
   --t: 180ms;
 }
 
+/* Modo claro -- mismas variables, valores invertidos. Se activa poniendo
+   data-theme="light" en <html> (ver ThemeToggle en App.js), guardado en
+   localStorage para que se recuerde entre sesiones. Los componentes que
+   usan color fijo por escrito (no var(--...)) no cambian con esto -- se
+   van convirtiendo poco a poco, pantalla por pantalla. */
+:root[data-theme="light"] {
+  --bg: #eef0f4;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --card-hover: #f5f6fa;
+  --border: #dde1ea;
+  --border-light: #c9cedb;
+  --accent: #b9791f;
+  --accent-dim: rgba(185,121,31,0.10);
+  --accent-glow: rgba(185,121,31,0.22);
+  --blue: #2f6fd1; --blue-dim: rgba(47,111,209,0.08);
+  --green: #1f9e52; --green-dim: rgba(31,158,82,0.08);
+  --red: #d13a3a; --red-dim: rgba(209,58,58,0.08);
+  --orange: #c96a28; --orange-dim: rgba(201,106,40,0.08);
+  --violet: #7a4fd1; --violet-dim: rgba(122,79,209,0.08);
+  --teal: #1f8e85; --teal-dim: rgba(31,142,133,0.08);
+  --text: #1a1d26;
+  --text-2: #545a70;
+  --muted: #8a8fa3;
+  --shadow-sm: 0 2px 8px rgba(30,34,48,0.08);
+  --shadow-md: 0 4px 20px rgba(30,34,48,0.10);
+  --shadow-lg: 0 8px 32px rgba(30,34,48,0.14);
+}
+
 html { scroll-behavior: smooth; }
 html, body {
   background: var(--bg); color: var(--text);
