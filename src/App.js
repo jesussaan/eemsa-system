@@ -6,6 +6,7 @@ import NotifBell from "./components/NotifBell";
 import Login from "./components/Login";
 import ConfirmModal from "./components/ConfirmModal";
 import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoOperador, IcoVentas, IcoEmilio, IcoCotizador, IcoSpinner, IcoRoll } from "./components/Icons";
+import { REBOB_CLIENTE } from "./lib/constants";
 
 // Cada pantalla se carga solo cuando se visita, en vez de todas juntas en el
 // bundle inicial (Dashboard/Refacciones/etc. cargan jspdf, recharts, xlsx...).
@@ -372,7 +373,7 @@ function EemsaApp() {
         {TABS.map(t => {
           const badge = t.id === "fal" ? fallas.filter(f => f.status === "abierta").length
                       : t.id === "ref" ? refs.filter(r => { const min = r.stock_min ?? 1; return min > 0 && Number(r.stock || 0) <= min; }).length
-                      : t.id === "ped" ? pedidos.filter(p => p.status === "pendiente").length
+                      : t.id === "ped" ? pedidos.filter(p => p.status === "pendiente" && p.cliente !== REBOB_CLIENTE).length
                       : 0;
           return (
             <button key={t.id} className={`tab-btn ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>

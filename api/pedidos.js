@@ -18,6 +18,19 @@ const CAMPOS_ESTADO = [
   'diseno', 'portaliche', 'diseno2', 'portaliche2',
 ];
 
+// Campos permitidos al crear un pedido -- cubre las 3 formas de crear uno
+// (Ventas anota, Rebobinado registra un rollo ya producido, Supervisor usa
+// "Anotar pedido" para altas/correcciones manuales). Ninguna de las tres
+// manda costo_pieza al crear (siempre se calcula despues via action="estado"),
+// asi que se queda fuera aunque este en CAMPOS_ESTADO.
+const CAMPOS_CREAR = [
+  'cliente', 'num', 'tipo', 'medida', 'cajas', 'rollos_caja', 'rollos_totales',
+  'ancho', 'largo', 'color', 'color2', 'color_cinta', 'tinta_tipo',
+  'maq', 'op', 'fecha_solicitud', 'fecha_estimada', 'fecha_inicio', 'fecha_termino',
+  'piezas_prod', 'merma', 'merma_pct', 'rollos_usados', 'notas', 'status',
+  'cliche_url', 'folio_rebobinado',
+];
+
 export default async function handler(req, res) {
   if (req.method === 'POST') {
     // Crear pedido: Ventas anota clientes, Rebobinado registra rollos MP,
@@ -27,7 +40,8 @@ export default async function handler(req, res) {
     if (!p.cliente || !p.num || !p.cajas || !p.fecha_solicitud) {
       return res.status(400).json({ error: 'cliente, num, cajas y fecha_solicitud son requeridos' });
     }
-    const nuevo = { id: p.id || uid(), created: p.created || today(), ...p };
+    const nuevo = { id: p.id || uid(), created: p.created || today() };
+    for (const k of CAMPOS_CREAR) if (p[k] !== undefined) nuevo[k] = p[k];
     const { error } = await supabase.from('pedidos').insert([nuevo]);
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json(nuevo);

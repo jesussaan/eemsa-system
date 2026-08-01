@@ -621,7 +621,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                   )}
                   {p.piezas_prod != null && (
                     <div style={S.mini}>
-                      <div style={S.miniLbl}>Rollos producidos</div>
+                      <div style={S.miniLbl}>Piezas producidas</div>
                       <div style={{ color: "#4be87a", fontWeight: 800, fontSize: 20 }}>{Number(p.piezas_prod).toLocaleString()}</div>
                     </div>
                   )}

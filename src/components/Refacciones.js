@@ -27,6 +27,10 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
   const [busquedaProv, setBusquedaProv] = useState("");
   const [ajustandoId, setAjustandoId] = useState(null);
   const [cantidadAjuste, setCantidadAjuste] = useState("");
+  // Bloquea "-1"/"Guardar" mientras esa refaccion tiene una peticion en
+  // vuelo -- sin esto, dos clics rapidos parten del mismo stock viejo y el
+  // segundo pisa al primero (se pierde una unidad de la cuenta real).
+  const [guardandoStockId, setGuardandoStockId] = useState(null);
   const [formQueja, setFormQueja] = useState({ proveedor: "", fecha: today(), lote: "", material: "", cantidad_afectada: "", factura_remision: "", detectado_por: "", accion_solicitada: "Reposición", descripcion: "", elaboro: "", autorizo: "" });
   const [imagenesQueja, setImagenesQueja] = useState([]);
   const [previewsQueja, setPreviewsQueja] = useState([]);
@@ -332,14 +336,16 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
     setRefs(r => r.filter(x => x.id !== id));
   };
   const ajustarStock = async (r) => {
+    if (guardandoStockId) return; // ya hay un ajuste de stock en curso
     const cantidad = parseInt(cantidadAjuste, 10);
     if (isNaN(cantidad) || cantidad === 0) { showToast("⚠ Ingresa una cantidad válida"); return; }
     const nuevoStock = Number(r.stock || 0) + cantidad;
     if (nuevoStock < 0) { showToast("⚠ Stock no puede ser negativo"); return; }
+    setGuardandoStockId(r.id);
     const res = await fetch('/api/refacciones', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ id: r.id, stock: nuevoStock }) });
-    if (!res.ok) { showToast("❌ Error al actualizar"); return; }
+    if (!res.ok) { showToast("❌ Error al actualizar"); setGuardandoStockId(null); return; }
     setRefs(refs => refs.map(x => x.id === r.id ? { ...x, stock: nuevoStock } : x));
-    setAjustandoId(null); setCantidadAjuste("");
+    setAjustandoId(null); setCantidadAjuste(""); setGuardandoStockId(null);
     showToast(`✓ Stock: ${nuevoStock} unidades`);
     const min = r.stock_min ?? 1;
     if (min > 0 && nuevoStock <= min) {
@@ -347,11 +353,14 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
     }
   };
   const usarRef = async (r) => {
+    if (guardandoStockId) return; // ya hay un ajuste de stock en curso
     const nuevoStock = Number(r.stock) - 1;
     if (nuevoStock < 0) { showToast("⚠ Sin stock disponible"); return; }
+    setGuardandoStockId(r.id);
     const res = await fetch('/api/refacciones', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ id: r.id, stock: nuevoStock }) });
-    if (!res.ok) { showToast("❌ Error al actualizar"); return; }
+    if (!res.ok) { showToast("❌ Error al actualizar"); setGuardandoStockId(null); return; }
     setRefs(refs => refs.map(x => x.id === r.id ? { ...x, stock: nuevoStock } : x));
+    setGuardandoStockId(null);
     showToast(`✓ Stock actualizado: ${nuevoStock} restantes`);
     const min = r.stock_min ?? 1;
     if (min > 0 && nuevoStock <= min) {
@@ -632,15 +641,15 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
                         {bajo && <span className="badge b-red">BAJO</span>}
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button className="btn btn-ghost btn-sm" title="Usar 1" onClick={() => usarRef(r)}>-1</button>
-                        <button className="btn btn-ghost btn-sm" title="Agregar stock" onClick={() => { setAjustandoId(r.id); setCantidadAjuste(""); }} style={{ color: "#4be87a" }}>+</button>
+                        <button className="btn btn-ghost btn-sm" title="Usar 1" onClick={() => usarRef(r)} disabled={guardandoStockId === r.id}>-1</button>
+                        <button className="btn btn-ghost btn-sm" title="Agregar stock" onClick={() => { setAjustandoId(r.id); setCantidadAjuste(""); }} style={{ color: "#4be87a" }} disabled={guardandoStockId === r.id}>+</button>
                         <button className="btn btn-danger btn-sm" onClick={() => delRef(r.id)}>✕</button>
                       </div>
                     </div>
                     {ajustandoId === r.id && (
                       <div style={{ display: "flex", gap: 6, marginTop: 8, alignItems: "center" }}>
                         <input type="number" value={cantidadAjuste} onChange={e => setCantidadAjuste(e.target.value)} onKeyDown={e => { if (e.key === "Enter") ajustarStock(r); if (e.key === "Escape") setAjustandoId(null); }} placeholder="ej: 3 ó -1" autoFocus style={{ width: 100, background: "#1a1d26", border: "1px solid #c9922a", borderRadius: 6, padding: "5px 8px", color: "#e0e0e0", fontSize: 13 }} />
-                        <button className="btn btn-primary btn-sm" onClick={() => ajustarStock(r)}>✓ Guardar</button>
+                        <button className="btn btn-primary btn-sm" onClick={() => ajustarStock(r)} disabled={guardandoStockId === r.id}>{guardandoStockId === r.id ? "Guardando…" : "✓ Guardar"}</button>
                         <button className="btn btn-ghost btn-sm" onClick={() => setAjustandoId(null)}>✕</button>
                       </div>
                     )}
