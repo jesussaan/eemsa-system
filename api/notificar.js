@@ -65,6 +65,21 @@ export default async function handler(req, res) {
       <div class="pie">Sin módulos asignados todavía — entra a Usuarios para darle acceso. EEMSA System · ${new Date().toLocaleString('es-MX')}</div>
     </div>`;
 
+  } else if (tipo === 'analisis_diario') {
+    subject = `🔎 Análisis diario EEMSA — ${datos.insights.length} hallazgo${datos.insights.length === 1 ? '' : 's'}`;
+    const filas = datos.insights.map(i =>
+      `<div class="fila" style="flex-direction:column;align-items:flex-start;gap:4px">
+        <span class="val">${escapeHtml(i.titulo)}</span>
+        <span class="lbl" style="font-size:12px">${escapeHtml(i.detalle)}</span>
+      </div>`
+    ).join('');
+    html = `<style>${estilos}</style>
+    <div class="card">
+      <div class="titulo">🔎 Análisis diario del Asistente IA</div>
+      ${filas}
+      <div class="pie">Generado automáticamente a partir de los datos del sistema. EEMSA System · ${new Date().toLocaleString('es-MX')}</div>
+    </div>`;
+
   } else if (tipo === 'pedidos_vencidos') {
     subject = `⚠️ ${datos.pedidos.length} pedido(s) vencido(s) — EEMSA`;
     const filas = datos.pedidos.map(p =>

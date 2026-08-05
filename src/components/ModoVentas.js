@@ -150,6 +150,8 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
   // Naranja si el campo esta vacio, verde en cuanto se llena -- para no
   // dejar datos a medias sin darse cuenta al anotar un pedido.
   const campoEstilo = (val) => (val ? { border: "1px solid var(--green)", background: "var(--green-dim)" } : { border: "1px solid var(--orange)", background: "var(--orange-dim)" });
+  const seccionBox = { background:"var(--surface)", borderRadius:12, padding:"14px", marginBottom:14 };
+  const seccionTitulo = { fontSize:11, color:"var(--text-2)", fontWeight:700, letterSpacing:".06em", textTransform:"uppercase", marginBottom:12 };
 
   return (
     <div style={{ display:"flex", flexDirection:"column", minHeight:"100vh", background:"var(--bg)" }}>
@@ -290,66 +292,73 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
               </div>
             )}
 
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <div style={seccionBox}>
+              <div style={seccionTitulo}>Cliente y entrega</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                <div style={{ gridColumn:"1/-1" }}>
+                  <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Cliente *</label>
+                  <input value={form.cliente} onChange={e=>upd("cliente",e.target.value)} placeholder="Nombre del cliente" style={{ ...inputStyle, ...campoEstilo(form.cliente) }} list="clientes-list-ventas" />
+                  <datalist id="clientes-list-ventas">{clientesSugeridos.map(c => <option key={c} value={c} />)}</datalist>
+                </div>
 
-              <div style={{ gridColumn:"1/-1" }}>
-                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Cliente *</label>
-                <input value={form.cliente} onChange={e=>upd("cliente",e.target.value)} placeholder="Nombre del cliente" style={{ ...inputStyle, ...campoEstilo(form.cliente) }} list="clientes-list-ventas" />
-                <datalist id="clientes-list-ventas">{clientesSugeridos.map(c => <option key={c} value={c} />)}</datalist>
-              </div>
+                <div>
+                  <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>No. Pedido <span style={{ color:"var(--muted)", fontWeight:400 }}>(sugerido, edítalo si no aplica)</span></label>
+                  <input value={form.num} onChange={e=>upd("num",e.target.value)} placeholder="Ej: 1042" style={inputStyle} />
+                </div>
 
-              <div>
-                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>No. Pedido <span style={{ color:"var(--muted)", fontWeight:400 }}>(sugerido, edítalo si no aplica)</span></label>
-                <input value={form.num} onChange={e=>upd("num",e.target.value)} placeholder="Ej: 1042" style={inputStyle} />
+                <div>
+                  <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>📅 Fecha de solicitud</label>
+                  <input type="date" value={form.fecha_solicitud||hoy} onChange={e=>upd("fecha_solicitud",e.target.value)} style={inputStyle} />
+                </div>
               </div>
+            </div>
 
-              <div>
-                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Tipo de cinta</label>
-                <select value={form.tipo} onChange={e=>upd("tipo",e.target.value)} style={{ ...inputStyle, ...campoEstilo(tipoTocado) }}>
-                  {TIPOS.map(t => <option key={t}>{t}</option>)}
-                </select>
-              </div>
+            <div style={seccionBox}>
+              <div style={seccionTitulo}>Producción</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                <div>
+                  <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Tipo de cinta</label>
+                  <select value={form.tipo} onChange={e=>upd("tipo",e.target.value)} style={{ ...inputStyle, ...campoEstilo(tipoTocado) }}>
+                    {TIPOS.map(t => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
 
-              <div>
-                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Medida *</label>
-                <input value={form.medida} onChange={e=>upd("medida",e.target.value)} placeholder="Ej: 2x100" style={{ ...inputStyle, ...campoEstilo(form.medida) }} />
-              </div>
+                <div>
+                  <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Medida *</label>
+                  <input value={form.medida} onChange={e=>upd("medida",e.target.value)} placeholder="Ej: 2x100" style={{ ...inputStyle, ...campoEstilo(form.medida) }} />
+                </div>
 
-              <div>
-                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Cajas *</label>
-                <input type="number" min="0" value={form.cajas} onChange={e=>upd("cajas",e.target.value)} placeholder="0" style={{ ...inputStyle, ...campoEstilo(form.cajas) }} />
-              </div>
+                <div>
+                  <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Cajas *</label>
+                  <input type="number" min="0" value={form.cajas} onChange={e=>upd("cajas",e.target.value)} placeholder="0" style={{ ...inputStyle, ...campoEstilo(form.cajas) }} />
+                </div>
 
-              <div>
-                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Rollos / caja <span style={{ color:"var(--muted)", fontWeight:400 }}>(automático)</span></label>
-                <input type="number" readOnly value={form.rollos_caja} placeholder="Ej: 36" style={{ ...inputStyle, background: "var(--blue-dim)", color: "var(--accent)" }} />
-              </div>
+                <div>
+                  <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Rollos / caja <span style={{ color:"var(--muted)", fontWeight:400 }}>(automático)</span></label>
+                  <input type="number" readOnly value={form.rollos_caja} placeholder="Ej: 36" style={{ ...inputStyle, background: "var(--blue-dim)", color: "var(--accent)" }} />
+                </div>
 
-              <div>
-                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Piezas / rollos totales <span style={{ color:"var(--muted)", fontWeight:400 }}>(automático)</span></label>
-                <input type="number" readOnly value={form.rollos_totales} placeholder="Cajas × Rollos/caja" style={{ ...inputStyle, background: "var(--blue-dim)", color: "var(--accent)" }} />
-              </div>
+                <div>
+                  <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Piezas / rollos totales <span style={{ color:"var(--muted)", fontWeight:400 }}>(automático)</span></label>
+                  <input type="number" readOnly value={form.rollos_totales} placeholder="Cajas × Rollos/caja" style={{ ...inputStyle, background: "var(--blue-dim)", color: "var(--accent)" }} />
+                </div>
 
-              <div>
-                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Tinta</label>
-                <input value={form.tinta_tipo} onChange={e=>upd("tinta_tipo",e.target.value)} placeholder="Ej: Roja UV, Azul PMS…" style={{ ...inputStyle, ...campoEstilo(form.tinta_tipo) }} list="tintas-list-ventas" />
-                <datalist id="tintas-list-ventas">{tintasSugeridas.map(t => <option key={t} value={t} />)}</datalist>
-              </div>
+                <div>
+                  <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Tinta</label>
+                  <input value={form.tinta_tipo} onChange={e=>upd("tinta_tipo",e.target.value)} placeholder="Ej: Roja UV, Azul PMS…" style={{ ...inputStyle, ...campoEstilo(form.tinta_tipo) }} list="tintas-list-ventas" />
+                  <datalist id="tintas-list-ventas">{tintasSugeridas.map(t => <option key={t} value={t} />)}</datalist>
+                </div>
 
-              <div>
-                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>2do color (opcional)</label>
-                <input value={form.color2} onChange={e=>upd("color2",e.target.value)} placeholder="Solo si el pedido lleva 2 tintas" style={inputStyle} />
+                <div>
+                  <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>2do color (opcional)</label>
+                  <input value={form.color2} onChange={e=>upd("color2",e.target.value)} placeholder="Solo si el pedido lleva 2 tintas" style={inputStyle} />
+                </div>
               </div>
+            </div>
 
-              <div>
-                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>📅 Fecha de solicitud</label>
-                <input type="date" value={form.fecha_solicitud||hoy} onChange={e=>upd("fecha_solicitud",e.target.value)} style={inputStyle} />
-              </div>
-
-              <div style={{ gridColumn:"1/-1" }}>
-                <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Notas / Especificaciones</label>
-                <textarea value={form.notas} onChange={e=>upd("notas",e.target.value)} placeholder="Color, instrucciones especiales, urgencia…" rows={3} style={{ ...inputStyle, resize:"vertical" }} />
-              </div>
+            <div style={seccionBox}>
+              <div style={seccionTitulo}>Notas</div>
+              <textarea value={form.notas} onChange={e=>upd("notas",e.target.value)} placeholder="Color, instrucciones especiales, urgencia…" rows={3} style={{ ...inputStyle, resize:"vertical" }} />
             </div>
 
             <button onClick={save} disabled={saving} style={{ width:"100%", marginTop:20, padding:"15px 0", borderRadius:12, border:"none", background:saving?"var(--border-light)":"var(--accent)", color:saving?"var(--text-2)":"#000", fontSize:16, fontWeight:800, cursor:saving?"default":"pointer", letterSpacing:".04em" }}>
