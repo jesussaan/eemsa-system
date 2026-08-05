@@ -67,25 +67,6 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
     return nf;
   });
 
-  const repetirPedido = (p) => {
-    setTipoTocado(true);
-    const tipo  = p.tipo || "Blanca";
-    const cajas = p.cajas ? String(p.cajas) : "";
-    const rollosCaja = String(rollosPorCaja(anchoDeMedida(p.medida || ""), tipo === "Engomado"));
-    setForm(f => ({
-      ...f,
-      cliente:        p.cliente || "",
-      tipo,
-      medida:         p.medida || "",
-      cajas,
-      rollos_caja:    rollosCaja,
-      rollos_totales: (cajas && rollosCaja) ? String(Number(cajas) * Number(rollosCaja)) : "",
-      tinta_tipo:     p.tinta_tipo || "",
-      color2:         p.color2 || "",
-      notas:          "",
-    }));
-    showToast("✓ Datos pre-llenados — revisa y guarda");
-  };
 
   const mesStr  = `${mes.y}-${String(mes.m+1).padStart(2,"0")}`;
 
@@ -255,42 +236,9 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
         )}
 
         {/* ── NUEVO PEDIDO ── */}
-        {tab === "nuevo" && (() => {
-          const sorted = [...pedidos].filter(p => p.cliente !== REBOB_CLIENTE).sort((a, b) => (b.fecha_solicitud || "").localeCompare(a.fecha_solicitud || ""));
-          const q = form.cliente.trim().toLowerCase();
-          // Al escribir un cliente, solo se sugiere su ultimo pedido (el mas
-          // probable para repetir) -- antes se veian hasta 5 y era mas
-          // ruido que ayuda para escoger cual repetir.
-          const recientes = q.length >= 2
-            ? sorted.filter(p => p.cliente?.toLowerCase().includes(q)).slice(0, 1)
-            : sorted.slice(0, 6);
-          return (
+        {tab === "nuevo" && (
           <div>
             <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:800, color:"var(--accent)", letterSpacing:".06em", margin:"0 0 14px" }}>Nuevo Pedido</h2>
-
-            {recientes.length > 0 && (
-              <div style={{ background:"var(--surface)", borderRadius:12, padding:"10px 12px", marginBottom:18 }}>
-                <div style={{ fontSize:10, color:"var(--text-2)", fontWeight:700, letterSpacing:".07em", textTransform:"uppercase", marginBottom:8 }}>
-                  {q.length >= 2 ? `Último pedido de ${form.cliente.trim()}` : "Pedidos recientes"}
-                </div>
-                {recientes.map((p, i) => (
-                  <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom: i < recientes.length - 1 ? "1px solid var(--border)" : "none" }}>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, color:"var(--text)", fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.cliente}</div>
-                      <div style={{ fontSize:11, color:"var(--muted)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                        #{p.num} · {p.medida} · {p.cajas} cajas · {p.tipo}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => repetirPedido(p)}
-                      style={{ flexShrink:0, background:"var(--blue-dim)", border:"1px solid var(--blue)", borderRadius:8, color:"var(--blue)", fontSize:12, fontWeight:700, padding:"6px 14px", cursor:"pointer" }}
-                    >
-                      Repetir
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
 
             <div style={seccionBox}>
               <div style={seccionTitulo}>Cliente y entrega</div>
@@ -365,8 +313,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
               {saving ? "Guardando…" : "📋 Registrar Pedido"}
             </button>
           </div>
-          );
-        })()}
+        )}
 
         {/* ── CLIENTES ── */}
         {tab === "clientes" && <Clientes pedidos={pedidos} ocultarMerma />}
