@@ -20,6 +20,22 @@ const SubTitle = ({ icon: Icon, children }) => (
   <h3 className="sub-title"><span style={{ display: 'inline-flex', fontSize: 14 }}><Icon /></span>{children}</h3>
 );
 
+// Mini grafica de linea para acompañar un numero -- sin recharts, para que
+// quepa junto a la cifra sin pelearse por espacio en la tarjeta.
+const Sparkline = ({ data, color, width = 72, height = 26 }) => {
+  const vals = data.filter(v => v != null);
+  if (vals.length < 2) return null;
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const rango = max - min || 1;
+  const stepX = width / (data.length - 1);
+  const puntos = data.map((v, i) => v == null ? null : `${i * stepX},${height - ((v - min) / rango) * height}`).filter(Boolean);
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: 'block', flexShrink: 0 }}>
+      <polyline points={puntos.join(' ')} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+};
+
 const PIE_COLORS = ['#e84b4b','#e8894b','#e8b84b','#4be87a','#4b8fe8','#9b59b6','#ff69b4','#4be8e8'];
 const ChartTip = ({ active, payload }) => {
   if (!active || !payload?.length) return null;
@@ -75,7 +91,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
     cajasHoy, metaHoyCumplida, mesActual, mesPrev, cajasTerminadasMes, gastoRefMes, diasDelMes, diasConMeta, pctMeta,
     pedidosUrgentes, ultimas14, pedidosMerma, tiempoPromedio, componentesVencidos, fallasPorComp, topClientes,
     rentabilidadClientes, historialCostos, valorProducido, perdidaMerma, valorProducidoMes, perdidaMermaMes,
-    mermaPctMes, mermaPctPrev, valorMes, valorPrev, tintaMes, alcoholMes, rollosMes,
+    mermaPctMes, mermaPctPrev, valorMes, valorPrev, valorSerie, mermaSerie, tintaMes, alcoholMes, rollosMes,
     tintaPorColor, tipoCintaStats, rebPendientes, rebPiezasTotal, rebCajasTotal, rebMermaPctProm,
     rebPorMaterial, rebPorAdhesivo, rebRecientes,
   } = useMemo(() => {
@@ -166,6 +182,24 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
     const valorMes  = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual) && p.costo_pieza != null).reduce((s, p) => s + Number(p.costo_pieza) * Number(p.piezas_prod || 0), 0);
     const valorPrev = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesPrev)   && p.costo_pieza != null).reduce((s, p) => s + Number(p.costo_pieza) * Number(p.piezas_prod || 0), 0);
 
+    // Serie de los ultimos 6 meses (incluye el actual) para las mini-graficas
+    // junto a Merma % y Valor producido en el comparativo mes a mes.
+    const [anioMesActual, numMesActual] = mesActual.split('-').map(Number);
+    const serieMeses = [...Array(6)].map((_, i) => {
+      const idx = (numMesActual - 1) - (5 - i);
+      const anio = anioMesActual + Math.floor(idx / 12);
+      const mes  = ((idx % 12) + 12) % 12 + 1;
+      return `${anio}-${String(mes).padStart(2, '0')}`;
+    });
+    const valorSerie = serieMeses.map(mk =>
+      pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mk) && p.costo_pieza != null)
+        .reduce((s, p) => s + Number(p.costo_pieza) * Number(p.piezas_prod || 0), 0)
+    );
+    const mermaSerie = serieMeses.map(mk => {
+      const ps = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mk) && p.merma_pct != null && p.merma_pct !== "");
+      return ps.length ? ps.reduce((s, p) => s + Number(p.merma_pct), 0) / ps.length : null;
+    });
+
     const tintaMes = pedMes.reduce((s, p) => s + Number(p.tinta_kg || 0), 0);
     const alcoholMes = pedMes.reduce((s, p) => s + Number(p.alcohol_litros || 0), 0);
     const rollosMes = pedMes.reduce((s, p) => s + Number(p.rollos_usados || 0), 0);
@@ -229,7 +263,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       cajasHoy, metaHoyCumplida, mesActual, mesPrev, cajasTerminadasMes, gastoRefMes, diasDelMes, diasConMeta, pctMeta,
       pedidosUrgentes, ultimas14, pedidosMerma, tiempoPromedio, componentesVencidos, fallasPorComp, topClientes,
       rentabilidadClientes, historialCostos, valorProducido, perdidaMerma, valorProducidoMes, perdidaMermaMes,
-      mermaPctMes, mermaPctPrev, valorMes, valorPrev, tintaMes, alcoholMes, rollosMes,
+      mermaPctMes, mermaPctPrev, valorMes, valorPrev, valorSerie, mermaSerie, tintaMes, alcoholMes, rollosMes,
       tintaPorColor, tipoCintaStats, rebPendientes, rebPiezasTotal, rebCajasTotal, rebMermaPctProm,
       rebPorMaterial, rebPorAdhesivo, rebRecientes,
     };
@@ -695,8 +729,8 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
         const lblMes  = MESES[parseInt(mesActual.split('-')[1]) - 1];
         const lblPrev = MESES[parseInt(mesPrev.split('-')[1]) - 1];
         const items = [
-          ...(mermaPctMes && mermaPctPrev ? [{ lbl: "Merma %", curr: Number(mermaPctMes), prev: Number(mermaPctPrev), fmt: v => v + "%", menorEsMejor: true }] : []),
-          ...(valorMes > 0 || valorPrev > 0 ? [{ lbl: "Valor producido", curr: valorMes, prev: valorPrev, fmt: v => "$" + fmt(Math.round(v)), menorEsMejor: false }] : []),
+          ...(mermaPctMes && mermaPctPrev ? [{ lbl: "Merma %", curr: Number(mermaPctMes), prev: Number(mermaPctPrev), fmt: v => v + "%", menorEsMejor: true, serie: mermaSerie }] : []),
+          ...(valorMes > 0 || valorPrev > 0 ? [{ lbl: "Valor producido", curr: valorMes, prev: valorPrev, fmt: v => "$" + fmt(Math.round(v)), menorEsMejor: false, serie: valorSerie }] : []),
         ];
         if (!items.length) return null;
         return (
@@ -708,7 +742,10 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
                 const mejora = d ? (it.menorEsMejor ? !d.sube : d.sube) : null;
                 return (
                   <div key={it.lbl} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid var(--surface)" }}>
-                    <span style={{ fontSize: 13, color: "var(--text-2)" }}>{it.lbl}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 13, color: "var(--text-2)" }}>{it.lbl}</span>
+                      <Sparkline data={it.serie} color={mejora === false ? "var(--red)" : "var(--green)"} />
+                    </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <span style={{ fontSize: 11, color: "var(--muted)" }}>{it.fmt(it.prev)}</span>
                       <span style={{ fontSize: 11, color: "var(--muted)" }}>→</span>
