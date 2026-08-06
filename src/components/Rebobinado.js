@@ -282,12 +282,12 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
               <div className="field full">
                 <label>Conteo por camas <span style={{ color: "#666", fontWeight: 400 }}>({REBOB_CAJAS_POR_CAMA}/cama · {calc.piezasPorCaja} pzas/caja)</span></label>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <input type="number" min="0" value={c.camasCompletas} placeholder="Camas completas" onChange={e => {
+                  <input className={c.camasCompletas !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" min="0" value={c.camasCompletas} placeholder="Camas completas" onChange={e => {
                     const v = e.target.value;
                     updCorte(c.id, "camasCompletas", v);
                     updCorte(c.id, "cajasCompletas", String((Number(v) || 0) * REBOB_CAJAS_POR_CAMA + (Number(c.cajasUltimaCama) || 0)));
                   }} style={{ flex: 1 }} />
-                  <input type="number" min="0" max={REBOB_CAJAS_POR_CAMA - 1} value={c.cajasUltimaCama} placeholder="Últ. cama (0-11)" onChange={e => {
+                  <input className={c.cajasUltimaCama !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" min="0" max={REBOB_CAJAS_POR_CAMA - 1} value={c.cajasUltimaCama} placeholder="Últ. cama (0-11)" onChange={e => {
                     const v = e.target.value;
                     updCorte(c.id, "cajasUltimaCama", v);
                     updCorte(c.id, "cajasCompletas", String((Number(c.camasCompletas) || 0) * REBOB_CAJAS_POR_CAMA + (Number(v) || 0)));
