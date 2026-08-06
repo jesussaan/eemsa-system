@@ -36,6 +36,10 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
   });
   const [saving, setSaving] = useState(false);
   const [toast, setToast]   = useState("");
+  // Antes se guardaba directo al dar clic en "Registrar Pedido" -- ahora
+  // primero se muestra un resumen para confirmar, mismo patron que la
+  // pantalla de revision de Modo Operador al finalizar.
+  const [revisando, setRevisando] = useState(false);
   // "Tipo de cinta" siempre trae un valor (Blanca por default) -- se marca
   // como pendiente hasta que se toca de verdad, para no dejarlo en Blanca
   // sin querer cuando en realidad es Canela o Transparente.
@@ -90,10 +94,14 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
     return "#e8b84b";
   };
 
-  const save = async () => {
+  const abrirRevision = () => {
     if (!form.cliente.trim()) { showToast("⚠ Escribe el nombre del cliente"); return; }
     if (!form.medida.trim())  { showToast("⚠ Escribe la medida"); return; }
     if (!form.cajas)          { showToast("⚠ Escribe el número de cajas"); return; }
+    setRevisando(true);
+  };
+
+  const save = async () => {
     setSaving(true);
     const nuevo = {
       id:              uid(),
@@ -119,6 +127,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
     setPedidos(ps => [guardado, ...ps]);
     setForm({ ...FORM_INIT, num: siguienteNumPedido([guardado, ...pedidos]) });
     setTipoTocado(false);
+    setRevisando(false);
     sendWhatsApp(mensajePedidoNuevo(guardado));
     showToast("✅ Pedido registrado correctamente");
     setTab("agenda");
@@ -240,6 +249,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
           <div>
             <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:800, color:"var(--accent)", letterSpacing:".06em", margin:"0 0 14px" }}>Nuevo Pedido</h2>
 
+            {!revisando && <>
             <div style={seccionBox}>
               <div style={seccionTitulo}>Cliente y entrega</div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
@@ -309,9 +319,53 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
               <textarea value={form.notas} onChange={e=>upd("notas",e.target.value)} placeholder="Color, instrucciones especiales, urgencia…" rows={3} style={{ ...inputStyle, resize:"vertical" }} />
             </div>
 
-            <button onClick={save} disabled={saving} style={{ width:"100%", marginTop:20, padding:"15px 0", borderRadius:12, border:"none", background:saving?"var(--border-light)":"var(--accent)", color:saving?"var(--text-2)":"#000", fontSize:16, fontWeight:800, cursor:saving?"default":"pointer", letterSpacing:".04em" }}>
-              {saving ? "Guardando…" : "📋 Registrar Pedido"}
+            <button onClick={abrirRevision} style={{ width:"100%", marginTop:20, padding:"15px 0", borderRadius:12, border:"none", background:"var(--accent)", color:"#000", fontSize:16, fontWeight:800, cursor:"pointer", letterSpacing:".04em" }}>
+              Revisar y guardar
             </button>
+            </>}
+
+            {/* Revision -- ultimo paso antes de guardar de verdad */}
+            {revisando && (() => {
+              const filas = [
+                ["Cliente", unificarPorTexto(form.cliente, clientesSugeridos) || form.cliente],
+                ["No. Pedido", form.num.trim() || `V-${Date.now().toString().slice(-5)}`],
+                ["Fecha de solicitud", form.fecha_solicitud || hoy],
+                ["Tipo de cinta", form.tipo],
+                ["Medida", normalizarMedida(form.medida)],
+                ["Cajas", form.cajas],
+                ["Rollos / caja", form.rollos_caja || "—"],
+                ["Piezas / rollos totales", form.rollos_totales || "—"],
+                ["Tinta", form.tinta_tipo || "—"],
+                ["2do color", form.color2 || "—"],
+              ];
+              return (
+                <div>
+                  <div style={{ fontSize:11, color:"var(--green)", fontWeight:700, letterSpacing:1, marginBottom:14, textTransform:"uppercase" }}>Revisa antes de guardar</div>
+                  <div style={{ display:"grid", gap:8, marginBottom:14 }}>
+                    {filas.map(([lbl, val]) => (
+                      <div key={lbl} style={{ display:"flex", justifyContent:"space-between", padding:"9px 12px", background:"var(--surface)", borderRadius:8, fontSize:13 }}>
+                        <span style={{ color:"var(--text-2)" }}>{lbl}</span>
+                        <span style={{ color:"var(--text)", fontWeight:700 }}>{val}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {form.notas.trim() && (
+                    <div style={{ marginBottom:16, padding:"9px 12px", background:"var(--surface)", borderRadius:8, fontSize:13 }}>
+                      <div style={{ color:"var(--text-2)", marginBottom:4 }}>Notas</div>
+                      <div style={{ color:"var(--text)" }}>{form.notas}</div>
+                    </div>
+                  )}
+                  <div style={{ display:"flex", gap:8 }}>
+                    <button type="button" onClick={() => setRevisando(false)} style={{ flex:1, padding:"13px 0", borderRadius:12, border:"1px solid var(--border-light)", background:"transparent", color:"var(--text-2)", fontSize:14, fontWeight:700, cursor:"pointer" }}>
+                      ← Corregir datos
+                    </button>
+                    <button onClick={save} disabled={saving} style={{ flex:2, padding:"13px 0", borderRadius:12, border:"none", background:saving?"var(--border-light)":"var(--accent)", color:saving?"var(--text-2)":"#000", fontSize:15, fontWeight:800, cursor:saving?"default":"pointer", letterSpacing:".04em" }}>
+                      {saving ? "Guardando…" : "✅ Confirmar y guardar"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
