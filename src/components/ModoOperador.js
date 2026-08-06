@@ -576,7 +576,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
             <div className="form-grid">
               <div className="field">
                 <label>Componente</label>
-                <input className={compTocado ? 'campo-listo' : 'campo-pendiente'} list="comps-list-op" value={formFalla.comp} onChange={e => { setFormFalla(f => ({ ...f, comp: e.target.value })); setCompTocado(true); }} placeholder="Escribe o elige un componente" />
+                <input className={compTocado ? 'campo-listo' : 'campo-pendiente'} list="comps-list-op" value={formFalla.comp} onChange={e => { setFormFalla(f => ({ ...f, comp: e.target.value })); setCompTocado(true); }} onClick={() => setCompTocado(true)} placeholder="Escribe o elige un componente" />
                 <datalist id="comps-list-op">{compsSugeridos.map(c => <option key={c} value={c} />)}</datalist>
               </div>
               <div className="field">
@@ -585,7 +585,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
               </div>
               <div className="field">
                 <label>Severidad</label>
-                <select className={sevTocado ? 'campo-listo' : 'campo-pendiente'} value={formFalla.sev} onChange={e => { setFormFalla(f => ({ ...f, sev: e.target.value })); setSevTocado(true); }}>
+                <select className={sevTocado ? 'campo-listo' : 'campo-pendiente'} value={formFalla.sev} onChange={e => { setFormFalla(f => ({ ...f, sev: e.target.value })); setSevTocado(true); }} onClick={() => setSevTocado(true)}>
                   {Object.entries(SEV).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>

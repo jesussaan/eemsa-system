@@ -159,7 +159,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
               N/A
             </button>
           </label>
-          <select className={clicheNA ? '' : (portalicheTocado ? 'campo-listo' : 'campo-pendiente')} value={portaliche} onChange={e => { setPortaliche(e.target.value); setPortalicheTocado(true); }} disabled={clicheNA} style={{ opacity: clicheNA ? 0.35 : 1 }}>
+          <select className={clicheNA ? '' : (portalicheTocado ? 'campo-listo' : 'campo-pendiente')} value={portaliche} onChange={e => { setPortaliche(e.target.value); setPortalicheTocado(true); }} onClick={() => setPortalicheTocado(true)} disabled={clicheNA} style={{ opacity: clicheNA ? 0.35 : 1 }}>
             {PORTALICHES.map(p => <option key={p.largo} value={p.largo}>{p.label}</option>)}
           </select>
           <AvisoSugerido visible={!clicheNA && portacliheIgualSugerido} />
@@ -168,7 +168,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
         {!clicheNA && (
           <div className="field">
             <label>Diseño</label>
-            <select className={disenoTocado ? 'campo-listo' : 'campo-pendiente'} value={diseno} onChange={e => { setDiseno(e.target.value); setDisenoTocado(true); }}>
+            <select className={disenoTocado ? 'campo-listo' : 'campo-pendiente'} value={diseno} onChange={e => { setDiseno(e.target.value); setDisenoTocado(true); }} onClick={() => setDisenoTocado(true)}>
               {DISENOS.map(d => <option key={d.key} value={d.key}>{d.label} ({Math.round(d.cob * 100)}%)</option>)}
             </select>
             <AvisoSugerido visible={disenoIgualSugerido} />
@@ -180,13 +180,13 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             <div style={{ fontSize: 11, color: '#c9922a', fontWeight: 700, marginBottom: 8 }}>2do color: {pedidoInicial.color2}</div>
             <div className="form-grid">
               <div className="field"><label>Portacliché</label>
-                <select className={portaliche2Tocado ? 'campo-listo' : 'campo-pendiente'} value={portaliche2} onChange={e => { setPortaliche2(e.target.value); setPortaliche2Tocado(true); }}>
+                <select className={portaliche2Tocado ? 'campo-listo' : 'campo-pendiente'} value={portaliche2} onChange={e => { setPortaliche2(e.target.value); setPortaliche2Tocado(true); }} onClick={() => setPortaliche2Tocado(true)}>
                   {PORTALICHES.map(p => <option key={p.largo} value={p.largo}>{p.label}</option>)}
                 </select>
                 <AvisoSugerido visible={portaliche2IgualSugerido} />
               </div>
               <div className="field"><label>Diseño</label>
-                <select className={diseno2Tocado ? 'campo-listo' : 'campo-pendiente'} value={diseno2} onChange={e => { setDiseno2(e.target.value); setDiseno2Tocado(true); }}>
+                <select className={diseno2Tocado ? 'campo-listo' : 'campo-pendiente'} value={diseno2} onChange={e => { setDiseno2(e.target.value); setDiseno2Tocado(true); }} onClick={() => setDiseno2Tocado(true)}>
                   {DISENOS.map(d => <option key={d.key} value={d.key}>{d.label} ({Math.round(d.cob * 100)}%)</option>)}
                 </select>
                 <AvisoSugerido visible={diseno2IgualSugerido} />

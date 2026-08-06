@@ -266,7 +266,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
                 <div>
                   <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Tipo de cinta</label>
-                  <select value={form.tipo} onChange={e=>upd("tipo",e.target.value)} style={{ ...inputStyle, ...campoEstilo(tipoTocado) }}>
+                  <select value={form.tipo} onChange={e=>upd("tipo",e.target.value)} onClick={() => setTipoTocado(true)} style={{ ...inputStyle, ...campoEstilo(tipoTocado) }}>
                     {TIPOS.map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>

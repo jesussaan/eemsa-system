@@ -243,8 +243,8 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
 
       <h3 className="sub-title">Rollo (material) del jumbo — {REBOB_LARGO_JUMBO_M}m</h3>
       <div className="form-grid">
-        <div className="field"><label>Rollo (material) *</label><select className={materialTocado ? 'campo-listo' : 'campo-pendiente'} value={form.material} onChange={e => { upd("material", e.target.value); setMaterialTocado(true); }}>{REBOB_MATERIALES.map(m => <option key={m}>{m}</option>)}</select></div>
-        <div className="field"><label>Adhesivo *</label><select className={adhesivoTocado ? 'campo-listo' : 'campo-pendiente'} value={form.adhesivo} onChange={e => { upd("adhesivo", e.target.value); setAdhesivoTocado(true); }}>{REBOB_TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
+        <div className="field"><label>Rollo (material) *</label><select className={materialTocado ? 'campo-listo' : 'campo-pendiente'} value={form.material} onChange={e => { upd("material", e.target.value); setMaterialTocado(true); }} onClick={() => setMaterialTocado(true)}>{REBOB_MATERIALES.map(m => <option key={m}>{m}</option>)}</select></div>
+        <div className="field"><label>Adhesivo *</label><select className={adhesivoTocado ? 'campo-listo' : 'campo-pendiente'} value={form.adhesivo} onChange={e => { upd("adhesivo", e.target.value); setAdhesivoTocado(true); }} onClick={() => setAdhesivoTocado(true)}>{REBOB_TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
         <div className="field"><label>Operador</label><input readOnly value={REBOB_OPERADOR_EQUIPO} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
         <div className="field"><label>Fecha inicio</label><input type="date" value={form.fecha_inicio} onChange={e => upd("fecha_inicio", e.target.value)} /></div>
         <div className="field"><label>Fecha término</label><input type="date" value={form.fecha_termino} onChange={e => upd("fecha_termino", e.target.value)} /></div>
@@ -269,10 +269,10 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
             )}
             <div className="form-grid">
               <div className="field"><label>Ancho de corte</label>
-                <select className={c.anchoTocado ? 'campo-listo' : 'campo-pendiente'} value={c.ancho} onChange={e => { updCorte(c.id, "ancho", e.target.value); updCorte(c.id, "anchoTocado", true); }}>{REBOB_ANCHOS.map(a => <option key={a} value={a}>{a}</option>)}</select>
+                <select className={c.anchoTocado ? 'campo-listo' : 'campo-pendiente'} value={c.ancho} onChange={e => { updCorte(c.id, "ancho", e.target.value); updCorte(c.id, "anchoTocado", true); }} onClick={() => updCorte(c.id, "anchoTocado", true)}>{REBOB_ANCHOS.map(a => <option key={a} value={a}>{a}</option>)}</select>
               </div>
               <div className="field"><label>Largo de pieza (m)</label>
-                <select className={c.largoPiezaTocado ? 'campo-listo' : 'campo-pendiente'} value={c.largoPieza} onChange={e => { updCorte(c.id, "largoPieza", e.target.value); updCorte(c.id, "largoPiezaTocado", true); }}>{REBOB_LARGOS_PIEZA.map(l => <option key={l} value={l}>{l}m</option>)}</select>
+                <select className={c.largoPiezaTocado ? 'campo-listo' : 'campo-pendiente'} value={c.largoPieza} onChange={e => { updCorte(c.id, "largoPieza", e.target.value); updCorte(c.id, "largoPiezaTocado", true); }} onClick={() => updCorte(c.id, "largoPiezaTocado", true)}>{REBOB_LARGOS_PIEZA.map(l => <option key={l} value={l}>{l}m</option>)}</select>
               </div>
               <div className="field"><label>Cajas completas * <span style={{ color: "#666", fontWeight: 400 }}>({calc.piezasPorCaja}/caja)</span></label><input className={c.cajasCompletas !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" value={c.cajasCompletas} onChange={e => updCorte(c.id, "cajasCompletas", e.target.value)} placeholder="27" /></div>
               <div className="field"><label>Piezas sueltas <span style={{ color: "#666", fontWeight: 400 }}>(no completan caja)</span></label><input className={c.piezasSueltas !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" value={c.piezasSueltas} onChange={e => updCorte(c.id, "piezasSueltas", e.target.value)} placeholder="18" /></div>
