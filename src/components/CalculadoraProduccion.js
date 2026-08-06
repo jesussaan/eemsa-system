@@ -159,9 +159,43 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             const v = e.target.value;
             setCajasProd(v);
             setPiezasProd(v !== '' ? String(Number(v) * rollosCajaN) : '');
+            // Rollos MP / Tinta / Solvente se calculan del campo "Cajas" de
+            // arriba, que arranca con lo que Ventas anoto al crear el pedido
+            // -- si ahi hubo un error de captura, se quedaba ese numero
+            // equivocado aunque aqui ya se corrigiera. Se sincroniza para
+            // que el calculo de materiales siempre use el dato real.
+            if (v !== '') setCajas(v);
           }} /></div>
-          <div className="field"><label>Piezas producidas *</label><input className={piezasProd !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" placeholder="1800" value={piezasProd} onChange={e => { setPiezasProd(e.target.value); setCajasProd(''); }} /></div>
-          <div className="field"><label>Merma real (piezas)</label><input className={mermaReal !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" placeholder="0" value={mermaReal} onChange={e => setMermaReal(e.target.value)} /></div>
+          <div className="field"><label>Piezas producidas *</label><input className={piezasProd !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" placeholder="1800" value={piezasProd} onChange={e => {
+            const v = e.target.value;
+            setPiezasProd(v);
+            setCajasProd('');
+            if (v !== '' && rollosCajaN > 0) setCajas(String(Number(v) / rollosCajaN));
+          }} /></div>
+          <div className="field"><label>Merma real (piezas)</label><input className={mermaReal !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" placeholder="0" value={mermaReal} onChange={e => {
+            const v = e.target.value;
+            setMermaReal(v);
+            // Misma razon que "Cajas producidas": la merma real tambien debe
+            // reemplazar la merma esperada en el calculo de materiales.
+            setMerma(v);
+          }} /></div>
+          {/* Un typo al capturar cajas/piezas reales no se puede detectar solo
+              -- pero si lo capturado se aleja mucho de lo que el pedido traia
+              anotado desde Ventas, vale la pena que salte a la vista antes de
+              confirmar, en vez de pasar desapercibido. */}
+          {(() => {
+            const cajasOriginal = Number(pedidoInicial?.cajas) || 0;
+            const cajasRealesNum = cajasProd !== '' ? Number(cajasProd)
+              : (piezasProd !== '' && rollosCajaN > 0 ? Number(piezasProd) / rollosCajaN : null);
+            if (!cajasOriginal || cajasRealesNum == null) return null;
+            const difierePct = Math.abs(cajasRealesNum - cajasOriginal) / cajasOriginal;
+            if (difierePct <= 0.15) return null;
+            return (
+              <div className="field full" style={{ fontSize: 11, color: '#ff9900', fontWeight: 700, marginTop: -4 }}>
+                ⚠ El pedido se anotó con {cajasOriginal} cajas y aquí llevas ~{Math.round(cajasRealesNum)} — revisa que no sea un error de captura antes de confirmar.
+              </div>
+            );
+          })()}
           {mermaPct !== null && (
             <div className="field"><label>% Merma real</label><input readOnly value={mermaPct + "%"} style={{ background: "#1a2744", color: Number(mermaPct) > 3 ? "#ff4d4d" : "#4be87a" }} /></div>
           )}

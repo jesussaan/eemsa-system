@@ -147,12 +147,19 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
       : 1;
     if (piezas != null && piezas > 0) {
       try {
+        // Costo de cajas de cartón: se calcula de lo REALMENTE producido
+        // (piezas ÷ rollos por caja), no de pedidoSel.cajas -- ese numero es
+        // lo que Ventas anoto al crear el pedido, y si ahi hubo un error de
+        // captura, el costo por pieza salia mal aunque la produccion real
+        // ya estuviera bien capturada aqui.
+        const rollosCajaFinal = Number(fin.rollos_caja || pedidoSel.rollos_caja || 0);
+        const cajasReales = rollosCajaFinal > 0 ? piezas / rollosCajaFinal : Number(pedidoSel.cajas || 0);
         const costoRes = await fetch('/api/costos?action=calcular', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             rollosMP: rollosNum, tintaKg: tintaKgNum, solventeKg: solventeKgNum,
-            cajas: Number(pedidoSel.cajas || 0), piezasBuenas: piezas,
+            cajas: cajasReales, piezasBuenas: piezas,
             sticky: fin.stickyback || 0, diasProd,
             colorKey: pedidoSel.color || pedidoSel.tinta_tipo || '',
             tintaKg2: tintaKg2Num, colorKey2: pedidoSel.color2 || '',
