@@ -50,6 +50,15 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const [stickyback, setStickyback] = useState(null);
   const [verDesglose, setVerDesglose] = useState(false);
 
+  // Pantalla de revision antes de guardar -- se llama al mismo endpoint de
+  // costo que usa ModoOperador.finalizarPedido, pero solo para previsualizar
+  // (no guarda nada), asi se puede detectar un error de captura antes de
+  // mandarlo a Emilio en vez de despues.
+  const [revisando, setRevisando] = useState(false);
+  const [costoPreview, setCostoPreview] = useState(null);
+  const [costoPreviewLoading, setCostoPreviewLoading] = useState(false);
+  const [costoPreviewError, setCostoPreviewError] = useState(false);
+
   // Cálculos producción (formula compartida con Cotizador.js)
   const {
     anchoN, largoN, rollosCajaN, mermaN,
@@ -63,6 +72,42 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
 
   const mermaPct = piezasProd && mermaReal && Number(piezasProd) > 0
     ? ((Number(mermaReal) / Number(piezasProd)) * 100).toFixed(2) : null;
+
+  // Mismos parametros que ModoOperador.finalizarPedido le manda a
+  // /api/costos al guardar -- se llama aqui primero, sin guardar, solo para
+  // mostrar el numero antes de confirmar.
+  const handleAbrirRevision = async () => {
+    setRevisando(true);
+    setCostoPreview(null);
+    setCostoPreviewError(false);
+    if (!(Number(piezasProd) > 0)) return;
+    setCostoPreviewLoading(true);
+    try {
+      const diasProd = pedidoInicial?.inicio_ts
+        ? Math.max(0.5, Math.ceil((Date.now() - new Date(pedidoInicial.inicio_ts).getTime()) / 86400000))
+        : 1;
+      const res = await fetch('/api/costos?action=calcular', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rollosMP: rollosExacto, tintaKg, solventeKg,
+          cajas: Number(cajas) || 0, piezasBuenas: Number(piezasProd),
+          sticky: stickyback || 0, diasProd,
+          colorKey: pedidoInicial?.color || pedidoInicial?.tinta_tipo || '',
+          tintaKg2: tieneColor2 ? tintaKg2 : 0,
+          colorKey2: pedidoInicial?.color2 || '',
+          esEngomado,
+          tipoCentro: anchoDePedido(pedidoInicial) === 3 ? '3' : '2',
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setCostoPreview(data.costo_pieza);
+    } catch (_) {
+      setCostoPreviewError(true);
+    }
+    setCostoPreviewLoading(false);
+  };
 
   // Portacliche/diseno se prellenan con "sugerido" (ultima corrida igual)
   // y es facil no notar que hay que cambiarlos si esta vez el cliche es
@@ -97,6 +142,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
         {!inline && onClose && <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#545a78', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>✕</button>}
       </div>
 
+      {!revisando && <>
       {/* Formulario */}
       <div className="form-grid">
         <div className="field"><label>Ancho (")</label><input className={ancho ? 'campo-listo' : 'campo-pendiente'} type="number" step="0.5" min="0.5" value={ancho} onChange={e => setAncho(e.target.value)} placeholder="2" /></div>
@@ -267,7 +313,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
         </div>
       )}
 
-      {/* Botón confirmar */}
+      {/* Botón confirmar -- abre la pantalla de revision, todavia no guarda nada */}
       {onConfirmar && (() => {
         const faltaPiezas = !piezasProd || Number(piezasProd) <= 0;
         return (
@@ -275,19 +321,9 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             className="btn btn-primary btn-block"
             disabled={!listo || faltaPiezas}
             style={{ padding: '14px 0', fontSize: 15, marginTop: 16, opacity: (listo && !faltaPiezas) ? 1 : 0.4 }}
-            onClick={() => onConfirmar({
-              rollosMP, rollosExacto, tintaKg, tintaKg2: tieneColor2 ? tintaKg2 : null, solventeKg,
-              rollosCaja:  rollosCajaN,
-              piezasProd:  piezasProd !== "" ? Number(piezasProd) : null,
-              mermaReal:   mermaReal  !== "" ? Number(mermaReal)  : null,
-              mermaPct, stickyback,
-              diseno:      clicheNA ? null : diseno,
-              portaliche:  clicheNA ? null : (Number(portaliche) || null),
-              diseno2:     (tieneColor2 && !clicheNA) ? diseno2 : null,
-              portaliche2: (tieneColor2 && !clicheNA) ? (Number(portaliche2) || null) : null,
-            })}
+            onClick={handleAbrirRevision}
           >
-            ✅ Confirmar y enviar a Emilio
+            Revisar y confirmar
           </button>
         );
       })()}
@@ -296,6 +332,72 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
           Falta "Piezas producidas" para poder enviar a Emilio
         </div>
       )}
+      </>}
+
+      {/* Pantalla de revision -- ultimo paso antes de guardar de verdad */}
+      {revisando && (() => {
+        const cajasOriginal = Number(pedidoInicial?.cajas) || 0;
+        const cajasRealesNum = Number(cajas) || 0;
+        const difiereMucho = cajasOriginal > 0 && cajasRealesNum > 0 && Math.abs(cajasRealesNum - cajasOriginal) / cajasOriginal > 0.15;
+        const filas = [
+          ['Cajas producidas', cajasProd !== '' ? cajasProd : (cajasRealesNum ? cajasRealesNum.toFixed(1) : '—')],
+          ['Piezas producidas', piezasProd || '—'],
+          ['Merma real', mermaReal !== '' ? `${mermaReal} pzas${mermaPct != null ? ` (${mermaPct}%)` : ''}` : '—'],
+          ['Rollos MP', `${rollosExacto.toFixed(2)} (enteros: ${rollosMP})`],
+          ['Tinta', clicheNA ? 'N/A' : `${tintaKgTotal.toFixed(2)} kg`],
+          ['Solvente', clicheNA ? 'N/A' : `${solventeKg.toFixed(2)} kg`],
+          ['Stickybacks', stickyback ?? '—'],
+        ];
+        return (
+          <div style={{ marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: '#4be87a', fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>REVISA ANTES DE ENVIAR</div>
+
+            <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
+              {filas.map(([lbl, val]) => (
+                <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 12px', background: '#0e1018', borderRadius: 8, fontSize: 13 }}>
+                  <span style={{ color: '#9aa0bc' }}>{lbl}</span>
+                  <span style={{ color: '#e0e0e0', fontWeight: 700 }}>{val}</span>
+                </div>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '11px 12px', background: 'rgba(75,232,122,0.08)', border: '1px solid rgba(75,232,122,0.25)', borderRadius: 8, fontSize: 14 }}>
+                <span style={{ color: '#4be87a', fontWeight: 700 }}>Costo por pieza</span>
+                <span style={{ color: '#4be87a', fontWeight: 900 }}>
+                  {costoPreviewLoading ? 'Calculando…' : costoPreviewError ? 'No se pudo calcular' : costoPreview != null ? `$${costoPreview.toFixed(3)}` : '—'}
+                </span>
+              </div>
+            </div>
+
+            {difiereMucho && (
+              <div style={{ fontSize: 12, color: '#ff9900', fontWeight: 700, marginBottom: 14, textAlign: 'center' }}>
+                ⚠ El pedido se anotó con {cajasOriginal} cajas y aquí llevas ~{Math.round(cajasRealesNum)} — revisa que no sea un error de captura.
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" className="btn btn-ghost" style={{ flex: 1, padding: '13px 0' }} onClick={() => setRevisando(false)}>
+                ← Corregir datos
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 2, padding: '13px 0', fontSize: 15 }}
+                onClick={() => onConfirmar({
+                  rollosMP, rollosExacto, tintaKg, tintaKg2: tieneColor2 ? tintaKg2 : null, solventeKg,
+                  rollosCaja:  rollosCajaN,
+                  piezasProd:  piezasProd !== "" ? Number(piezasProd) : null,
+                  mermaReal:   mermaReal  !== "" ? Number(mermaReal)  : null,
+                  mermaPct, stickyback,
+                  diseno:      clicheNA ? null : diseno,
+                  portaliche:  clicheNA ? null : (Number(portaliche) || null),
+                  diseno2:     (tieneColor2 && !clicheNA) ? diseno2 : null,
+                  portaliche2: (tieneColor2 && !clicheNA) ? (Number(portaliche2) || null) : null,
+                })}
+              >
+                ✅ Confirmar y enviar a Emilio
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 
