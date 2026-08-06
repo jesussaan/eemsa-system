@@ -21,6 +21,11 @@ export const REBOB_PIEZAS_POR_VUELTA = { '2"': 33, '3"': 22 };
 export const REBOB_ANCHOS = Object.keys(REBOB_PIEZAS_POR_VUELTA);
 export const REBOB_LARGOS_PIEZA = [96, 147];
 export const REBOB_PIEZAS_POR_CAJA = { '2"': 36, '3"': 24 };
+
+// Al apilar cajas del rebobinado se cuentan por "camas" (capas) en vez de
+// caja por caja -- una cama completa siempre trae 12. Se usa en la
+// calculadora de conteo dentro de Rebobinado.js.
+export const REBOB_CAJAS_POR_CAMA = 12;
 export const calcularPiezasTeoricas = (ancho, largoPieza) => {
   const piezasPorVuelta = REBOB_PIEZAS_POR_VUELTA[ancho] || 0;
   const largo = Number(largoPieza) || 0;

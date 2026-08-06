@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { authHeaders } from '../lib/auth';
 import { uid, today } from '../lib/utils';
-import { REBOB_CLIENTE, REBOB_COLOR, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, REBOB_PIEZAS_POR_VUELTA, calcularPiezasTeoricas } from '../lib/constants';
+import { REBOB_CLIENTE, REBOB_COLOR, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, REBOB_PIEZAS_POR_VUELTA, REBOB_CAJAS_POR_CAMA, calcularPiezasTeoricas } from '../lib/constants';
 import { confirmar } from '../lib/confirm';
 import { IcoCheck } from './Icons';
 
@@ -11,7 +11,12 @@ const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", f
 // default (el primero de la lista) -- se marcan pendiente hasta que se
 // tocan de verdad, igual que en Cotizador/CalculadoraProduccion, para no
 // dejar la primera opcion puesta sin querer.
-const corteInicial = () => ({ id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0], cajasCompletas: "", piezasSueltas: "", merma: "", anchoTocado: false, largoPiezaTocado: false });
+const corteInicial = () => ({
+  id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0], cajasCompletas: "", piezasSueltas: "", merma: "", anchoTocado: false, largoPiezaTocado: false,
+  // Calculadora de conteo por camas -- alterna al conteo directo de "Cajas
+  // completas" para no salir de la app a usar la calculadora del celular.
+  contarPorCamas: false, camasCompletas: "", cajasUltimaCama: "",
+});
 
 // Metros de MP que se llevo un corte: piezas reales / piezas-por-vuelta =
 // vueltas usadas; vueltas x largo de pieza = metros.
@@ -274,7 +279,36 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
               <div className="field"><label>Largo de pieza (m)</label>
                 <select className={c.largoPiezaTocado ? 'campo-listo' : 'campo-pendiente'} value={c.largoPieza} onChange={e => { updCorte(c.id, "largoPieza", e.target.value); updCorte(c.id, "largoPiezaTocado", true); }} onClick={() => updCorte(c.id, "largoPiezaTocado", true)}>{REBOB_LARGOS_PIEZA.map(l => <option key={l} value={l}>{l}m</option>)}</select>
               </div>
-              <div className="field"><label>Cajas completas * <span style={{ color: "#666", fontWeight: 400 }}>({calc.piezasPorCaja}/caja)</span></label><input className={c.cajasCompletas !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" value={c.cajasCompletas} onChange={e => updCorte(c.id, "cajasCompletas", e.target.value)} placeholder="27" /></div>
+              <div className="field">
+                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Cajas completas * <span style={{ color: "#666", fontWeight: 400 }}>({calc.piezasPorCaja}/caja)</span></span>
+                  <button type="button" onClick={() => updCorte(c.id, "contarPorCamas", !c.contarPorCamas)}
+                    style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6, border: `1px solid ${c.contarPorCamas ? '#4b8fe8' : '#2a2d3a'}`, background: c.contarPorCamas ? '#4b8fe822' : 'transparent', color: c.contarPorCamas ? '#4b8fe8' : '#555', cursor: 'pointer' }}>
+                    🧮 Contar por camas
+                  </button>
+                </label>
+                {c.contarPorCamas ? (
+                  <>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <input type="number" min="0" value={c.camasCompletas} placeholder="Camas completas" onChange={e => {
+                        const v = e.target.value;
+                        updCorte(c.id, "camasCompletas", v);
+                        updCorte(c.id, "cajasCompletas", String((Number(v) || 0) * REBOB_CAJAS_POR_CAMA + (Number(c.cajasUltimaCama) || 0)));
+                      }} style={{ flex: 1 }} />
+                      <input type="number" min="0" max={REBOB_CAJAS_POR_CAMA - 1} value={c.cajasUltimaCama} placeholder="Últ. cama (0-11)" onChange={e => {
+                        const v = e.target.value;
+                        updCorte(c.id, "cajasUltimaCama", v);
+                        updCorte(c.id, "cajasCompletas", String((Number(c.camasCompletas) || 0) * REBOB_CAJAS_POR_CAMA + (Number(v) || 0)));
+                      }} style={{ flex: 1 }} />
+                    </div>
+                    <div style={{ fontSize: 11, color: "#4be87a", fontWeight: 700 }}>
+                      = {c.cajasCompletas || 0} cajas completas
+                    </div>
+                  </>
+                ) : (
+                  <input className={c.cajasCompletas !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" value={c.cajasCompletas} onChange={e => updCorte(c.id, "cajasCompletas", e.target.value)} placeholder="27" />
+                )}
+              </div>
               <div className="field"><label>Piezas sueltas <span style={{ color: "#666", fontWeight: 400 }}>(no completan caja)</span></label><input className={c.piezasSueltas !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" value={c.piezasSueltas} onChange={e => updCorte(c.id, "piezasSueltas", e.target.value)} placeholder="18" /></div>
               <div className="field"><label>Total piezas (automático)</label><input readOnly value={(c.cajasCompletas || c.piezasSueltas) ? `${calc.piezasReal} pzas` : "—"} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
               <div className="field"><label>Rollo MP usado <span style={{ color: "#666", fontWeight: 400 }}>(fracción, automático)</span></label><input readOnly value={(c.cajasCompletas || c.piezasSueltas) ? fraccionRollo.toFixed(2) : "—"} style={{ background: "#1a2744", color: "#4b8fe8" }} /></div>
