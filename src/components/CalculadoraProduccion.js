@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_MP_ROLLO_PRECIO } from '../lib/constants';
 import { calcularProduccion, MP_ANCHO, MP_LARGO, PORTALICHES, DISENOS, rollosPorCaja, anchoDePedido, largoDePedido } from '../lib/produccion';
+import { horasEfectivas, JORNADA_HORAS } from '../lib/horario';
 
 export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial, onConfirmar, inline, sugerido }) {
   // Ancho/largo se sacan de Medida cuando el pedido no los trae aparte (ej.
@@ -83,8 +84,10 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
     if (!(Number(piezasProd) > 0)) return;
     setCostoPreviewLoading(true);
     try {
+      // Mismo criterio que ModoOperador.finalizarPedido: dias de costo fijo
+      // basados en horas EFECTIVAS de trabajo, no dias de calendario.
       const diasProd = pedidoInicial?.inicio_ts
-        ? Math.max(0.5, Math.ceil((Date.now() - new Date(pedidoInicial.inicio_ts).getTime()) / 86400000))
+        ? Math.max(0.5, horasEfectivas(new Date(pedidoInicial.inicio_ts), new Date()) / JORNADA_HORAS)
         : 1;
       const res = await fetch('/api/costos?action=calcular', {
         method: 'POST',

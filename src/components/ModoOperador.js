@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
 import { today, alertaEntrega, subirConUrlFirmada, cargarBorrador, guardarBorrador } from '../lib/utils';
 import { anchoDePedido } from '../lib/produccion';
+import { horasEfectivas, JORNADA_HORAS } from '../lib/horario';
 import { sendPush } from '../lib/push';
 import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV, UMBRAL_MERMA } from '../lib/constants';
@@ -142,8 +143,12 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     const tintaKg2Num  = fin.tinta_kg2    ? Number(fin.tinta_kg2)    : 0;
     const solventeKgNum= fin.alcohol_litros ? Number(fin.alcohol_litros) : 0;
     const rollosNum    = fin.rollos_usados ? Number(fin.rollos_usados) : 0;
+    // Dias de costo fijo (mano de obra/mantenimiento/luz) basados en horas
+    // EFECTIVAS de trabajo, no dias de calendario -- un pedido dejado "en
+    // proceso" de viernes a lunes no debe cargar el sabado en la tarde ni
+    // el domingo completo si la maquina no trabajo esas horas.
     const diasProd     = pedidoSel.inicio_ts
-      ? Math.max(0.5, Math.ceil((Date.now() - new Date(pedidoSel.inicio_ts).getTime()) / 86400000))
+      ? Math.max(0.5, horasEfectivas(new Date(pedidoSel.inicio_ts), new Date()) / JORNADA_HORAS)
       : 1;
     if (piezas != null && piezas > 0) {
       try {
@@ -500,17 +505,22 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
             })()}
 
             {pedidoSel.status === "proceso" && (() => {
+              // Tiempo EFECTIVO trabajado (horario real: L-V 8:00-17:45,
+              // Sab 9:00-13:15, Dom cerrado) -- no cuenta la noche ni el
+              // domingo si un pedido se queda "en proceso" de un dia para
+              // otro. Los "dias" aqui son jornadas completas (9.75h),
+              // no dias de calendario.
               let elapsed = null;
               if (pedidoSel.inicio_ts) {
-                const ms = ahora - new Date(pedidoSel.inicio_ts);
-                if (ms >= 0) {
-                  const d = Math.floor(ms / 86400000);
-                  const h = Math.floor((ms % 86400000) / 3600000);
-                  const m = Math.floor((ms % 3600000) / 60000);
-                  const s = Math.floor((ms % 60000) / 1000);
+                const totalMin = Math.floor(horasEfectivas(new Date(pedidoSel.inicio_ts), ahora) * 60);
+                if (totalMin >= 0) {
+                  const d = Math.floor(totalMin / (JORNADA_HORAS * 60));
+                  const restoMin = totalMin - d * JORNADA_HORAS * 60;
+                  const h = Math.floor(restoMin / 60);
+                  const m = restoMin % 60;
                   elapsed = d > 0 ? `${d}d ${h}h ${String(m).padStart(2,'0')}m`
-                          : h > 0 ? `${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`
-                          : `${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
+                          : h > 0 ? `${h}h ${String(m).padStart(2,'0')}m`
+                          : `${m}m`;
                 }
               }
               return (
@@ -519,6 +529,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                     <div style={{ textAlign: "center", background: "var(--green-dim)", border: "1px solid var(--green)", borderRadius: 12, padding: "12px 16px", marginBottom: 14 }}>
                       <div style={{ fontSize: 11, color: "var(--green)", fontWeight: 700, letterSpacing: ".07em", marginBottom: 4 }}>⏱ TIEMPO EN PRODUCCIÓN</div>
                       <div style={{ fontSize: 36, fontWeight: 900, color: "var(--green)", fontVariantNumeric: "tabular-nums" }}>{elapsed}</div>
+                      <div style={{ fontSize: 10, color: "var(--text-2)", marginTop: 4 }}>Solo horas de trabajo — no cuenta noches ni domingo</div>
                     </div>
                   )}
                   <button className="btn btn-primary btn-block" style={{ marginBottom: 10, padding: 16, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={() => setVista("calc")}><Ico icon={IcoCheck} size={16} /> Finalizar pedido</button>
