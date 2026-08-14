@@ -17,6 +17,11 @@ const cajasFisicasUsadas = (p) => {
   const ancho = String(p.medida || '').split(' x ')[0];
   const piezasPorCaja = REBOB_PIEZAS_POR_CAJA[ancho] || 1;
   const cajasN = Number(p.cajas) || 0;
+  // "Caja suelta" (0 cajas completas, solo piezas sueltas) no le cuenta a
+  // Emilio como caja de carton consumida -- antes sumaba +1 igual que un
+  // sobrante real, y se veia "Cajas producidas: 0" junto a "Cajas
+  // utilizadas: 1" en la misma tarjeta, inconsistente.
+  if (cajasN === 0) return 0;
   const piezasSueltas = Math.max(0, (Number(p.piezas_prod) || 0) - cajasN * piezasPorCaja);
   return cajasN + (piezasSueltas > 0 ? 1 : 0);
 };
