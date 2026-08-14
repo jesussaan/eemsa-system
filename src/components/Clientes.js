@@ -83,9 +83,19 @@ export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
     const medidaCounts = c.pedidos.reduce((acc, p) => { if (p.medida) acc[p.medida] = (acc[p.medida] || 0) + 1; return acc; }, {});
     const topMedidas   = Object.entries(medidaCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
 
+    // Color(s) de tinta que este cliente pide mas seguido -- para que la
+    // proxima vez que Ventas le levante un pedido, ya sepa de una vez cual
+    // es sin tener que buscarlo en el historial ni preguntarle a Produccion.
+    const colorCounts = c.pedidos.reduce((acc, p) => {
+      if (p.color)  acc[p.color]  = (acc[p.color]  || 0) + 1;
+      if (p.color2) acc[p.color2] = (acc[p.color2] || 0) + 1;
+      return acc;
+    }, {});
+    const topColores = Object.entries(colorCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
     const color = diasDesdeUltimo === null ? "#666" : diasDesdeUltimo < 30 ? "#4be87a" : diasDesdeUltimo <= 60 ? "#ff9900" : "#ff4d4d";
 
-    return { ...c, cajasTotal, cajasSolicita, cajasActivas, pedidosActivos, ultimaFecha, diasDesdeUltimo, frecuencia, proximoEst, diasParaProximo, mermaPromedio, tiempoProm, topMedidas, color, sorted };
+    return { ...c, cajasTotal, cajasSolicita, cajasActivas, pedidosActivos, ultimaFecha, diasDesdeUltimo, frecuencia, proximoEst, diasParaProximo, mermaPromedio, tiempoProm, topMedidas, topColores, color, sorted };
   }).sort((a, b) => (a.diasDesdeUltimo ?? 9999) - (b.diasDesdeUltimo ?? 9999));
 
   const porTab = {
@@ -209,6 +219,15 @@ export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
               </div>
             )}
 
+            {/* Colores top */}
+            {c.topColores.length > 0 && (
+              <div style={{ display: "flex", gap: 4, marginTop: 5, flexWrap: "wrap" }}>
+                {c.topColores.map(([col, cnt]) => (
+                  <span key={col} style={{ background: "#1a2745", borderRadius: 6, padding: "2px 8px", fontSize: 11, color: "#4b8fe8" }}>🎨 {col} ×{cnt}</span>
+                ))}
+              </div>
+            )}
+
             <button
               className="btn btn-ghost btn-sm"
               style={{ marginTop: 8 }}
@@ -276,6 +295,20 @@ export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
                   {seleccionado.topMedidas.map(([med, cnt]) => (
                     <div key={med} style={{ background: "#1a2133", borderRadius: 8, padding: "5px 12px", fontSize: 13, color: "#c9922a", fontWeight: 600 }}>
                       {med} <span style={{ color: "#545a78" }}>×{cnt}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Colores más pedidos */}
+            {seleccionado.topColores.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, color: "#545a78", fontWeight: 700, marginBottom: 6 }}>COLORES MÁS PEDIDOS</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {seleccionado.topColores.map(([col, cnt]) => (
+                    <div key={col} style={{ background: "#1a2745", borderRadius: 8, padding: "5px 12px", fontSize: 13, color: "#4b8fe8", fontWeight: 600 }}>
+                      🎨 {col} <span style={{ color: "#545a78" }}>×{cnt}</span>
                     </div>
                   ))}
                 </div>
