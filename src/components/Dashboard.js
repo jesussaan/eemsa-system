@@ -6,7 +6,7 @@ import { META_CAJAS, META_MERMA_PCT, REBOB_CLIENTE, REBOB_COLOR, SEV } from '../
 import { notificar } from '../lib/notificaciones';
 import { exportarExcel } from '../lib/exportExcel';
 import { analizarComponentes } from '../lib/mantenimiento';
-import { IcoDash, IcoFal, IcoMoney, IcoCompare, IcoTrendUp, IcoTrophy, IcoDroplet, IcoTapeRoll, IcoRef, IcoRoll } from './Icons';
+import { IcoDash, IcoFal, IcoMoney, IcoCompare, IcoTrendUp, IcoTrophy, IcoDroplet, IcoTapeRoll, IcoRef, IcoRoll, IcoStamp } from './Icons';
 import EditorCostos from './EditorCostos';
 
 const SECCIONES = [
@@ -15,6 +15,7 @@ const SECCIONES = [
   { id: 'finanzas',   lbl: 'Finanzas',   Icon: IcoMoney },
   { id: 'consumibles', lbl: 'Consumibles', Icon: IcoDroplet },
   { id: 'rebobinado', lbl: 'Rebobinado', Icon: IcoRoll },
+  { id: 'cliches',    lbl: 'Clichés',    Icon: IcoStamp },
 ];
 const SubTitle = ({ icon: Icon, children }) => (
   <h3 className="sub-title"><span style={{ display: 'inline-flex', fontSize: 14 }}><Icon /></span>{children}</h3>
@@ -65,7 +66,7 @@ const delta = (curr, prev) => {
   return { pct: Math.abs(pct), sube: curr >= prev };
 };
 
-export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, proveedores, prodDiaria }) {
+export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, proveedores, prodDiaria, cliches = [] }) {
   const [seccion, setSeccion] = useState('resumen');
 
   useEffect(() => {
@@ -94,6 +95,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
     mermaPctMes, mermaPctPrev, valorMes, valorPrev, valorSerie, mermaSerie, tintaMes, alcoholMes, rollosMes,
     tintaPorColor, tipoCintaStats, rebPendientes, rebPiezasTotal, rebCajasTotal, rebMermaPctProm,
     rebPorMaterial, rebPorAdhesivo, rebRecientes,
+    clichesActivos, clichesCerrados, promCajasPorCliche, promPedidosPorCliche, clichesTopDuracion,
   } = useMemo(() => {
     // Rebobinado es produccion de stock, no pedidos de cliente reales -- se
     // excluye de Resumen/Produccion/Finanzas/Consumibles y tiene su propia
@@ -258,6 +260,20 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
     const rebPorAdhesivo = rebPorGrupo('color');
     const rebRecientes = [...pedidosRebobinado].sort((a, b) => (b.created || "").localeCompare(a.created || "")).slice(0, 10);
 
+    // ── Clichés (vida útil) ──
+    // Promedio de duración solo sobre los CERRADOS -- un cliché activo
+    // todavía no terminó su vida útil, incluirlo subestimaría cuánto dura.
+    const clichesCerrados = cliches.filter(c => c.estado === 'cerrado');
+    const clichesActivos = cliches.filter(c => c.estado === 'activo')
+      .sort((a, b) => Number(b.cajas_acumuladas || 0) - Number(a.cajas_acumuladas || 0));
+    const promCajasPorCliche = clichesCerrados.length
+      ? Math.round(clichesCerrados.reduce((s, c) => s + Number(c.cajas_acumuladas || 0), 0) / clichesCerrados.length)
+      : null;
+    const promPedidosPorCliche = clichesCerrados.length
+      ? (clichesCerrados.reduce((s, c) => s + Number(c.pedidos_acumulados || 0), 0) / clichesCerrados.length).toFixed(1)
+      : null;
+    const clichesTopDuracion = [...clichesCerrados].sort((a, b) => Number(b.cajas_acumuladas || 0) - Number(a.cajas_acumuladas || 0)).slice(0, 10);
+
     return {
       pedidos, activos, fallasAbiertas, valorInventario, cajasTotal, vencidos, stockBajoDash,
       cajasHoy, metaHoyCumplida, mesActual, mesPrev, cajasTerminadasMes, gastoRefMes, diasDelMes, diasConMeta, pctMeta,
@@ -266,8 +282,9 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
       mermaPctMes, mermaPctPrev, valorMes, valorPrev, valorSerie, mermaSerie, tintaMes, alcoholMes, rollosMes,
       tintaPorColor, tipoCintaStats, rebPendientes, rebPiezasTotal, rebCajasTotal, rebMermaPctProm,
       rebPorMaterial, rebPorAdhesivo, rebRecientes,
+      clichesActivos, clichesCerrados, promCajasPorCliche, promPedidosPorCliche, clichesTopDuracion,
     };
-  }, [pedidosProp, fallas, refacciones, proveedores, prodDiaria]);
+  }, [pedidosProp, fallas, refacciones, proveedores, prodDiaria, cliches]);
 
   const generarPDF = async () => {
     const { default: jsPDF } = await import('jspdf');
@@ -1035,6 +1052,62 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
                 {p.merma_pct != null && p.merma_pct !== "" && (
                   <div className="muted">Merma: <span style={{ color: Number(p.merma_pct) > META_MERMA_PCT ? "var(--red)" : "var(--green)", fontWeight: 600 }}>{p.merma_pct}%</span></div>
                 )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      </>}
+
+      {seccion === 'cliches' && <>
+      <div className="stat-grid" style={{ marginBottom: 20 }}>
+        <div className="stat-card accent"><div className="stat-val">{promCajasPorCliche != null ? promCajasPorCliche.toLocaleString() : "—"}</div><div className="stat-lbl">Promedio cajas / cliché</div></div>
+        <div className="stat-card blue"><div className="stat-val">{promPedidosPorCliche ?? "—"}</div><div className="stat-lbl">Promedio pedidos / cliché</div></div>
+        <div className="stat-card green"><div className="stat-val">{clichesActivos.length}</div><div className="stat-lbl">Clichés activos</div></div>
+        <div className="stat-card"><div className="stat-val">{clichesCerrados.length}</div><div className="stat-lbl">Clichés cerrados (histórico)</div></div>
+      </div>
+
+      <SubTitle icon={IcoStamp}>Clichés activos — uso acumulado</SubTitle>
+      <div style={chartCard}>
+        {clichesActivos.length === 0
+          ? <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: '12px 0' }}>Sin datos aún — se llena al marcar "Nuevo"/"Usado" en Modo Operador</div>
+          : <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    {['Cliente','Medida','Color','Cajas','Pedidos','Desde'].map(h => (
+                      <th key={h} style={{ padding: '6px 10px', color: 'var(--muted)', fontWeight: 600, textAlign: (h === 'Cliente' || h === 'Medida' || h === 'Color') ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {clichesActivos.map((c, i) => (
+                    <tr key={c.id} style={{ borderBottom: '1px solid var(--surface)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                      <td style={{ padding: '8px 10px', color: 'var(--text)', fontWeight: 600 }}>{c.cliente}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--muted)' }}>{c.medida}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--muted)' }}>{c.color || '—'}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--accent)', textAlign: 'right', fontWeight: 700 }}>{Math.round(Number(c.cajas_acumuladas || 0)).toLocaleString()}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--muted)', textAlign: 'right' }}>{c.pedidos_acumulados}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--muted)', textAlign: 'right', whiteSpace: 'nowrap' }}>{c.fecha_alta}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+        }
+      </div>
+
+      {clichesTopDuracion.length > 0 && (
+        <>
+          <SubTitle icon={IcoTrophy}>Ranking de duración — clichés cerrados</SubTitle>
+          <div className="list" style={{ marginBottom: 20 }}>
+            {clichesTopDuracion.map(c => (
+              <div key={c.id} className="list-item" style={{ borderLeft: `3px solid var(--accent)` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div><strong>{c.cliente}</strong> — {c.medida}{c.color ? ` · ${c.color}` : ''}</div>
+                  <span className="badge b-green">{Math.round(Number(c.cajas_acumuladas || 0)).toLocaleString()} cajas</span>
+                </div>
+                <div className="muted">{c.pedidos_acumulados} pedidos · {c.fecha_alta} → {c.fecha_baja}</div>
               </div>
             ))}
           </div>

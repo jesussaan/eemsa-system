@@ -124,6 +124,7 @@ function EemsaApp() {
   const [proveedores, setProveedores] = useState([]);
   const [prodDiaria, setProdDiaria] = useState([]);
   const [listaMateriales, setListaMateriales] = useState([]);
+  const [cliches, setCliches] = useState([]);
   const [errorCarga, setErrorCarga] = useState(null);
   // Se recuerda en localStorage -- si el celular/tablet mata la app en
   // segundo plano (o la recarga por una actualizacion), regresa directo al
@@ -173,6 +174,7 @@ function EemsaApp() {
       proveedores:      (d) => setProveedores(d),
       prod_diaria:      (d) => setProdDiaria(d),
       lista_materiales: (d) => setListaMateriales(d),
+      cliches:          (d) => setCliches(d),
     };
     const fallidas = [];
     await Promise.all(tablas.map(async t => {
@@ -186,7 +188,7 @@ function EemsaApp() {
   // Se pide de una vez, en paralelo con el login -- asi no hay espera extra
   // despues de iniciar sesion (las tablas ya tienen lectura anon abierta).
   useEffect(() => {
-    cargarTablas(["pedidos", "fallas", "refacciones", "proveedores", "prod_diaria", "lista_materiales"]);
+    cargarTablas(["pedidos", "fallas", "refacciones", "proveedores", "prod_diaria", "lista_materiales", "cliches"]);
   }, []);
 
   // Realtime: actualiza el estado local cuando otro usuario cambia datos en Supabase
@@ -198,6 +200,7 @@ function EemsaApp() {
       proveedores:      { set: setProveedores },
       prod_diaria:      { set: setProdDiaria },
       lista_materiales: { set: setListaMateriales },
+      cliches:          { set: setCliches },
     };
     const canales = Object.entries(setters).map(([tabla, { set }]) =>
       supabase.channel(`rt_${tabla}`)
@@ -301,6 +304,7 @@ function EemsaApp() {
       <ModoOperador
         pedidos={pedidos} setPedidos={setPedidos}
         fallas={fallas} setFallas={setFallas}
+        cliches={cliches}
         onSalir={() => setModo(null)}
       />
     </Suspense>
@@ -362,7 +366,7 @@ function EemsaApp() {
       )}
       <main className="main">
         <Suspense fallback={<PantallaCargando />}>
-          {tab === "dash" && <Dashboard pedidos={pedidos} fallas={fallas} refacciones={refs} proveedores={proveedores} prodDiaria={prodDiaria} />}
+          {tab === "dash" && <Dashboard pedidos={pedidos} fallas={fallas} refacciones={refs} proveedores={proveedores} prodDiaria={prodDiaria} cliches={cliches} />}
           {tab === "ped"  && <Pedidos pedidos={pedidos} setPedidos={setPedidos} />}
           {tab === "cal"  && <CalendarioEntregas pedidos={pedidos} setPedidos={setPedidos} />}
           {tab === "prod" && <Produccion prodDiaria={prodDiaria} setProdDiaria={setProdDiaria} pedidos={pedidos} />}

@@ -3,7 +3,7 @@ import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_MP_ROLLO_PRECIO } from '../lib/constan
 import { calcularProduccion, MP_ANCHO, MP_LARGO, PORTALICHES, DISENOS, rollosPorCaja, anchoDePedido, largoDePedido } from '../lib/produccion';
 import { horasEfectivas, JORNADA_HORAS } from '../lib/horario';
 
-export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial, onConfirmar, inline, sugerido }) {
+export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial, onConfirmar, inline, sugerido, clicheActivoInfo }) {
   // Ancho/largo se sacan de Medida cuando el pedido no los trae aparte (ej.
   // pedidos anotados desde Ventas, que solo guardan Medida) -- antes se
   // usaba pedidoInicial.ancho/largo crudos y se caia en el default fijo
@@ -19,6 +19,10 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const [portaliche, setPortaliche] = useState(String(sugerido?.portaliche || '30.9'));
   const [diseno,     setDiseno]     = useState(sugerido?.diseno || 'normal');
   const [clicheNA,   setClicheNA]   = useState(false);
+  // Nuevo/Usado: para trackear cuantas cajas/pedidos aguanta un mismo
+  // cliche fisico (ver api/cliches.js) -- null hasta que el operador lo
+  // toca a proposito, igual que portaliche/diseno (naranja -> verde).
+  const [clicheEstado, setClicheEstado] = useState(null); // null | 'nuevo' | 'usado'
   // Portacliche/diseno siempre traen un valor (sugerido o default) -- para
   // que la marca de color sirva de algo, se cuenta como "pendiente" hasta
   // que el operador de verdad los toca (los revisa/confirma), no solo
@@ -175,6 +179,27 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
               {DISENOS.map(d => <option key={d.key} value={d.key}>{d.label} ({Math.round(d.cob * 100)}%)</option>)}
             </select>
             <AvisoSugerido visible={disenoIgualSugerido} />
+          </div>
+        )}
+
+        {!clicheNA && (
+          <div className="field full">
+            <label>Cliché</label>
+            <div className={clicheEstado ? 'campo-listo' : 'campo-pendiente'} style={{ display: 'flex', gap: 8, borderRadius: 8, padding: 4 }}>
+              <button type="button" onClick={() => setClicheEstado('nuevo')}
+                style={{ flex: 1, padding: '8px 0', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: 12, background: clicheEstado === 'nuevo' ? 'var(--green)' : 'transparent', color: clicheEstado === 'nuevo' ? '#0b0d11' : 'var(--text-2, #9aa0bc)' }}>
+                Nuevo
+              </button>
+              <button type="button" onClick={() => setClicheEstado('usado')}
+                style={{ flex: 1, padding: '8px 0', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: 12, background: clicheEstado === 'usado' ? 'var(--green)' : 'transparent', color: clicheEstado === 'usado' ? '#0b0d11' : 'var(--text-2, #9aa0bc)' }}>
+                Usado
+              </button>
+            </div>
+            {clicheActivoInfo && (
+              <div style={{ fontSize: 10, color: '#9aa0bc', marginTop: 4 }}>
+                Cliché activo detectado: {Math.round(Number(clicheActivoInfo.cajas_acumuladas || 0)).toLocaleString()} cajas en {clicheActivoInfo.pedidos_acumulados || 0} pedido{clicheActivoInfo.pedidos_acumulados === 1 ? '' : 's'} — si es el mismo, marca "Usado".
+              </div>
+            )}
           </div>
         )}
 
@@ -393,6 +418,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
                   portaliche:  clicheNA ? null : (Number(portaliche) || null),
                   diseno2:     (tieneColor2 && !clicheNA) ? diseno2 : null,
                   portaliche2: (tieneColor2 && !clicheNA) ? (Number(portaliche2) || null) : null,
+                  clicheEstado: clicheNA ? null : clicheEstado,
                 })}
               >
                 ✅ Confirmar y enviar a Emilio

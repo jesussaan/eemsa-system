@@ -15,7 +15,7 @@ const CAMPOS_ESTADO = [
   'status', 'fecha_inicio', 'fecha_termino', 'inicio_ts', 'fin_ts', 'orden',
   'piezas_prod', 'merma', 'merma_pct', 'rollos_usados', 'rollos_caja', 'tinta_kg', 'tinta_kg2',
   'alcohol_litros', 'stickyback', 'foto_producto_url', 'costo_pieza', 'notas',
-  'diseno', 'portaliche', 'diseno2', 'portaliche2',
+  'diseno', 'portaliche', 'diseno2', 'portaliche2', 'cliche_id',
 ];
 
 // Campos permitidos al crear un pedido -- cubre las 3 formas de crear uno

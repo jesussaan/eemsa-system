@@ -15,7 +15,7 @@ import NotifBell from './NotifBell';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
-export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, onSalir }) {
+export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, cliches, onSalir }) {
   const [ahora, setAhora] = useState(new Date());
   useEffect(() => {
     const t = setInterval(() => setAhora(new Date()), 1000);
@@ -66,6 +66,15 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
       .sort((a, b) => (b.fin_ts || b.fecha_termino || "").localeCompare(a.fin_ts || a.fecha_termino || ""))[0];
     if (!anterior) return null;
     return { diseno: anterior.diseno, portaliche: anterior.portaliche, diseno2: anterior.diseno2, portaliche2: anterior.portaliche2 };
+  };
+
+  // Cliche activo (con cajas/pedidos acumulados, ver api/cliches.js) para
+  // este cliente+medida+color -- mismo criterio de match que sugeridoCliche,
+  // solo informativo (el servidor vuelve a buscarlo al confirmar).
+  const clicheActivo = (pedido) => {
+    if (!pedido || !cliches) return null;
+    return cliches.find(c => c.estado === 'activo' && c.cliente === pedido.cliente
+      && c.medida === pedido.medida && (c.color || null) === (pedido.color || null)) || null;
   };
 
   const seleccionarPedido = (p) => {
@@ -150,15 +159,13 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
     const diasProd     = pedidoSel.inicio_ts
       ? Math.max(0.5, horasEfectivas(new Date(pedidoSel.inicio_ts), new Date()) / JORNADA_HORAS)
       : 1;
+    // Cajas reales producidas (piezas ÷ rollos por caja), no pedidoSel.cajas
+    // -- ese numero es lo que Ventas anoto al crear el pedido. Se usa tanto
+    // para el costo por pieza como para acumular en el cliche (api/cliches.js).
+    const rollosCajaFinal = Number(fin.rollos_caja || pedidoSel.rollos_caja || 0);
+    const cajasReales = rollosCajaFinal > 0 && piezas ? piezas / rollosCajaFinal : Number(pedidoSel.cajas || 0);
     if (piezas != null && piezas > 0) {
       try {
-        // Costo de cajas de cartón: se calcula de lo REALMENTE producido
-        // (piezas ÷ rollos por caja), no de pedidoSel.cajas -- ese numero es
-        // lo que Ventas anoto al crear el pedido, y si ahi hubo un error de
-        // captura, el costo por pieza salia mal aunque la produccion real
-        // ya estuviera bien capturada aqui.
-        const rollosCajaFinal = Number(fin.rollos_caja || pedidoSel.rollos_caja || 0);
-        const cajasReales = rollosCajaFinal > 0 ? piezas / rollosCajaFinal : Number(pedidoSel.cajas || 0);
         const costoRes = await fetch('/api/costos?action=calcular', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -185,6 +192,25 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
       const { data: up } = await subirConUrlFirmada(supabase, "cliches", path, fotoProducto, authHeaders());
       if (up) update.foto_producto_url = up.path;
     }
+
+    // Cliche marcado Nuevo/Usado (ver toggle en CalculadoraProduccion.js) --
+    // se registra en la tabla cliches para acumular cajas/pedidos y saber
+    // cuanto dura. Si no se toco el toggle o no aplica (clicheNA), se deja
+    // sin trackear -- no es obligatorio, igual que portacliche/diseno.
+    if (fin.clicheEstado) {
+      try {
+        const clicheRes = await fetch('/api/cliches', {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({
+            cliente: pedidoSel.cliente, medida: pedidoSel.medida, color: pedidoSel.color || null,
+            diseno: fin.diseno, portaliche: fin.portaliche,
+            cajas: cajasReales, estado: fin.clicheEstado,
+          }),
+        });
+        if (clicheRes.ok) { const { cliche_id } = await clicheRes.json(); if (cliche_id) update.cliche_id = cliche_id; }
+      } catch (_) {}
+    }
+
     update.fin_ts = new Date().toISOString();
     const res = await actualizarEstadoPedido(pedidoSel.id, update);
     if (!res.ok) { showToast("❌ Error al finalizar pedido"); setLoading(false); return; }
@@ -555,6 +581,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                   pedidoInicial={pedidoSel}
                   inline
                   sugerido={sugeridoCliche(pedidoSel)}
+                  clicheActivoInfo={clicheActivo(pedidoSel)}
                   onConfirmar={(res) => finalizarPedido({
                     piezas_prod:    res.piezasProd  != null ? String(res.piezasProd)  : "",
                     rollos_caja:    res.rollosCaja   || "",
@@ -573,6 +600,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, o
                     portaliche:     res.portaliche,
                     diseno2:        res.diseno2,
                     portaliche2:    res.portaliche2,
+                    clicheEstado:   res.clicheEstado,
                   })}
                 />
             }
