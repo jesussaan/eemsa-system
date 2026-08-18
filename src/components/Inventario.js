@@ -40,6 +40,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   const [busquedaTarimas, setBusquedaTarimas] = useState("");
   const [verAgotadas, setVerAgotadas] = useState(false);
   const [verQrTarimaId, setVerQrTarimaId] = useState(null);
+  const [tarimaEscaneadaId, setTarimaEscaneadaId] = useState(null);
   const [salidaTarimaId, setSalidaTarimaId] = useState(null);
   const [cantidadSalida, setCantidadSalida] = useState("");
   const [motivoSalida, setMotivoSalida] = useState("");
@@ -67,7 +68,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   // una pistola lectora (que solo "teclea" y da Enter) funcione sin que
   // nadie tenga que tocar la pantalla primero.
   useEffect(() => {
-    if (subTab === "stock") codigoRef.current?.focus();
+    if (subTab === "stock" || subTab === "tarimas") codigoRef.current?.focus();
   }, [subTab]);
 
   const crearMaterial = async () => {
@@ -163,9 +164,15 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
     const mat = materialDe(t.material_id);
     setSubTab("tarimas");
     setVerQrTarimaId(null);
-    setSalidaTarimaId(t.id); setCantidadSalida(""); setMotivoSalida("");
+    setSalidaTarimaId(null); setCantidadSalida(""); setMotivoSalida("");
+    setTarimaEscaneadaId(t.id);
     showToast(`📦 ${mat?.nombre || "Tarima"}${t.lote ? ` · ${t.lote}` : ""}`);
   };
+  // Se busca en `tarimas` (no se guarda una copia) para que el numero
+  // siempre sea el mas reciente -- si mientras tienes la tarjeta abierta
+  // se descuenta sola por una corrida de produccion (Realtime), se actualiza
+  // aqui mismo sin que nadie tenga que volver a escanear.
+  const tarimaEscaneada = tarimaEscaneadaId ? tarimas.find(t => t.id === tarimaEscaneadaId) : null;
 
   const totalValor = materiales.reduce((s, m) => s + (Number(m.costo_unitario || 0) * Number(m.stock || 0)), 0);
   const stockBajo = materiales.filter(m => Number(m.stock_min || 0) > 0 && Number(m.stock || 0) <= Number(m.stock_min)).length;
@@ -328,6 +335,50 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
       {subTab === "tarimas" && (
         <div>
           <h3 className="sub-title">Tarimas</h3>
+
+          <div className="field full" style={{ marginBottom: 14 }}>
+            <label><Ico icon={IcoScan} /> Escanear tarima (pistola o cámara) — para contar rápido</label>
+            <input ref={codigoRef} value={codigo} onChange={e => setCodigo(e.target.value)} onKeyDown={buscarPorCodigo}
+              placeholder="Escanea el QR de la tarima (o pégalo aquí) y presiona Enter" style={inputStyle} />
+          </div>
+
+          {tarimaEscaneada && (() => {
+            const mat = materialDe(tarimaEscaneada.material_id);
+            return (
+              <div style={{ background: "#0d0f14", border: "1.5px solid var(--tan, #c9a06a)", borderRadius: 12, padding: 16, marginBottom: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: "#c9a06a", fontWeight: 700, letterSpacing: ".05em" }}>📷 TARIMA ESCANEADA</div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: "#e0e0e0", marginTop: 2 }}>{mat?.nombre || "Material eliminado"}</div>
+                    {(tarimaEscaneada.lote || tarimaEscaneada.proveedor) && (
+                      <div className="muted">{[tarimaEscaneada.lote, tarimaEscaneada.proveedor].filter(Boolean).join(" · ")}</div>
+                    )}
+                  </div>
+                  <button className="btn btn-ghost btn-sm" onClick={() => { setTarimaEscaneadaId(null); setSalidaTarimaId(null); }}>✕</button>
+                </div>
+                <div style={{ textAlign: "center", margin: "14px 0" }}>
+                  <div style={{ fontSize: 44, fontWeight: 900, color: tarimaEscaneada.activa ? "#4be87a" : "#ff4d4d", lineHeight: 1 }}>{fmt(tarimaEscaneada.cantidad_actual)}</div>
+                  <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>{mat?.unidad || ""} en vivo — de {fmt(tarimaEscaneada.cantidad_inicial)} recibidos{!tarimaEscaneada.activa ? " · AGOTADA" : ""}</div>
+                </div>
+                {tarimaEscaneada.activa && salidaTarimaId !== tarimaEscaneada.id && (
+                  <button className="btn btn-primary btn-block btn-sm" onClick={() => { setSalidaTarimaId(tarimaEscaneada.id); setCantidadSalida(""); setMotivoSalida(""); }}>− Registrar salida</button>
+                )}
+                {salidaTarimaId === tarimaEscaneada.id && (
+                  <div style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center", flexWrap: "wrap" }}>
+                    <input type="number" value={cantidadSalida} onChange={e => setCantidadSalida(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") registrarSalidaTarima(tarimaEscaneada); if (e.key === "Escape") setSalidaTarimaId(null); }}
+                      placeholder={`Cantidad (máx ${fmt(tarimaEscaneada.cantidad_actual)})`} autoFocus style={{ width: 160, background: "#1a1d26", border: "1px solid #ff9900", borderRadius: 6, padding: "5px 8px", color: "#e0e0e0", fontSize: 13 }} />
+                    <input value={motivoSalida} onChange={e => setMotivoSalida(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") registrarSalidaTarima(tarimaEscaneada); if (e.key === "Escape") setSalidaTarimaId(null); }}
+                      placeholder="Motivo (opcional)" style={{ flex: 1, minWidth: 140, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 6, padding: "5px 8px", color: "#e0e0e0", fontSize: 13 }} />
+                    <button className="btn btn-primary btn-sm" onClick={() => registrarSalidaTarima(tarimaEscaneada)} disabled={guardandoSalidaId === tarimaEscaneada.id}>{guardandoSalidaId === tarimaEscaneada.id ? "Guardando…" : "✓ Registrar"}</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setSalidaTarimaId(null)}>✕</button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
             <input value={busquedaTarimas} onChange={e => setBusquedaTarimas(e.target.value)} placeholder="🔍 Buscar material, lote, proveedor…" style={{ ...inputStyle, flex: 1, minWidth: 200 }} />
             <button className={`btn btn-sm ${verAgotadas ? "btn-primary" : "btn-ghost"}`} onClick={() => setVerAgotadas(v => !v)}>{verAgotadas ? "✓ Viendo agotadas" : "Ver agotadas"}</button>
