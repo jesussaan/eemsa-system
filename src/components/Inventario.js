@@ -3,7 +3,7 @@ import { authHeaders } from '../lib/auth';
 import { fmt } from '../lib/utils';
 import { confirmar } from '../lib/confirm';
 import { QRCodeSVG } from 'qrcode.react';
-import { TIPOS } from '../lib/constants';
+import { TIPOS, ROLLOS_POR_CAJA_MP, CENTROS_POR_CAJA, LITROS_POR_TAMBO_SOLVENTE } from '../lib/constants';
 import { proyectarConsumoPendientes } from '../lib/produccion';
 import { sendWhatsApp } from '../utils/whatsapp';
 import { IcoPlus, IcoScan } from './Icons';
@@ -18,8 +18,23 @@ const CATEGORIAS = [
   { key: "rollo_mp", label: "Rollo MP (por tipo de cinta)" },
   { key: "tinta",    label: "Tinta (por color)" },
   { key: "solvente", label: "Solvente/Alcohol" },
+  { key: "centro",   label: "Centros (por ancho)" },
 ];
 const CATEGORIA_LBL = Object.fromEntries(CATEGORIAS.map(c => [c.key, c.label]));
+const ANCHOS_CENTRO = Object.keys(CENTROS_POR_CAJA); // ['2','3']
+
+// Como llega fisicamente cada categoria -- no todo es "tarima" (pallet):
+// Rollo MP si llega en tarima, Centros llegan en cajas sueltas (sin tarima),
+// Solvente en tambo, Tinta por cubeta. `ratio` deja capturar "cuantos
+// contenedores llegaron" en vez de hacer la cuenta de cabeza cada vez.
+const CONTENEDOR_INFO = {
+  rollo_mp: { label: "Tarima", icon: "🧱", ratioNombre: "Cajas", ratio: () => ROLLOS_POR_CAJA_MP, ratioTexto: () => `${ROLLOS_POR_CAJA_MP} rollos/caja` },
+  centro:   { label: "Caja",   icon: "📦", ratioNombre: "Cajas", ratio: (mv) => CENTROS_POR_CAJA[mv] || 0, ratioTexto: (mv) => `${CENTROS_POR_CAJA[mv] || "?"} piezas/caja` },
+  solvente: { label: "Tambo",  icon: "🛢️", ratioNombre: "Tambos", ratio: () => LITROS_POR_TAMBO_SOLVENTE, ratioTexto: () => `${LITROS_POR_TAMBO_SOLVENTE} L/tambo` },
+  tinta:    { label: "Cubeta", icon: "🪣", ratioNombre: null, ratio: null, ratioTexto: null },
+  otro:     { label: "Lote",   icon: "🏷️", ratioNombre: null, ratio: null, ratioTexto: null },
+};
+const contenedorDe = (m) => CONTENEDOR_INFO[m?.categoria] || CONTENEDOR_INFO.otro;
 
 export default function Inventario({ materiales, setMateriales, tarimas = [], setTarimas, pedidos = [], onSalir }) {
   const [subTab, setSubTab] = useState("stock");
@@ -30,6 +45,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   const [codigo, setCodigo] = useState("");
   const [entradaId, setEntradaId] = useState(null);
   const [cantidadEntrada, setCantidadEntrada] = useState("");
+  const [contenedoresEntrada, setContenedoresEntrada] = useState(""); // cajas/tambos recibidos -- auto-llena cantidadEntrada
   const [loteEntrada, setLoteEntrada] = useState("");
   const [proveedorEntrada, setProveedorEntrada] = useState("");
   const [guardandoId, setGuardandoId] = useState(null);
@@ -144,8 +160,8 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
       if (movimientosCargados) {
         setMovimientos(mv => [{ id: `local-${Date.now()}`, created: new Date().toISOString(), material_id: m.id, material_nombre: m.nombre, tipo: 'entrada', cantidad: cant, origen: 'manual', tarima_id: data.tarima?.id, motivo: [proveedorEntrada, loteEntrada].filter(Boolean).join(' · ') }, ...mv]);
       }
-      showToast(`✓ Tarima registrada: ${data.stock} ${m.unidad} en stock`);
-      setEntradaId(null); setCantidadEntrada(""); setLoteEntrada(""); setProveedorEntrada("");
+      showToast(`✓ ${contenedorDe(m).label} registrada: ${data.stock} ${m.unidad} en stock`);
+      setEntradaId(null); setCantidadEntrada(""); setContenedoresEntrada(""); setLoteEntrada(""); setProveedorEntrada("");
       setTarimaRecienCreada(data.tarima ? { ...data.tarima, material_nombre: m.nombre } : null);
     } catch (e) { showToast("❌ Error: " + e.message); }
     setGuardandoId(null);
@@ -285,9 +301,19 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
             {form.categoria === "tinta" && (
               <div className="field"><label>Color de tinta</label><input value={form.match_valor} onChange={e => upd("match_valor", e.target.value)} placeholder="Ej: Roja UV, Azul PMS…" /></div>
             )}
-            {(form.categoria === "rollo_mp" || form.categoria === "tinta") && (
+            {form.categoria === "centro" && (
+              <div className="field"><label>Ancho</label>
+                <select value={form.match_valor} onChange={e => upd("match_valor", e.target.value)}>
+                  <option value="">— Selecciona —</option>
+                  {ANCHOS_CENTRO.map(a => <option key={a} value={a}>{a}" ({CENTROS_POR_CAJA[a]} piezas/caja)</option>)}
+                </select>
+              </div>
+            )}
+            {(form.categoria === "rollo_mp" || form.categoria === "tinta" || form.categoria === "centro") && (
               <div className="field full" style={{ fontSize: 11, color: "#666", marginTop: -6 }}>
-                Al finalizar un pedido de este {form.categoria === "rollo_mp" ? "tipo de cinta" : "color"} en Modo Operador, el stock se descuenta solo (FIFO, de la tarima más vieja).
+                {form.categoria === "centro"
+                  ? "Se descuenta 1 pieza por cada pieza producida en pedidos de ese ancho, al finalizar en Modo Operador."
+                  : `Al finalizar un pedido de este ${form.categoria === "rollo_mp" ? "tipo de cinta" : "color"} en Modo Operador, el stock se descuenta solo (FIFO, del lote más viejo).`}
               </div>
             )}
             <div className="field full"><label>Notas</label><textarea value={form.notas} onChange={e => upd("notas", e.target.value)} placeholder="Proveedor habitual, observaciones…" /></div>
@@ -313,35 +339,49 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                         )}
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button className="btn btn-ghost btn-sm" title="Registrar entrada (nueva tarima)" style={{ color: "#4be87a" }} onClick={() => { setEntradaId(entradaId === m.id ? null : m.id); setCantidadEntrada(""); setLoteEntrada(""); setProveedorEntrada(""); setTarimaRecienCreada(null); }} disabled={guardandoId === m.id}>
+                        <button className="btn btn-ghost btn-sm" title="Registrar entrada" style={{ color: "#4be87a" }} onClick={() => { setEntradaId(entradaId === m.id ? null : m.id); setCantidadEntrada(""); setContenedoresEntrada(""); setLoteEntrada(""); setProveedorEntrada(""); setTarimaRecienCreada(null); }} disabled={guardandoId === m.id}>
                           <Ico icon={IcoPlus} size={12} /> Entrada
                         </button>
                         <button className="btn btn-danger btn-sm" onClick={() => eliminarMaterial(m)}>✕</button>
                       </div>
                     </div>
 
-                    {entradaId === m.id && (
-                      <div style={{ marginTop: 8 }}>
-                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                          <input type="number" value={cantidadEntrada} onChange={e => setCantidadEntrada(e.target.value)}
-                            onKeyDown={e => { if (e.key === "Enter") registrarEntrada(m); if (e.key === "Escape") setEntradaId(null); }}
-                            placeholder={`Cantidad (${m.unidad})`} autoFocus style={{ width: 140, background: "#1a1d26", border: "1px solid #4be87a", borderRadius: 6, padding: "5px 8px", color: "#e0e0e0", fontSize: 13 }} />
-                          <input value={loteEntrada} onChange={e => setLoteEntrada(e.target.value)}
-                            onKeyDown={e => { if (e.key === "Enter") registrarEntrada(m); if (e.key === "Escape") setEntradaId(null); }}
-                            placeholder="Lote (opcional)" style={{ width: 140, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 6, padding: "5px 8px", color: "#e0e0e0", fontSize: 13 }} />
-                          <input value={proveedorEntrada} onChange={e => setProveedorEntrada(e.target.value)}
-                            onKeyDown={e => { if (e.key === "Enter") registrarEntrada(m); if (e.key === "Escape") setEntradaId(null); }}
-                            placeholder="Proveedor (opcional)" style={{ flex: 1, minWidth: 140, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 6, padding: "5px 8px", color: "#e0e0e0", fontSize: 13 }} />
-                          <button className="btn btn-primary btn-sm" onClick={() => registrarEntrada(m)} disabled={guardandoId === m.id}>{guardandoId === m.id ? "Guardando…" : "✓ Registrar tarima"}</button>
-                          <button className="btn btn-ghost btn-sm" onClick={() => setEntradaId(null)}>✕</button>
+                    {entradaId === m.id && (() => {
+                      const cont = contenedorDe(m);
+                      const ratioVal = cont.ratio ? cont.ratio(m.match_valor) : 0;
+                      return (
+                        <div style={{ marginTop: 8 }}>
+                          {ratioVal > 0 && (
+                            <div style={{ marginBottom: 6 }}>
+                              <input type="number" value={contenedoresEntrada}
+                                onChange={e => { const v = e.target.value; setContenedoresEntrada(v); setCantidadEntrada(v !== "" ? String(Number(v) * ratioVal) : ""); }}
+                                onKeyDown={e => { if (e.key === "Escape") setEntradaId(null); }}
+                                placeholder={`${cont.ratioNombre} recibidas`} autoFocus
+                                style={{ width: 160, background: "#1a1d26", border: "1px solid #4be87a", borderRadius: 6, padding: "5px 8px", color: "#e0e0e0", fontSize: 13 }} />
+                              <span style={{ fontSize: 11, color: "#666", marginLeft: 8 }}>× {cont.ratioTexto(m.match_valor)}{cantidadEntrada !== "" ? ` = ${fmt(cantidadEntrada)} ${m.unidad}` : ""}</span>
+                            </div>
+                          )}
+                          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                            <input type="number" value={cantidadEntrada} onChange={e => setCantidadEntrada(e.target.value)}
+                              onKeyDown={e => { if (e.key === "Enter") registrarEntrada(m); if (e.key === "Escape") setEntradaId(null); }}
+                              placeholder={`Cantidad (${m.unidad})`} autoFocus={!ratioVal} style={{ width: 140, background: "#1a1d26", border: "1px solid #4be87a", borderRadius: 6, padding: "5px 8px", color: "#e0e0e0", fontSize: 13 }} />
+                            <input value={loteEntrada} onChange={e => setLoteEntrada(e.target.value)}
+                              onKeyDown={e => { if (e.key === "Enter") registrarEntrada(m); if (e.key === "Escape") setEntradaId(null); }}
+                              placeholder="Lote (opcional)" style={{ width: 140, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 6, padding: "5px 8px", color: "#e0e0e0", fontSize: 13 }} />
+                            <input value={proveedorEntrada} onChange={e => setProveedorEntrada(e.target.value)}
+                              onKeyDown={e => { if (e.key === "Enter") registrarEntrada(m); if (e.key === "Escape") setEntradaId(null); }}
+                              placeholder="Proveedor (opcional)" style={{ flex: 1, minWidth: 140, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 6, padding: "5px 8px", color: "#e0e0e0", fontSize: 13 }} />
+                            <button className="btn btn-primary btn-sm" onClick={() => registrarEntrada(m)} disabled={guardandoId === m.id}>{guardandoId === m.id ? "Guardando…" : `✓ Registrar ${cont.label.toLowerCase()}`}</button>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setEntradaId(null)}>✕</button>
+                          </div>
+                          <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>Cada entrada crea {cont.label === "Tarima" ? "una tarima nueva" : `un lote nuevo (${cont.label.toLowerCase()})`} con su propio código QR — imprímelo y pégalo.</div>
                         </div>
-                        <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>Cada entrada crea una tarima nueva con su propio código QR — imprímelo y pégalo en el pallet.</div>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {tarimaRecienCreada && tarimaRecienCreada.material_id === m.id && (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: 10, padding: 12, background: "#0d0f14", borderRadius: 10, border: "1px solid #4be87a" }}>
-                        <span style={{ fontSize: 12, color: "#4be87a", fontWeight: 700 }}>✓ Tarima creada — imprime este QR</span>
+                        <span style={{ fontSize: 12, color: "#4be87a", fontWeight: 700 }}>✓ {contenedorDe(m).icon} {contenedorDe(m).label} creada — imprime este QR</span>
                         <div id={`qr-nueva-${tarimaRecienCreada.id}`}><QRCodeSVG value={tarimaRecienCreada.id} size={110} bgColor="#0d0f14" fgColor="#e0e0e0" /></div>
                         <span style={{ fontSize: 11, color: "#666", wordBreak: "break-all", textAlign: "center" }}>{tarimaRecienCreada.id}</span>
                         {tarimaRecienCreada.lote && <span className="muted" style={{ fontSize: 11 }}>Lote: {tarimaRecienCreada.lote}</span>}
@@ -374,11 +414,12 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
 
           {tarimaEscaneada && (() => {
             const mat = materialDe(tarimaEscaneada.material_id);
+            const cont = contenedorDe(mat);
             return (
               <div style={{ background: "#0d0f14", border: "1.5px solid var(--tan, #c9a06a)", borderRadius: 12, padding: 16, marginBottom: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
-                    <div style={{ fontSize: 11, color: "#c9a06a", fontWeight: 700, letterSpacing: ".05em" }}>📷 TARIMA ESCANEADA</div>
+                    <div style={{ fontSize: 11, color: "#c9a06a", fontWeight: 700, letterSpacing: ".05em" }}>📷 {cont.icon} {cont.label.toUpperCase()} ESCANEADA</div>
                     <div style={{ fontSize: 17, fontWeight: 800, color: "#e0e0e0", marginTop: 2 }}>{mat?.nombre || "Material eliminado"}</div>
                     {(tarimaEscaneada.lote || tarimaEscaneada.proveedor) && (
                       <div className="muted">{[tarimaEscaneada.lote, tarimaEscaneada.proveedor].filter(Boolean).join(" · ")}</div>
@@ -417,11 +458,13 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
             <div className="list">
               {tarimasFiltradas.map(t => {
                 const mat = materialDe(t.material_id);
+                const cont = contenedorDe(mat);
                 const esFifoSiguiente = t.activa && primeraFifoPorMaterial[t.material_id] === t.id;
                 return (
                   <div key={t.id} className="list-item" style={{ borderLeft: !t.activa ? "3px solid #3a3f5a" : esFifoSiguiente ? "3px solid #4be87a" : undefined, opacity: t.activa ? 1 : 0.6 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
                       <div>
+                        <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".04em" }}>{cont.icon} {cont.label}</span><br />
                         <strong>{mat?.nombre || "Material eliminado"}</strong>
                         <span className={`badge ${t.activa ? "b-green" : "b-red"}`}>{fmt(t.cantidad_actual)} / {fmt(t.cantidad_inicial)} {mat?.unidad || ""}</span>
                         {!t.activa && <span className="badge b-red">AGOTADA</span>}
@@ -468,7 +511,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
       )}
 
       {subTab === "proyeccion" && (() => {
-        const { porTipo, porColor, solventeTotal } = proyectarConsumoPendientes(pedidos);
+        const { porTipo, porColor, porCentro, solventeTotal } = proyectarConsumoPendientes(pedidos);
         const materialPara = (categoria, valor) => {
           const v = (valor || "").trim().toLowerCase();
           if (!v) return null;
@@ -491,7 +534,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
             </tr>
           );
         };
-        const hayDatos = porTipo.length > 0 || porColor.length > 0 || solventeTotal > 0;
+        const hayDatos = porTipo.length > 0 || porColor.length > 0 || porCentro.length > 0 || solventeTotal > 0;
         return (
           <div>
             <h3 className="sub-title">Proyección de consumo — pedidos en cola</h3>
@@ -512,6 +555,9 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                     ))}
                     {porColor.map(r => (
                       <Fila key={`color-${r.color}`} etiqueta={`🎨 ${r.color}`} pedidosN={r.pedidos} proyectado={r.kg} unidad="kg" mat={materialPara("tinta", r.color)} estimado={r.estimado} />
+                    ))}
+                    {porCentro.map(r => (
+                      <Fila key={`centro-${r.ancho}`} etiqueta={`📦 Centros ${r.ancho}"`} pedidosN={r.pedidos} proyectado={r.piezas} unidad="pzas" mat={materialPara("centro", r.ancho)} estimado={false} />
                     ))}
                     {solventeTotal > 0 && (
                       <Fila etiqueta="💧 Solvente/Alcohol" pedidosN="—" proyectado={solventeTotal} unidad="kg" mat={materialSolvente} estimado={false} />

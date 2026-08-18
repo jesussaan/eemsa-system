@@ -240,6 +240,9 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
           pedido_num: pedidoSel.num, cliente: pedidoSel.cliente,
           tipo_cinta: pedidoSel.tipo, color: pedidoSel.color || pedidoSel.tinta_tipo || null, color2: pedidoSel.color2 || null,
           rollos: rollosNum, tinta_kg: tintaKgNum, tinta_kg2: tintaKg2Num, solvente_kg: solventeKgNum,
+          // Mismo criterio que tipoCentro en /api/costos: ancho de 3" cuenta
+          // aparte, cualquier otro ancho cae en la caja de centros de 2".
+          ancho: anchoDePedido(pedidoSel) === 3 ? '3' : '2', piezas,
         }),
       });
       if (consumoRes.ok) {

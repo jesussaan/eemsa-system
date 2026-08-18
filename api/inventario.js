@@ -47,7 +47,7 @@ export default async function handler(req, res) {
   return res.status(405).json({ error: 'Method not allowed' });
 }
 
-const CATEGORIAS = ['rollo_mp', 'tinta', 'solvente', 'otro'];
+const CATEGORIAS = ['rollo_mp', 'tinta', 'solvente', 'centro', 'otro'];
 
 async function crearMaterial(req, res) {
   const { nombre, unidad, stock, stock_min, costo_unitario, notas, categoria, match_valor } = req.body || {};
@@ -244,7 +244,7 @@ async function resolverOCrearMaterial(categoria, matchValor, nombreSugerido, uni
 // guardar el pedido, sin bloquear ese flujo si algo aqui falla. El descuento
 // real de cada material sale de sus tarimas por FIFO (ver descontarFIFO).
 async function consumoAutomatico(req, res, usuario) {
-  const { pedido_num, cliente, tipo_cinta, color, color2, rollos, tinta_kg, tinta_kg2, solvente_kg } = req.body || {};
+  const { pedido_num, cliente, tipo_cinta, color, color2, rollos, tinta_kg, tinta_kg2, solvente_kg, ancho, piezas } = req.body || {};
   const motivo = `Pedido #${pedido_num || '?'}${cliente ? ` — ${cliente}` : ''}`;
   const resultados = [];
 
@@ -265,6 +265,10 @@ async function consumoAutomatico(req, res, usuario) {
     if (tipo_cinta) await consumir('rollo_mp', tipo_cinta, rollos, `Rollo MP ${tipo_cinta}`, 'Rollo');
     if (color) await consumir('tinta', color, tinta_kg, `Tinta ${color}`, 'Kg');
     if (color2) await consumir('tinta', color2, tinta_kg2, `Tinta ${color2}`, 'Kg');
+    // Centro (core de carton): 1 por pieza producida, se ubica por ancho del
+    // pedido (2" o 3") -- no tiene tarima fisica pero si lote/FIFO en el
+    // sistema (ver resolverOCrearMaterial + descontarFIFO).
+    if (ancho) await consumir('centro', String(ancho), piezas, `Centros ${ancho}"`, 'Pieza');
     if (Number(solvente_kg) > 0) {
       // Un solo material de solvente para toda la planta -- se ubica por
       // categoria nada mas (no hay "color" que matchear), tomando el primero

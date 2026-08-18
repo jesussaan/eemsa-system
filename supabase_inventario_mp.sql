@@ -102,9 +102,21 @@ create policy "anon_select" on public.tarimas for select to anon using (true);
 alter table public.movimientos_inventario_mp add column if not exists tarima_id text references public.tarimas(id) on delete set null;
 create index if not exists movimientos_inv_tarima_idx on public.movimientos_inventario_mp (tarima_id);
 
+-- ---------------------------------------------------------------------
+-- 5) Categoria "centro" -- cores de carton para el tubo de la cinta. No
+-- llegan en tarima (llegan en cajas sueltas, organizadas por ancho), pero
+-- si se consumen solos: 1 core por pieza producida. match_valor = ancho del
+-- pedido ("2" o "3"), ver api/inventario.js accion=consumo-automatico.
+-- ---------------------------------------------------------------------
+alter table public.materiales drop constraint if exists materiales_categoria_check;
+alter table public.materiales add constraint materiales_categoria_check
+  check (categoria in ('rollo_mp','tinta','solvente','centro','otro'));
+
 -- =====================================================================
 -- ROLLBACK (si algo se rompe, corre esto para volver a como estaba)
 -- =====================================================================
+-- alter table public.materiales drop constraint if exists materiales_categoria_check;
+-- alter table public.materiales add constraint materiales_categoria_check check (categoria in ('rollo_mp','tinta','solvente','otro'));
 -- alter table public.movimientos_inventario_mp drop column if exists tarima_id;
 -- drop table if exists public.tarimas;
 -- alter table public.movimientos_inventario_mp drop column if exists pedido_num;

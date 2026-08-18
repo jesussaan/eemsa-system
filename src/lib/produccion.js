@@ -118,6 +118,7 @@ export function calcularProduccion({
 export function proyectarConsumoPendientes(pedidos) {
   const porTipo = {};   // tipo de cinta -> { rollos, pedidos, estimado }
   const porColor = {};  // color de tinta -> { kg, pedidos, estimado }
+  const porCentro = {}; // ancho ("2"/"3") -> { piezas, pedidos } -- 1 core por pieza
   let solventeTotal = 0;
 
   (pedidos || [])
@@ -131,7 +132,7 @@ export function proyectarConsumoPendientes(pedidos) {
       const rollosCaja = p.rollos_caja || rollosPorCaja(ancho, esEngomado);
       const estimado = !p.diseno || !p.portaliche;
 
-      const { rollosExacto, tintaKg, tintaKg2, solventeKg } = calcularProduccion({
+      const { rollosExacto, tintaKg, tintaKg2, solventeKg, piezasTotal } = calcularProduccion({
         ancho, largo, cajas, rollosCaja, merma: 0,
         portaliche: p.portaliche || 30.9, diseno: p.diseno || 'normal',
         portaliche2: p.portaliche2 || 30.9, diseno2: p.diseno2 || 'normal',
@@ -159,11 +160,19 @@ export function proyectarConsumoPendientes(pedidos) {
         porColor[color2].estimado = porColor[color2].estimado || estimado;
       }
       solventeTotal += solventeKg;
+
+      // Mismo criterio que tipoCentro en lib/costos.js / ModoOperador: 3"
+      // cuenta aparte, cualquier otro ancho cae en la caja de centros de 2".
+      const anchoCentro = ancho === 3 ? '3' : '2';
+      if (!porCentro[anchoCentro]) porCentro[anchoCentro] = { piezas: 0, pedidos: 0 };
+      porCentro[anchoCentro].piezas += piezasTotal;
+      porCentro[anchoCentro].pedidos += 1;
     });
 
   return {
     porTipo: Object.entries(porTipo).map(([tipo, d]) => ({ tipo, ...d })).sort((a, b) => b.rollos - a.rollos),
     porColor: Object.entries(porColor).map(([color, d]) => ({ color, ...d })).sort((a, b) => b.kg - a.kg),
+    porCentro: Object.entries(porCentro).map(([ancho, d]) => ({ ancho, ...d })).sort((a, b) => b.piezas - a.piezas),
     solventeTotal,
   };
 }
