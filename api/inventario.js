@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { requiereModo, requiereAlgunModo } from './_lib/auth.js';
+import { requiereAlgunModo } from './_lib/auth.js';
 import { uid, today } from '../src/lib/utils.js';
 
 const supabase = createClient(
@@ -7,9 +7,14 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
+// Inventario es su propio modulo (modo "inventario", ver App.js) -- pero
+// supervisor siempre pasa tambien (requiereAlgunModo ya lo deja entrar a
+// cualquier modo, ver api/_lib/auth.js), asi que no hace falta listarlo aqui.
+const MODOS_INVENTARIO = ['inventario'];
+
 export default async function handler(req, res) {
   if (req.query.accion === 'movimientos') {
-    const usuario = await requiereModo(req, 'supervisor');
+    const usuario = await requiereAlgunModo(req, MODOS_INVENTARIO);
     if (!usuario) return res.status(401).json({ error: 'No autorizado' });
     return listarMovimientos(req, res);
   }
@@ -24,18 +29,18 @@ export default async function handler(req, res) {
   }
 
   if (req.query.accion === 'movimiento' && req.method === 'POST') {
-    const usuario = await requiereModo(req, 'supervisor');
+    const usuario = await requiereAlgunModo(req, MODOS_INVENTARIO);
     if (!usuario) return res.status(401).json({ error: 'No autorizado' });
     return registrarEntradaHandler(req, res, usuario);
   }
 
   if (req.query.accion === 'salida-tarima' && req.method === 'POST') {
-    const usuario = await requiereModo(req, 'supervisor');
+    const usuario = await requiereAlgunModo(req, MODOS_INVENTARIO);
     if (!usuario) return res.status(401).json({ error: 'No autorizado' });
     return registrarSalidaTarima(req, res, usuario);
   }
 
-  const usuario = await requiereModo(req, 'supervisor');
+  const usuario = await requiereAlgunModo(req, MODOS_INVENTARIO);
   if (!usuario) return res.status(401).json({ error: 'No autorizado' });
   if (req.method === 'POST') return crearMaterial(req, res);
   if (req.method === 'DELETE') return eliminarMaterial(req, res);

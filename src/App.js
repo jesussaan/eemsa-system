@@ -86,7 +86,6 @@ const TABS = [
   { id: "cal",  Icon: IcoCal,  lbl: "Agenda" },
   { id: "prod", Icon: IcoProd, lbl: "Producción" },
   { id: "ref",  Icon: IcoRef,  lbl: "Refacc." },
-  { id: "inv",  Icon: IcoBox,  lbl: "Inventario" },
   { id: "fal",  Icon: IcoFal,  lbl: "Fallas" },
   { id: "cli",  Icon: IcoCli,  lbl: "Clientes" },
   { id: "ia",   Icon: IcoIA,   lbl: "IA" },
@@ -100,6 +99,7 @@ const MODOS_DISPONIBLES = [
   { id: "rebobinado", Icon: IcoRoll,      lbl: "Modo Rebobinado", cls: "mode-btn-reb" },
   { id: "supervisor", Icon: IcoDash,      lbl: "Modo Supervisor", cls: "mode-btn-sup" },
   { id: "cotizador",  Icon: IcoCotizador, lbl: "Cotizador",       cls: "mode-btn-cot" },
+  { id: "inventario", Icon: IcoBox,       lbl: "Inventario",      cls: "mode-btn-inv" },
 ];
 
 export default function App() {
@@ -352,6 +352,12 @@ function EemsaApp() {
     </Suspense>
   );
 
+  if (modo === "inventario") return (
+    <Suspense fallback={<PantallaCargando />}>
+      <Inventario materiales={materiales} setMateriales={setMateriales} tarimas={tarimas} setTarimas={setTarimas} pedidos={pedidos} onSalir={() => setModo(null)} />
+    </Suspense>
+  );
+
   // modo === "supervisor"
   return (
     <div className="app">
@@ -379,7 +385,6 @@ function EemsaApp() {
           {tab === "cal"  && <CalendarioEntregas pedidos={pedidos} setPedidos={setPedidos} />}
           {tab === "prod" && <Produccion prodDiaria={prodDiaria} setProdDiaria={setProdDiaria} pedidos={pedidos} />}
           {tab === "ref"  && <Refacciones refs={refs} setRefs={setRefs} proveedores={proveedores} setProveedores={setProveedores} />}
-          {tab === "inv"  && <Inventario materiales={materiales} setMateriales={setMateriales} tarimas={tarimas} setTarimas={setTarimas} pedidos={pedidos} />}
           {tab === "fal"  && <Fallas fallas={fallas} setFallas={setFallas} />}
           {tab === "cli"  && <Clientes pedidos={pedidos} />}
           {tab === "ia"   && <AsistenteIA onRefrescar={cargarTablas} />}
@@ -389,7 +394,6 @@ function EemsaApp() {
         {TABS.map(t => {
           const badge = t.id === "fal" ? fallas.filter(f => f.status === "abierta").length
                       : t.id === "ref" ? refs.filter(r => { const min = r.stock_min ?? 1; return min > 0 && Number(r.stock || 0) <= min; }).length
-                      : t.id === "inv" ? materiales.filter(m => { const min = Number(m.stock_min || 0); return min > 0 && Number(m.stock || 0) <= min; }).length
                       : t.id === "ped" ? pedidos.filter(p => p.status === "pendiente" && p.cliente !== REBOB_CLIENTE).length
                       : 0;
           return (

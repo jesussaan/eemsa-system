@@ -21,7 +21,7 @@ const CATEGORIAS = [
 ];
 const CATEGORIA_LBL = Object.fromEntries(CATEGORIAS.map(c => [c.key, c.label]));
 
-export default function Inventario({ materiales, setMateriales, tarimas = [], setTarimas, pedidos = [] }) {
+export default function Inventario({ materiales, setMateriales, tarimas = [], setTarimas, pedidos = [], onSalir }) {
   const [subTab, setSubTab] = useState("stock");
   const [form, setForm] = useState({ nombre: "", unidad: "Rollo", stock: "0", stock_min: "0", costo_unitario: "", notas: "", categoria: "otro", match_valor: "" });
   const [toast, setToast] = useState("");
@@ -192,7 +192,17 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   tarimasOrdenadas.filter(t => t.activa).forEach(t => { if (!(t.material_id in primeraFifoPorMaterial)) primeraFifoPorMaterial[t.material_id] = t.id; });
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--bg)" }}>
+      <header style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--surface)", borderBottom: "2px solid var(--tan)", position: "sticky", top: 0, zIndex: 10 }}>
+        <img src="/logo192.png" alt="EEMSA" style={{ height: 36, width: "auto" }} />
+        <div>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 16, color: "#e0e0e0", letterSpacing: ".06em" }}>EEMSA System</div>
+          <div style={{ fontSize: 10, color: "var(--tan)", fontWeight: 700, letterSpacing: ".08em" }}>INVENTARIO</div>
+        </div>
+        {onSalir && <button onClick={onSalir} style={{ marginLeft: "auto", fontSize: 11, color: "#666", background: "transparent", border: "none", cursor: "pointer", padding: "4px 8px" }}>← Salir</button>}
+      </header>
+
+      <main style={{ flex: 1, padding: "16px 16px 82px", maxWidth: 900, margin: "0 auto", width: "100%" }}>
       <h2 className="sec-title">📦 Inventario</h2>
       <div className="stat-grid">
         <div className="stat-card accent"><div className="stat-val">{materiales.length}</div><div className="stat-lbl">Materiales</div></div>
@@ -459,6 +469,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
       )}
 
       {toast && <div className="toast">{toast}</div>}
+      </main>
     </div>
   );
 }

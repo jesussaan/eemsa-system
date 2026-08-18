@@ -9,6 +9,7 @@ const MODOS = [
   { id: "rebobinado", label: "Rebobinado" },
   { id: "supervisor", label: "Supervisor" },
   { id: "cotizador", label: "Cotizador" },
+  { id: "inventario", label: "Inventario" },
 ];
 
 export default function AdminUsuarios({ onSalir }) {

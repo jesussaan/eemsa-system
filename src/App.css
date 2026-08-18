@@ -16,6 +16,7 @@
   --orange: #e8894b; --orange-dim: rgba(232,137,75,0.10);
   --violet: #9b6fe8; --violet-dim: rgba(155,111,232,0.10);
   --teal: #3ecfc0; --teal-dim: rgba(62,207,192,0.10);
+  --tan: #c9a06a; --tan-dim: rgba(201,160,106,0.10);
   --text: #e8ecf4;
   --text-2: #9aa0bc;
   --muted: #545a78;
@@ -50,6 +51,7 @@
   --orange: #c96a28; --orange-dim: rgba(201,106,40,0.08);
   --violet: #7a4fd1; --violet-dim: rgba(122,79,209,0.08);
   --teal: #1f8e85; --teal-dim: rgba(31,142,133,0.08);
+  --tan: #9c7639; --tan-dim: rgba(156,118,57,0.08);
   --text: #1a1d26;
   --text-2: #545a70;
   --muted: #8a8fa3;
@@ -372,6 +374,8 @@ textarea { resize: vertical; min-height: 68px; }
 .mode-btn-reb:hover { background: var(--teal-dim); box-shadow: 0 6px 22px rgba(62,207,192,0.22); }
 .mode-btn-usr { border-color: rgba(155,111,232,0.35); color: var(--violet); box-shadow: 0 2px 12px rgba(155,111,232,0.12); }
 .mode-btn-usr:hover { background: var(--violet-dim); box-shadow: 0 6px 22px rgba(155,111,232,0.22); }
+.mode-btn-inv { border-color: rgba(201,160,106,0.35); color: var(--tan); box-shadow: 0 2px 12px rgba(201,160,106,0.12); }
+.mode-btn-inv:hover { background: var(--tan-dim); box-shadow: 0 6px 22px rgba(201,160,106,0.22); }
 .loading-screen {
   display: flex; align-items: center; justify-content: center;
   height: 100vh; flex-direction: column; gap: 18px;
