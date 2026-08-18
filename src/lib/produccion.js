@@ -1,4 +1,4 @@
-import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_PISTAS } from './constants';
+import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_PISTAS, REBOB_CLIENTE } from './constants';
 
 export const MP_ANCHO    = 6;
 export const MP_LARGO    = 914;
@@ -105,5 +105,65 @@ export function calcularProduccion({
     clicheArea, inkPerImpresion, largoRealCm, impresiones, tintaKg,
     clicheLargo2, cobertura2, clicheArea2, inkPerImpresion2, impresiones2, tintaKg2,
     tintaKgTotal, solventeKg, listo,
+  };
+}
+
+// Suma cuanto Rollo MP / Tinta / Solvente van a necesitar TODOS los pedidos
+// que todavia no se han finalizado ("anotado"/"proceso"), para poder avisar
+// en Inventario ANTES de que el stock cruce el minimo -- no solo cuando ya
+// lo cruzo. Portacliche/diseno de un pedido que aun no arranca casi nunca
+// estan capturados (se eligen hasta que Modo Operador lo finaliza), asi que
+// si faltan se usa el default de CalculadoraProduccion.js (30.9cm / normal)
+// y el renglon se marca "estimado" en vez de exacto.
+export function proyectarConsumoPendientes(pedidos) {
+  const porTipo = {};   // tipo de cinta -> { rollos, pedidos, estimado }
+  const porColor = {};  // color de tinta -> { kg, pedidos, estimado }
+  let solventeTotal = 0;
+
+  (pedidos || [])
+    .filter(p => p.cliente !== REBOB_CLIENTE && (p.status === 'anotado' || p.status === 'proceso'))
+    .forEach(p => {
+      const esEngomado = p.tipo === 'Engomado';
+      const ancho = anchoDePedido(p);
+      const largo = largoDePedido(p);
+      const cajas = Number(p.cajas || 0);
+      if (!ancho || !largo || !cajas) return;
+      const rollosCaja = p.rollos_caja || rollosPorCaja(ancho, esEngomado);
+      const estimado = !p.diseno || !p.portaliche;
+
+      const { rollosExacto, tintaKg, tintaKg2, solventeKg } = calcularProduccion({
+        ancho, largo, cajas, rollosCaja, merma: 0,
+        portaliche: p.portaliche || 30.9, diseno: p.diseno || 'normal',
+        portaliche2: p.portaliche2 || 30.9, diseno2: p.diseno2 || 'normal',
+        tieneColor2: !!p.color2, esEngomado, sinTinta: false,
+      });
+
+      const tipo = (p.tipo || 'Sin tipo').trim();
+      if (!porTipo[tipo]) porTipo[tipo] = { rollos: 0, pedidos: 0, estimado: false };
+      porTipo[tipo].rollos += rollosExacto;
+      porTipo[tipo].pedidos += 1;
+      porTipo[tipo].estimado = porTipo[tipo].estimado || estimado;
+
+      const color = (p.color || p.tinta_tipo || '').trim();
+      if (color) {
+        if (!porColor[color]) porColor[color] = { kg: 0, pedidos: 0, estimado: false };
+        porColor[color].kg += tintaKg;
+        porColor[color].pedidos += 1;
+        porColor[color].estimado = porColor[color].estimado || estimado;
+      }
+      const color2 = (p.color2 || '').trim();
+      if (color2) {
+        if (!porColor[color2]) porColor[color2] = { kg: 0, pedidos: 0, estimado: false };
+        porColor[color2].kg += tintaKg2;
+        porColor[color2].pedidos += 1;
+        porColor[color2].estimado = porColor[color2].estimado || estimado;
+      }
+      solventeTotal += solventeKg;
+    });
+
+  return {
+    porTipo: Object.entries(porTipo).map(([tipo, d]) => ({ tipo, ...d })).sort((a, b) => b.rollos - a.rollos),
+    porColor: Object.entries(porColor).map(([color, d]) => ({ color, ...d })).sort((a, b) => b.kg - a.kg),
+    solventeTotal,
   };
 }

@@ -228,6 +228,29 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
       tinta_kg: update.tinta_kg, alcohol_litros: update.alcohol_litros,
       notas: update.notas,
     });
+
+    // Descuenta solo del inventario de MP (Rollo MP por tipo de cinta, Tinta
+    // por color, Solvente) lo que la calculadora ya calculo para esta
+    // corrida -- ver api/inventario.js accion=consumo-automatico. No bloquea
+    // el flujo si falla: el pedido ya se guardo arriba.
+    try {
+      const consumoRes = await fetch('/api/inventario?accion=consumo-automatico', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({
+          pedido_num: pedidoSel.num, cliente: pedidoSel.cliente,
+          tipo_cinta: pedidoSel.tipo, color: pedidoSel.color || pedidoSel.tinta_tipo || null, color2: pedidoSel.color2 || null,
+          rollos: rollosNum, tinta_kg: tintaKgNum, tinta_kg2: tintaKg2Num, solvente_kg: solventeKgNum,
+        }),
+      });
+      if (consumoRes.ok) {
+        const { materiales: consumidos } = await consumoRes.json();
+        (consumidos || []).forEach(m => {
+          if (m.creado) sendWhatsApp(`🆕 Inventario: se creó "${m.nombre}" automáticamente (stock 0) — captúrale stock real y mínimo.`);
+          else if (m.cruzoMinimo) sendWhatsApp(`⚠️ Stock bajo (consumo automático): ${m.nombre} — quedan ${Number(m.stock).toFixed(2)} ${m.unidad} (mín: ${Number(m.stock_min).toFixed(2)})`);
+        });
+      }
+    } catch (_) {}
+
     setPedidoSelId(null);
     setVista(null);
     showToast("✓ Pedido finalizado");

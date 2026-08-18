@@ -38,3 +38,5 @@ export const IcoPlus  = () => (<svg viewBox="0 0 24 24" {...S}><line x1="12" y1=
 export const IcoPencil = () => (<svg viewBox="0 0 24 24" {...S}><path d="M4 20l1-4.5L16.5 4 20 7.5 8.5 19 4 20z"/><line x1="14" y1="6" x2="18" y2="10"/></svg>);
 export const IcoX = () => (<svg viewBox="0 0 24 24" {...S}><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>);
 export const IcoPalette = () => (<svg viewBox="0 0 24 24" {...S}><path d="M12 3a9 8 0 100 16c1.2 0 1.6-.9.9-1.7-.5-.6-.2-1.6.7-1.6H15a4 4 0 004-4c0-4.9-3.1-8.7-7-8.7z"/><circle cx="8" cy="11" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="11" r="1" fill="currentColor" stroke="none"/></svg>);
+export const IcoBox = () => (<svg viewBox="0 0 24 24" {...S}><path d="M3 8l9-5 9 5-9 5-9-5z"/><path d="M3 8v8l9 5 9-5V8"/><line x1="12" y1="13" x2="12" y2="21"/></svg>);
+export const IcoScan = () => (<svg viewBox="0 0 24 24" {...S}><path d="M4 8V5a1 1 0 011-1h3M20 8V5a1 1 0 00-1-1h-3M4 16v3a1 1 0 001 1h3M20 16v3a1 1 0 01-1 1h-3"/><line x1="4" y1="12" x2="20" y2="12"/></svg>);

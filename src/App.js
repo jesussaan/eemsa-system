@@ -6,7 +6,7 @@ import NotifBell from "./components/NotifBell";
 import Login from "./components/Login";
 import ConfirmModal from "./components/ConfirmModal";
 import ThemeToggle from "./components/ThemeToggle";
-import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoOperador, IcoVentas, IcoEmilio, IcoCotizador, IcoSpinner, IcoRoll } from "./components/Icons";
+import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoOperador, IcoVentas, IcoEmilio, IcoCotizador, IcoSpinner, IcoRoll, IcoBox } from "./components/Icons";
 import { REBOB_CLIENTE } from "./lib/constants";
 
 // Cada pantalla se carga solo cuando se visita, en vez de todas juntas en el
@@ -15,6 +15,7 @@ const Dashboard = lazy(() => import("./components/Dashboard"));
 const Pedidos = lazy(() => import("./components/Pedidos"));
 const Produccion = lazy(() => import("./components/Produccion"));
 const Refacciones = lazy(() => import("./components/Refacciones"));
+const Inventario = lazy(() => import("./components/Inventario"));
 const Fallas = lazy(() => import("./components/Fallas"));
 const Rebobinado = lazy(() => import("./components/Rebobinado"));
 const Clientes = lazy(() => import("./components/Clientes"));
@@ -85,6 +86,7 @@ const TABS = [
   { id: "cal",  Icon: IcoCal,  lbl: "Agenda" },
   { id: "prod", Icon: IcoProd, lbl: "Producción" },
   { id: "ref",  Icon: IcoRef,  lbl: "Refacc." },
+  { id: "inv",  Icon: IcoBox,  lbl: "Inventario" },
   { id: "fal",  Icon: IcoFal,  lbl: "Fallas" },
   { id: "cli",  Icon: IcoCli,  lbl: "Clientes" },
   { id: "ia",   Icon: IcoIA,   lbl: "IA" },
@@ -121,6 +123,8 @@ function EemsaApp() {
   const [pedidos, setPedidos] = useState([]);
   const [fallas, setFallas] = useState([]);
   const [refs, setRefs] = useState([]);
+  const [materiales, setMateriales] = useState([]);
+  const [tarimas, setTarimas] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [prodDiaria, setProdDiaria] = useState([]);
   const [listaMateriales, setListaMateriales] = useState([]);
@@ -171,6 +175,8 @@ function EemsaApp() {
       pedidos:          (d) => setPedidos(d),
       fallas:           (d) => setFallas(d),
       refacciones:      (d) => setRefs(d),
+      materiales:       (d) => setMateriales(d),
+      tarimas:          (d) => setTarimas(d),
       proveedores:      (d) => setProveedores(d),
       prod_diaria:      (d) => setProdDiaria(d),
       lista_materiales: (d) => setListaMateriales(d),
@@ -188,7 +194,7 @@ function EemsaApp() {
   // Se pide de una vez, en paralelo con el login -- asi no hay espera extra
   // despues de iniciar sesion (las tablas ya tienen lectura anon abierta).
   useEffect(() => {
-    cargarTablas(["pedidos", "fallas", "refacciones", "proveedores", "prod_diaria", "lista_materiales", "cliches"]);
+    cargarTablas(["pedidos", "fallas", "refacciones", "materiales", "tarimas", "proveedores", "prod_diaria", "lista_materiales", "cliches"]);
   }, []);
 
   // Realtime: actualiza el estado local cuando otro usuario cambia datos en Supabase
@@ -197,6 +203,8 @@ function EemsaApp() {
       pedidos:          { set: setPedidos },
       fallas:           { set: setFallas },
       refacciones:      { set: setRefs },
+      materiales:       { set: setMateriales },
+      tarimas:          { set: setTarimas },
       proveedores:      { set: setProveedores },
       prod_diaria:      { set: setProdDiaria },
       lista_materiales: { set: setListaMateriales },
@@ -366,11 +374,12 @@ function EemsaApp() {
       )}
       <main className="main">
         <Suspense fallback={<PantallaCargando />}>
-          {tab === "dash" && <Dashboard pedidos={pedidos} fallas={fallas} refacciones={refs} proveedores={proveedores} prodDiaria={prodDiaria} cliches={cliches} />}
+          {tab === "dash" && <Dashboard pedidos={pedidos} fallas={fallas} refacciones={refs} materiales={materiales} proveedores={proveedores} prodDiaria={prodDiaria} cliches={cliches} />}
           {tab === "ped"  && <Pedidos pedidos={pedidos} setPedidos={setPedidos} />}
           {tab === "cal"  && <CalendarioEntregas pedidos={pedidos} setPedidos={setPedidos} />}
           {tab === "prod" && <Produccion prodDiaria={prodDiaria} setProdDiaria={setProdDiaria} pedidos={pedidos} />}
           {tab === "ref"  && <Refacciones refs={refs} setRefs={setRefs} proveedores={proveedores} setProveedores={setProveedores} />}
+          {tab === "inv"  && <Inventario materiales={materiales} setMateriales={setMateriales} tarimas={tarimas} setTarimas={setTarimas} pedidos={pedidos} />}
           {tab === "fal"  && <Fallas fallas={fallas} setFallas={setFallas} />}
           {tab === "cli"  && <Clientes pedidos={pedidos} />}
           {tab === "ia"   && <AsistenteIA onRefrescar={cargarTablas} />}
@@ -380,6 +389,7 @@ function EemsaApp() {
         {TABS.map(t => {
           const badge = t.id === "fal" ? fallas.filter(f => f.status === "abierta").length
                       : t.id === "ref" ? refs.filter(r => { const min = r.stock_min ?? 1; return min > 0 && Number(r.stock || 0) <= min; }).length
+                      : t.id === "inv" ? materiales.filter(m => { const min = Number(m.stock_min || 0); return min > 0 && Number(m.stock || 0) <= min; }).length
                       : t.id === "ped" ? pedidos.filter(p => p.status === "pendiente" && p.cliente !== REBOB_CLIENTE).length
                       : 0;
           return (

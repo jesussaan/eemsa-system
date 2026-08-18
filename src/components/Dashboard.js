@@ -66,8 +66,18 @@ const delta = (curr, prev) => {
   return { pct: Math.abs(pct), sube: curr >= prev };
 };
 
-export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, proveedores, prodDiaria, cliches = [] }) {
+export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, materiales = [], proveedores, prodDiaria, cliches = [] }) {
   const [seccion, setSeccion] = useState('resumen');
+
+  // Busca el material de Inventario ligado a una categoria+valor (ver
+  // api/inventario.js accion=consumo-automatico) para mostrar el stock que
+  // queda junto al consumo del mes -- no va en el useMemo de abajo porque
+  // materiales cambia mas seguido (realtime) y es barato de recalcular.
+  const stockDe = (categoria, valor) => {
+    const v = (valor || '').trim().toLowerCase();
+    if (!v) return null;
+    return materiales.find(m => m.categoria === categoria && (m.match_valor || '').trim().toLowerCase() === v) || null;
+  };
 
   useEffect(() => {
     const hoy = today();
@@ -925,19 +935,26 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    {['Color','Pedidos','Kg'].map(h => (
+                    {['Color','Pedidos','Kg','Stock disponible'].map(h => (
                       <th key={h} style={{ padding: '6px 10px', color: 'var(--muted)', fontWeight: 600, textAlign: h === 'Color' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {tintaPorColor.map((r, i) => (
-                    <tr key={r.color} style={{ borderBottom: '1px solid var(--surface)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
-                      <td style={{ padding: '8px 10px', color: 'var(--text)', fontWeight: 600 }}>{r.color}</td>
-                      <td style={{ padding: '8px 10px', color: 'var(--muted)', textAlign: 'right' }}>{r.pedidos}</td>
-                      <td style={{ padding: '8px 10px', color: 'var(--green)', textAlign: 'right', fontWeight: 700 }}>{r.total.toFixed(2)} kg</td>
-                    </tr>
-                  ))}
+                  {tintaPorColor.map((r, i) => {
+                    const mat = stockDe('tinta', r.color);
+                    const bajo = mat && Number(mat.stock_min || 0) > 0 && Number(mat.stock || 0) <= Number(mat.stock_min);
+                    return (
+                      <tr key={r.color} style={{ borderBottom: '1px solid var(--surface)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                        <td style={{ padding: '8px 10px', color: 'var(--text)', fontWeight: 600 }}>{r.color}</td>
+                        <td style={{ padding: '8px 10px', color: 'var(--muted)', textAlign: 'right' }}>{r.pedidos}</td>
+                        <td style={{ padding: '8px 10px', color: 'var(--green)', textAlign: 'right', fontWeight: 700 }}>{r.total.toFixed(2)} kg</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, color: !mat ? 'var(--muted)' : bajo ? 'var(--red)' : 'var(--text)' }}>
+                          {mat ? `${fmt(mat.stock)} kg${bajo ? ' ⚠' : ''}` : '— sin vincular'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -953,19 +970,26 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, p
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    {['Tipo','Pedidos','Rollos MP'].map(h => (
+                    {['Tipo','Pedidos','Rollos MP','Stock disponible'].map(h => (
                       <th key={h} style={{ padding: '6px 10px', color: 'var(--muted)', fontWeight: 600, textAlign: h === 'Tipo' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {tipoCintaStats.map((r, i) => (
-                    <tr key={r.tipo} style={{ borderBottom: '1px solid var(--surface)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
-                      <td style={{ padding: '8px 10px', color: 'var(--text)', fontWeight: 600, textTransform: 'capitalize' }}>{r.tipo}</td>
-                      <td style={{ padding: '8px 10px', color: 'var(--muted)', textAlign: 'right' }}>{r.pedidos}</td>
-                      <td style={{ padding: '8px 10px', color: 'var(--green)', textAlign: 'right', fontWeight: 700 }}>{r.rollos.toFixed(2)}</td>
-                    </tr>
-                  ))}
+                  {tipoCintaStats.map((r, i) => {
+                    const mat = stockDe('rollo_mp', r.tipo);
+                    const bajo = mat && Number(mat.stock_min || 0) > 0 && Number(mat.stock || 0) <= Number(mat.stock_min);
+                    return (
+                      <tr key={r.tipo} style={{ borderBottom: '1px solid var(--surface)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                        <td style={{ padding: '8px 10px', color: 'var(--text)', fontWeight: 600, textTransform: 'capitalize' }}>{r.tipo}</td>
+                        <td style={{ padding: '8px 10px', color: 'var(--muted)', textAlign: 'right' }}>{r.pedidos}</td>
+                        <td style={{ padding: '8px 10px', color: 'var(--green)', textAlign: 'right', fontWeight: 700 }}>{r.rollos.toFixed(2)}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, color: !mat ? 'var(--muted)' : bajo ? 'var(--red)' : 'var(--text)' }}>
+                          {mat ? `${fmt(mat.stock)} rollos${bajo ? ' ⚠' : ''}` : '— sin vincular'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
