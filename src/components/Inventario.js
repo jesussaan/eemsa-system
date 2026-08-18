@@ -50,6 +50,33 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2600); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const materialDe = (tarimaOMaterialId) => materiales.find(m => m.id === tarimaOMaterialId);
+  const escapeHtml = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  // Abre una ventana aparte solo con el QR (tomado del SVG ya renderizado en
+  // pantalla, sin depender de otra libreria) mas el nombre/lote, del tamano
+  // de una etiqueta, y dispara el dialogo de impresion del navegador --
+  // window.print() usa la impresora que el usuario elija ahi mismo.
+  const imprimirEtiqueta = (containerId, tarimaId, linea1, linea2) => {
+    const cont = document.getElementById(containerId);
+    if (!cont) return;
+    const win = window.open("", "_blank", "width=420,height=520");
+    if (!win) { showToast("⚠ El navegador bloqueó la ventana de impresión — habilita los pop-ups para este sitio"); return; }
+    win.document.write(`<!doctype html><html><head><title>Etiqueta ${escapeHtml(tarimaId)}</title>
+      <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+        .l1 { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+        .l2 { font-size: 12px; color: #444; margin-bottom: 12px; }
+        .qrid { font-size: 9px; color: #888; word-break: break-all; margin-top: 8px; max-width: 260px; margin-left: auto; margin-right: auto; }
+      </style></head>
+      <body>
+        <div class="l1">${escapeHtml(linea1)}</div>
+        ${linea2 ? `<div class="l2">${escapeHtml(linea2)}</div>` : ""}
+        ${cont.innerHTML}
+        <div class="qrid">${escapeHtml(tarimaId)}</div>
+        <script>window.onload = function() { window.print(); };</script>
+      </body></html>`);
+    win.document.close();
+  };
 
   // Historial se carga solo la primera vez que se abre esa pestana (igual
   // que quejas_mp en Refacciones.js), para no bajar todo el historial de
@@ -315,10 +342,13 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                     {tarimaRecienCreada && tarimaRecienCreada.material_id === m.id && (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: 10, padding: 12, background: "#0d0f14", borderRadius: 10, border: "1px solid #4be87a" }}>
                         <span style={{ fontSize: 12, color: "#4be87a", fontWeight: 700 }}>✓ Tarima creada — imprime este QR</span>
-                        <QRCodeSVG value={tarimaRecienCreada.id} size={110} bgColor="#0d0f14" fgColor="#e0e0e0" />
+                        <div id={`qr-nueva-${tarimaRecienCreada.id}`}><QRCodeSVG value={tarimaRecienCreada.id} size={110} bgColor="#0d0f14" fgColor="#e0e0e0" /></div>
                         <span style={{ fontSize: 11, color: "#666", wordBreak: "break-all", textAlign: "center" }}>{tarimaRecienCreada.id}</span>
                         {tarimaRecienCreada.lote && <span className="muted" style={{ fontSize: 11 }}>Lote: {tarimaRecienCreada.lote}</span>}
-                        <button className="btn btn-ghost btn-sm" onClick={() => setTarimaRecienCreada(null)}>Cerrar</button>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button className="btn btn-primary btn-sm" onClick={() => imprimirEtiqueta(`qr-nueva-${tarimaRecienCreada.id}`, tarimaRecienCreada.id, m.nombre, tarimaRecienCreada.lote || "")}>🖨️ Imprimir</button>
+                          <button className="btn btn-ghost btn-sm" onClick={() => setTarimaRecienCreada(null)}>Cerrar</button>
+                        </div>
                       </div>
                     )}
 
@@ -409,9 +439,9 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
 
                     {verQrTarimaId === t.id && (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: 10, padding: 12, background: "#0d0f14", borderRadius: 10 }}>
-                        <QRCodeSVG value={t.id} size={110} bgColor="#0d0f14" fgColor="#e0e0e0" />
+                        <div id={`qr-tarima-${t.id}`}><QRCodeSVG value={t.id} size={110} bgColor="#0d0f14" fgColor="#e0e0e0" /></div>
                         <span style={{ fontSize: 11, color: "#666", wordBreak: "break-all", textAlign: "center" }}>{t.id}</span>
-                        <span className="muted" style={{ fontSize: 11 }}>Imprime esta etiqueta y pégala en la tarima</span>
+                        <button className="btn btn-primary btn-sm" onClick={() => imprimirEtiqueta(`qr-tarima-${t.id}`, t.id, mat?.nombre || "", t.lote || "")}>🖨️ Imprimir</button>
                       </div>
                     )}
 
