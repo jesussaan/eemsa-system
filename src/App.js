@@ -26,6 +26,7 @@ const ModoEmilio = lazy(() => import("./components/ModoEmilio"));
 const Cotizador = lazy(() => import("./components/Cotizador"));
 const CalendarioEntregas = lazy(() => import("./components/CalendarioEntregas"));
 const PortalCliente = lazy(() => import("./components/PortalCliente"));
+const InfoTarima = lazy(() => import("./components/InfoTarima"));
 const AdminUsuarios = lazy(() => import("./components/AdminUsuarios"));
 
 const PantallaCargando = () => (
@@ -104,6 +105,7 @@ const MODOS_DISPONIBLES = [
 
 export default function App() {
   const portalMatch = window.location.pathname.match(/^\/cliente\/([^/]+)\/?$/);
+  const tarimaMatch = window.location.pathname.match(/^\/tarima\/([^/]+)\/?$/);
   return (
     <>
       <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 1000, display: "flex", flexDirection: "column" }}>
@@ -113,6 +115,8 @@ export default function App() {
       <ConfirmModal />
       {portalMatch
         ? <Suspense fallback={<PantallaCargando />}><PortalCliente token={portalMatch[1]} /></Suspense>
+        : tarimaMatch
+        ? <Suspense fallback={<PantallaCargando />}><InfoTarima id={tarimaMatch[1]} /></Suspense>
         : <EemsaApp />}
     </>
   );

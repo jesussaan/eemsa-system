@@ -66,6 +66,11 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2600); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const materialDe = (tarimaOMaterialId) => materiales.find(m => m.id === tarimaOMaterialId);
+  // El QR ya no trae solo el id suelto -- trae un link a /tarima/<id> (ver
+  // InfoTarima.js) para que CUALQUIER camara de celular, no solo el escaner
+  // de esta pantalla, muestre material/cantidad/lote al tiro sin tener que
+  // pegar el codigo aqui a mano.
+  const urlTarima = (tarimaId) => `${window.location.origin}/tarima/${tarimaId}`;
   // Vista grande del QR (pantalla completa, dentro de la misma app) -- antes
   // se llamaba a window.print()/window.open(), pero en varios celulares eso
   // abre un dialogo del sistema sin boton claro de "regresar"; si alguien se
@@ -175,12 +180,17 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   };
 
   // El input de "codigo" recibe lo mismo que teclearia una pistola lectora
-  // o la camara (tipea el contenido del QR + Enter): el QR de una tarima es
-  // su id -- se busca directo ahi y se abre su panel de salida, sin que
-  // nadie tenga que buscarla a mano en la lista.
+  // o la camara (tipea el contenido del QR + Enter): el QR de una tarima
+  // ahora trae un link completo (/tarima/<id>, ver urlTarima arriba), asi
+  // que aqui se saca el id tanto si viene la URL completa como si viene
+  // solo el id suelto (pistolas viejas o texto pegado a mano).
+  const idDeCodigo = (val) => {
+    const m = val.match(/\/tarima\/([^/?#]+)/);
+    return m ? m[1] : val;
+  };
   const buscarPorCodigo = (e) => {
     if (e.key !== "Enter") return;
-    const val = codigo.trim();
+    const val = idDeCodigo(codigo.trim());
     setCodigo("");
     if (!val) return;
     const t = tarimas.find(x => x.id === val);
@@ -363,7 +373,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                     {tarimaRecienCreada && tarimaRecienCreada.material_id === m.id && (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: 10, padding: 12, background: "#0d0f14", borderRadius: 10, border: "1px solid #4be87a" }}>
                         <span style={{ fontSize: 12, color: "#4be87a", fontWeight: 700 }}>✓ {contenedorDe(m).icon} {contenedorDe(m).label} #{tarimaRecienCreada.numero} creada — imprime este QR</span>
-                        <QRCodeSVG value={tarimaRecienCreada.id} size={110} bgColor="#0d0f14" fgColor="#e0e0e0" />
+                        <QRCodeSVG value={urlTarima(tarimaRecienCreada.id)} size={110} bgColor="#0d0f14" fgColor="#e0e0e0" />
                         <span style={{ fontSize: 11, color: "#666", wordBreak: "break-all", textAlign: "center" }}>{tarimaRecienCreada.id}</span>
                         {tarimaRecienCreada.lote && <span className="muted" style={{ fontSize: 11 }}>Lote: {tarimaRecienCreada.lote}</span>}
                         <div style={{ display: "flex", gap: 6 }}>
@@ -463,7 +473,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
 
                     {verQrTarimaId === t.id && (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: 10, padding: 12, background: "#0d0f14", borderRadius: 10 }}>
-                        <QRCodeSVG value={t.id} size={110} bgColor="#0d0f14" fgColor="#e0e0e0" />
+                        <QRCodeSVG value={urlTarima(t.id)} size={110} bgColor="#0d0f14" fgColor="#e0e0e0" />
                         <span style={{ fontSize: 11, color: "#666", wordBreak: "break-all", textAlign: "center" }}>{t.id}</span>
                         <button className="btn btn-primary btn-sm" onClick={() => setVistaGrande({ id: t.id, linea1: `${mat?.nombre || ""} #${t.numero ?? "?"}`, linea2: t.lote ? `Lote: ${t.lote}` : "" })}>🔍 Ver / imprimir</button>
                       </div>
@@ -585,7 +595,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
             style={{ position: "absolute", top: 16, right: 16, fontSize: 30, lineHeight: 1, background: "transparent", border: "none", color: "#000", cursor: "pointer", padding: 8 }}>✕</button>
           <div style={{ fontSize: 32, fontWeight: 800, color: "#111", textAlign: "center", marginBottom: 6 }}>{vistaGrande.linea1}</div>
           {vistaGrande.linea2 && <div style={{ fontSize: 18, color: "#444", marginBottom: 20 }}>{vistaGrande.linea2}</div>}
-          <QRCodeSVG value={vistaGrande.id} size={280} bgColor="#ffffff" fgColor="#000000" />
+          <QRCodeSVG value={urlTarima(vistaGrande.id)} size={280} bgColor="#ffffff" fgColor="#000000" />
           <div style={{ fontSize: 11, color: "#999", marginTop: 16, wordBreak: "break-all", maxWidth: "90vw", textAlign: "center" }}>{vistaGrande.id}</div>
           <div style={{ fontSize: 12, color: "#888", marginTop: 24, textAlign: "center", maxWidth: 320 }}>Para imprimir, usa el menú de tu navegador (⋮ o compartir → Imprimir), o tómale captura de pantalla.</div>
           <button className="btn btn-ghost btn-sm" style={{ marginTop: 20, color: "#666", border: "1px solid #ccc" }} onClick={() => setVistaGrande(null)}>Cerrar</button>
