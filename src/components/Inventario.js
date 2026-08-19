@@ -35,6 +35,17 @@ const CONTENEDOR_INFO = {
   otro:     { label: "Lote",   icon: "🏷️", ratioNombre: null, ratio: null, ratioTexto: null },
 };
 const contenedorDe = (m) => CONTENEDOR_INFO[m?.categoria] || CONTENEDOR_INFO.otro;
+// Un color fijo por categoria, usado en todos lados (Stock, Resumen,
+// Tarimas) para poder distinguir cinta/tinta/alcohol/centros de un vistazo
+// sin tener que leer la etiqueta.
+const CATEGORIA_COLOR = {
+  rollo_mp: "#4b8fe8", // azul — Cinta
+  tinta:    "#9b6fe8", // violeta — Tinta
+  solvente: "#e8894b", // naranja — Alcohol/Solvente
+  centro:   "#4be87a", // verde — Centros
+  otro:     "#888888",
+};
+const ORDEN_CATEGORIAS = ["rollo_mp", "tinta", "centro", "solvente", "otro"];
 
 export default function Inventario({ materiales, setMateriales, tarimas = [], setTarimas, pedidos = [], onSalir }) {
   const [subTab, setSubTab] = useState("stock");
@@ -342,20 +353,28 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
 
           <h3 className="sub-title" style={{ marginTop: 20 }}>Materiales</h3>
           <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar material…" style={{ ...inputStyle, marginBottom: 8 }} />
-          {materiales.length === 0 ? <p className="empty">Sin materiales en inventario.</p> : (
-            <div className="list">
-              {materialesFiltrados.map(m => {
-                const min = Number(m.stock_min || 0);
-                const bajo = min > 0 && Number(m.stock || 0) <= min;
-                return (
-                  <div key={m.id} className="list-item" style={{ borderLeft: bajo ? "3px solid #ff4d4d" : undefined }}>
+          {materiales.length === 0 ? <p className="empty">Sin materiales en inventario.</p> : ORDEN_CATEGORIAS.map(cat => {
+            const items = materialesFiltrados.filter(m => (m.categoria || "otro") === cat);
+            if (items.length === 0) return null;
+            const color = CATEGORIA_COLOR[cat];
+            return (
+              <div key={cat} style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color, borderBottom: `2px solid ${color}`, paddingBottom: 6, marginBottom: 8 }}>
+                  {CONTENEDOR_INFO[cat].icon} {CATEGORIA_LBL[cat]}
+                </div>
+                <div className="list">
+                  {items.map(m => {
+                    const min = Number(m.stock_min || 0);
+                    const bajo = min > 0 && Number(m.stock || 0) <= min;
+                    return (
+                      <div key={m.id} className="list-item" style={{ borderLeft: `3px solid ${bajo ? "#ff4d4d" : color}` }}>
                     <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
                       <div>
                         <strong>{m.nombre}</strong>
                         <span className={`badge ${bajo ? "b-red" : "b-green"}`}>Stock: {fmt(m.stock)} {m.unidad}</span>
                         {bajo && <span className="badge b-red">BAJO</span>}
-                        {m.categoria && m.categoria !== "otro" && (
-                          <span className="badge b-accent" title={m.match_valor || ""}>🤖 {CATEGORIA_LBL[m.categoria] || m.categoria}{m.match_valor ? `: ${m.match_valor}` : ""}</span>
+                        {m.match_valor && (
+                          <span className="badge" style={{ background: color + "22", color, border: `1px solid ${color}` }}>🤖 {m.match_valor}</span>
                         )}
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
@@ -414,17 +433,18 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
 
                     <div className="muted">{m.unidad}{m.costo_unitario ? ` · $${fmt(m.costo_unitario)}/u` : ""} · Min: {fmt(m.stock_min || 0)}</div>
                     {m.notas && <div className="muted">{m.notas}</div>}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
       {subTab === "resumen" && (() => {
-        const ordenCategorias = ["rollo_mp", "tinta", "centro", "solvente", "otro"];
-        const grupos = ordenCategorias
+        const grupos = ORDEN_CATEGORIAS
           .map(cat => ({ cat, items: materiales.filter(m => (m.categoria || "otro") === cat) }))
           .filter(g => g.items.length > 0);
         const valorTotal = materiales.reduce((s, m) => s + (Number(m.costo_unitario || 0) * Number(m.stock || 0)), 0);
@@ -451,11 +471,12 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
 
               {materiales.length === 0 ? <p className="empty">Sin materiales en inventario.</p> : grupos.map(g => {
                 const info = CONTENEDOR_INFO[g.cat];
+                const color = CATEGORIA_COLOR[g.cat];
                 const valorGrupo = g.items.reduce((s, m) => s + (Number(m.costo_unitario || 0) * Number(m.stock || 0)), 0);
                 return (
                   <div key={g.cat} style={{ marginBottom: 22, breakInside: "avoid" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #c9922a", paddingBottom: 6, marginBottom: 10 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: "#c9922a" }}>{info.icon} {CATEGORIA_LBL[g.cat]}</span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `2px solid ${color}`, paddingBottom: 6, marginBottom: 10 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color }}>{info.icon} {CATEGORIA_LBL[g.cat]}</span>
                       {valorGrupo > 0 && <span style={{ fontSize: 12, color: "#666" }}>${fmt(valorGrupo)}</span>}
                     </div>
                     {g.items
@@ -467,13 +488,13 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                           .sort((a, b) => (a.numero || 0) - (b.numero || 0));
                         return (
                           <div key={m.id} style={{ marginBottom: 14, breakInside: "avoid" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, background: "var(--surface, #13161e)", borderRadius: 8, padding: "8px 12px", borderLeft: bajo ? "3px solid #ff4d4d" : "3px solid #4be87a" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, background: "var(--surface, #13161e)", borderRadius: 8, padding: "8px 12px", borderLeft: `3px solid ${bajo ? "#ff4d4d" : color}` }}>
                               <div>
                                 <strong>{m.match_valor || m.nombre}</strong>
                                 {m.match_valor && <span className="muted" style={{ marginLeft: 6 }}>({m.nombre})</span>}
                                 {bajo && <span className="badge b-red" style={{ marginLeft: 6 }}>BAJO</span>}
                               </div>
-                              <strong style={{ color: bajo ? "#ff4d4d" : "#4be87a" }}>Total: {fmt(m.stock)} {m.unidad}</strong>
+                              <strong style={{ color: bajo ? "#ff4d4d" : color }}>Total: {fmt(m.stock)} {m.unidad}</strong>
                             </div>
                             {tarimasMaterial.length > 0 && (
                               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, marginTop: 4 }}>
@@ -568,12 +589,13 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
               {tarimasFiltradas.map(t => {
                 const mat = materialDe(t.material_id);
                 const cont = contenedorDe(mat);
+                const color = CATEGORIA_COLOR[mat?.categoria] || CATEGORIA_COLOR.otro;
                 const esFifoSiguiente = t.activa && primeraFifoPorMaterial[t.material_id] === t.id;
                 return (
-                  <div key={t.id} className="list-item" style={{ borderLeft: !t.activa ? "3px solid #3a3f5a" : esFifoSiguiente ? "3px solid #4be87a" : undefined, opacity: t.activa ? 1 : 0.6 }}>
+                  <div key={t.id} className="list-item" style={{ borderLeft: !t.activa ? "3px solid #3a3f5a" : esFifoSiguiente ? "3px solid #4be87a" : `3px solid ${color}`, opacity: t.activa ? 1 : 0.6 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
                       <div>
-                        <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".04em" }}>{cont.icon} {cont.label} #{t.numero ?? "?"}</span><br />
+                        <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".04em", color, fontWeight: 700 }}>{cont.icon} {cont.label} #{t.numero ?? "?"}</span><br />
                         <strong>{mat?.nombre || "Material eliminado"}</strong>
                         <span className={`badge ${t.activa ? "b-green" : "b-red"}`}>{fmt(t.cantidad_actual)} / {fmt(t.cantidad_inicial)} {mat?.unidad || ""}</span>
                         {!t.activa && <span className="badge b-red">AGOTADA</span>}
