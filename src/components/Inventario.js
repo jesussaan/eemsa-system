@@ -381,12 +381,12 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
 
                     {tarimaRecienCreada && tarimaRecienCreada.material_id === m.id && (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: 10, padding: 12, background: "#0d0f14", borderRadius: 10, border: "1px solid #4be87a" }}>
-                        <span style={{ fontSize: 12, color: "#4be87a", fontWeight: 700 }}>✓ {contenedorDe(m).icon} {contenedorDe(m).label} creada — imprime este QR</span>
+                        <span style={{ fontSize: 12, color: "#4be87a", fontWeight: 700 }}>✓ {contenedorDe(m).icon} {contenedorDe(m).label} #{tarimaRecienCreada.numero} creada — imprime este QR</span>
                         <div id={`qr-nueva-${tarimaRecienCreada.id}`}><QRCodeSVG value={tarimaRecienCreada.id} size={110} bgColor="#0d0f14" fgColor="#e0e0e0" /></div>
                         <span style={{ fontSize: 11, color: "#666", wordBreak: "break-all", textAlign: "center" }}>{tarimaRecienCreada.id}</span>
                         {tarimaRecienCreada.lote && <span className="muted" style={{ fontSize: 11 }}>Lote: {tarimaRecienCreada.lote}</span>}
                         <div style={{ display: "flex", gap: 6 }}>
-                          <button className="btn btn-primary btn-sm" onClick={() => imprimirEtiqueta(`qr-nueva-${tarimaRecienCreada.id}`, tarimaRecienCreada.id, m.nombre, tarimaRecienCreada.lote || "")}>🖨️ Imprimir</button>
+                          <button className="btn btn-primary btn-sm" onClick={() => imprimirEtiqueta(`qr-nueva-${tarimaRecienCreada.id}`, tarimaRecienCreada.id, `${m.nombre} #${tarimaRecienCreada.numero}`, `${fmt(tarimaRecienCreada.cantidad_inicial)} ${m.unidad}${tarimaRecienCreada.lote ? ` · Lote: ${tarimaRecienCreada.lote}` : ""}`)}>🖨️ Imprimir</button>
                           <button className="btn btn-ghost btn-sm" onClick={() => setTarimaRecienCreada(null)}>Cerrar</button>
                         </div>
                       </div>
@@ -420,7 +420,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
                     <div style={{ fontSize: 11, color: "#c9a06a", fontWeight: 700, letterSpacing: ".05em" }}>📷 {cont.icon} {cont.label.toUpperCase()} ESCANEADA</div>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: "#e0e0e0", marginTop: 2 }}>{mat?.nombre || "Material eliminado"}</div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: "#e0e0e0", marginTop: 2 }}>{mat?.nombre || "Material eliminado"} #{tarimaEscaneada.numero ?? "?"}</div>
                     {(tarimaEscaneada.lote || tarimaEscaneada.proveedor) && (
                       <div className="muted">{[tarimaEscaneada.lote, tarimaEscaneada.proveedor].filter(Boolean).join(" · ")}</div>
                     )}
@@ -464,7 +464,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                   <div key={t.id} className="list-item" style={{ borderLeft: !t.activa ? "3px solid #3a3f5a" : esFifoSiguiente ? "3px solid #4be87a" : undefined, opacity: t.activa ? 1 : 0.6 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
                       <div>
-                        <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".04em" }}>{cont.icon} {cont.label}</span><br />
+                        <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".04em" }}>{cont.icon} {cont.label} #{t.numero ?? "?"}</span><br />
                         <strong>{mat?.nombre || "Material eliminado"}</strong>
                         <span className={`badge ${t.activa ? "b-green" : "b-red"}`}>{fmt(t.cantidad_actual)} / {fmt(t.cantidad_inicial)} {mat?.unidad || ""}</span>
                         {!t.activa && <span className="badge b-red">AGOTADA</span>}
@@ -484,7 +484,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: 10, padding: 12, background: "#0d0f14", borderRadius: 10 }}>
                         <div id={`qr-tarima-${t.id}`}><QRCodeSVG value={t.id} size={110} bgColor="#0d0f14" fgColor="#e0e0e0" /></div>
                         <span style={{ fontSize: 11, color: "#666", wordBreak: "break-all", textAlign: "center" }}>{t.id}</span>
-                        <button className="btn btn-primary btn-sm" onClick={() => imprimirEtiqueta(`qr-tarima-${t.id}`, t.id, mat?.nombre || "", t.lote || "")}>🖨️ Imprimir</button>
+                        <button className="btn btn-primary btn-sm" onClick={() => imprimirEtiqueta(`qr-tarima-${t.id}`, t.id, `${mat?.nombre || ""} #${t.numero ?? "?"}`, `${fmt(t.cantidad_actual)} ${mat?.unidad || ""} disponibles${t.lote ? ` · Lote: ${t.lote}` : ""}`)}>🖨️ Imprimir</button>
                       </div>
                     )}
 

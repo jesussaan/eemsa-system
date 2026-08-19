@@ -112,9 +112,26 @@ alter table public.materiales drop constraint if exists materiales_categoria_che
 alter table public.materiales add constraint materiales_categoria_check
   check (categoria in ('rollo_mp','tinta','solvente','centro','otro'));
 
+-- ---------------------------------------------------------------------
+-- 6) Numero de tarima -- secuencial POR MATERIAL (la primera tarima de
+-- Blanca es #1, la primera de Canela tambien es #1), para poder identificar
+-- un pallet a simple vista ("Tarima #4") ademas del QR. Se calcula en
+-- api/inventario.js al crear la entrada; aqui solo se numeran las que ya
+-- existian antes de este cambio, por orden de llegada.
+-- ---------------------------------------------------------------------
+alter table public.tarimas add column if not exists numero integer;
+with numeradas as (
+  select id, row_number() over (partition by material_id order by created) as rn
+  from public.tarimas
+)
+update public.tarimas t set numero = n.rn
+from numeradas n
+where t.id = n.id and t.numero is null;
+
 -- =====================================================================
 -- ROLLBACK (si algo se rompe, corre esto para volver a como estaba)
 -- =====================================================================
+-- alter table public.tarimas drop column if exists numero;
 -- alter table public.materiales drop constraint if exists materiales_categoria_check;
 -- alter table public.materiales add constraint materiales_categoria_check check (categoria in ('rollo_mp','tinta','solvente','otro'));
 -- alter table public.movimientos_inventario_mp drop column if exists tarima_id;

@@ -313,6 +313,7 @@ function EemsaApp() {
         pedidos={pedidos} setPedidos={setPedidos}
         fallas={fallas} setFallas={setFallas}
         cliches={cliches}
+        materiales={materiales} tarimas={tarimas}
         onSalir={() => setModo(null)}
       />
     </Suspense>

@@ -3,7 +3,7 @@ import CalculadoraProduccion from './CalculadoraProduccion';
 import ClicheImg from './ClicheImg';
 import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
-import { today, alertaEntrega, subirConUrlFirmada, cargarBorrador, guardarBorrador } from '../lib/utils';
+import { today, fmt, alertaEntrega, subirConUrlFirmada, cargarBorrador, guardarBorrador } from '../lib/utils';
 import { anchoDePedido } from '../lib/produccion';
 import { horasEfectivas, JORNADA_HORAS } from '../lib/horario';
 import { sendPush } from '../lib/push';
@@ -15,7 +15,7 @@ import NotifBell from './NotifBell';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
-export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, cliches, onSalir }) {
+export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, cliches, materiales = [], tarimas = [], onSalir }) {
   const [ahora, setAhora] = useState(new Date());
   useEffect(() => {
     const t = setInterval(() => setAhora(new Date()), 1000);
@@ -41,6 +41,29 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
   const [compTocado, setCompTocado] = useState(() => cargarBorrador("eemsa_op_comp_tocado", false));
   const [sevTocado,  setSevTocado]  = useState(() => cargarBorrador("eemsa_op_sev_tocado", false));
   const pedidoSel = pedidoSelId ? (pedidos.find(p => p.id === pedidoSelId) || null) : null;
+
+  // Que tarima de Rollo MP se va a usar en esta corrida -- obligatorio antes
+  // de poder finalizar (ver vista === "tarima" mas abajo). Se resetea cada
+  // vez que se cambia de pedido para no arrastrar la seleccion de otro.
+  const [tarimaMP, setTarimaMP] = useState(null);
+  useEffect(() => { setTarimaMP(null); }, [pedidoSelId]);
+  // Candidatas: tarimas activas de categoria rollo_mp cuyo match_valor es el
+  // tipo de cinta de este pedido, mas vieja primero (orden FIFO recomendado).
+  const candidatosTarimaMP = pedidoSel ? tarimas
+    .filter(t => t.activa && Number(t.cantidad_actual) > 0)
+    .filter(t => {
+      const m = materiales.find(x => x.id === t.material_id);
+      return m?.categoria === 'rollo_mp' && (m.match_valor || '').trim().toLowerCase() === (pedidoSel.tipo || '').trim().toLowerCase();
+    })
+    .sort((a, b) => (a.fecha_recepcion || '').localeCompare(b.fecha_recepcion || '') || (a.created || '').localeCompare(b.created || ''))
+    : [];
+  // Si solo hay una tarima activa de ese tipo no hay nada que decidir en
+  // realidad -- se preselecciona sola para no hacer al operador tocar una
+  // pantalla de mas cuando no hay eleccion posible.
+  useEffect(() => {
+    if (!tarimaMP && candidatosTarimaMP.length === 1) setTarimaMP(candidatosTarimaMP[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidatosTarimaMP.length, pedidoSelId]);
 
   useEffect(() => guardarBorrador("eemsa_op_pedido_id", pedidoSelId), [pedidoSelId]);
   useEffect(() => guardarBorrador("eemsa_op_vista", vista), [vista]);
@@ -243,6 +266,11 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
           // Mismo criterio que tipoCentro en /api/costos: ancho de 3" cuenta
           // aparte, cualquier otro ancho cae en la caja de centros de 2".
           ancho: anchoDePedido(pedidoSel) === 3 ? '3' : '2', piezas,
+          // Tarima de Rollo MP elegida a mano en la pantalla previa (ver
+          // vista === "tarima") -- si viene, el servidor descuenta de esa
+          // tarima especifica en vez de FIFO. Si no hay ninguna activa
+          // registrada, se queda null y cae en el flujo automatico de siempre.
+          tarima_mp_id: tarimaMP?.id || null,
         }),
       });
       if (consumoRes.ok) {
@@ -584,7 +612,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
                       <div style={{ fontSize: 10, color: "var(--text-2)", marginTop: 4 }}>Solo horas de trabajo — no cuenta noches ni domingo</div>
                     </div>
                   )}
-                  <button className="btn btn-primary btn-block" style={{ marginBottom: 10, padding: 16, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={() => setVista("calc")}><Ico icon={IcoCheck} size={16} /> Finalizar pedido</button>
+                  <button className="btn btn-primary btn-block" style={{ marginBottom: 10, padding: 16, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={() => setVista("tarima")}><Ico icon={IcoCheck} size={16} /> Finalizar pedido</button>
                   <button className="btn btn-danger btn-block" style={{ padding: 16, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={() => setVista("falla")}><Ico icon={IcoFal} size={16} /> Reportar falla</button>
                 </>
               );
@@ -597,10 +625,53 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
           </>
         )}
 
+        {/* Seleccion obligatoria de la tarima de Rollo MP antes de poder
+            finalizar -- asi el descuento de stock queda ligado al pallet
+            fisico que de verdad se uso, no a un FIFO ciego, y sirve de paso
+            para hacer conteo mas rapido despues. */}
+        {pedidoSel && vista === "tarima" && (() => {
+          const puedeContinuar = candidatosTarimaMP.length === 0 || !!tarimaMP;
+          return (
+            <>
+              <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setVista(null)}>← Volver</button>
+              <h3 className="sec-title" style={{ fontSize: 18 }}>🧱 ¿Qué tarima de Rollo MP vas a usar?</h3>
+              <div className="muted" style={{ marginBottom: 14 }}>Cinta {pedidoSel.tipo || "—"}</div>
+
+              {candidatosTarimaMP.length === 0 ? (
+                <div style={{ background: "var(--orange-dim)", border: "1px solid var(--orange)", borderRadius: 10, padding: 14, fontSize: 13, color: "var(--orange)", marginBottom: 16 }}>
+                  ⚠ No hay ninguna tarima activa registrada de "{pedidoSel.tipo}" en Inventario. Puedes continuar — se avisará que hace falta capturarla.
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: 8, marginBottom: 16 }}>
+                  {candidatosTarimaMP.map((t, i) => (
+                    <button key={t.id} type="button" onClick={() => setTarimaMP(t)}
+                      style={{ textAlign: "left", padding: "12px 14px", borderRadius: 10, cursor: "pointer",
+                        border: tarimaMP?.id === t.id ? "2px solid var(--green)" : "1px solid var(--border-light)",
+                        background: tarimaMP?.id === t.id ? "var(--green-dim)" : "var(--surface)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <strong style={{ fontSize: 15 }}>Tarima #{t.numero ?? "?"}</strong>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--blue)" }}>{fmt(t.cantidad_actual)} rollos</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                        {t.lote ? `Lote: ${t.lote} · ` : ""}Recibida: {t.fecha_recepcion}
+                        {i === 0 && <span style={{ color: "var(--green)", fontWeight: 700 }}> · más vieja (FIFO)</span>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <button className="btn btn-primary btn-block" style={{ padding: 14, fontSize: 15 }} disabled={!puedeContinuar} onClick={() => setVista("calc")}>
+                Continuar →
+              </button>
+            </>
+          );
+        })()}
+
         {/* Calculadora de producción — flujo finalizar */}
         {pedidoSel && vista === "calc" && (
           <>
-            <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setVista(null)}>← Volver</button>
+            <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => setVista("tarima")}>← Volver</button>
             {loading
               ? <div style={{ textAlign: "center", padding: 32, color: "var(--green)", fontSize: 15 }}>Guardando…</div>
               : <CalculadoraProduccion
