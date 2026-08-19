@@ -194,9 +194,13 @@ async function descontarFIFO(material_id, cantidadTotal, { motivo, origen, pedid
   const { data: material, error: errMat } = await supabase.from('materiales').select('*').eq('id', material_id).single();
   if (errMat || !material) throw Object.assign(new Error('Material no encontrado'), { status: 404 });
 
+  // El orden de consumo respeta el "numero" de tarima (el que se ve y se
+  // puede reordenar a mano en Inventario) en vez de solo la fecha de
+  // recepcion -- asi si alguien renumera para marcar cual esta abierta/en
+  // uso, el descuento automatico de verdad le hace caso a eso.
   const { data: tarimas, error: errTar } = await supabase.from('tarimas')
     .select('*').eq('material_id', material_id).eq('activa', true).gt('cantidad_actual', 0)
-    .order('fecha_recepcion', { ascending: true }).order('created', { ascending: true });
+    .order('numero', { ascending: true }).order('fecha_recepcion', { ascending: true }).order('created', { ascending: true });
   if (errTar) throw Object.assign(new Error(errTar.message), { status: 500 });
 
   let restante = cantidadTotal;

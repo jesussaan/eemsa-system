@@ -48,14 +48,15 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
   const [tarimaMP, setTarimaMP] = useState(null);
   useEffect(() => { setTarimaMP(null); }, [pedidoSelId]);
   // Candidatas: tarimas activas de categoria rollo_mp cuyo match_valor es el
-  // tipo de cinta de este pedido, mas vieja primero (orden FIFO recomendado).
+  // tipo de cinta de este pedido, numero mas chico primero (mismo orden que
+  // usa el consumo automatico de tinta/centro/solvente, ver descontarFIFO).
   const candidatosTarimaMP = pedidoSel ? tarimas
     .filter(t => t.activa && Number(t.cantidad_actual) > 0)
     .filter(t => {
       const m = materiales.find(x => x.id === t.material_id);
       return m?.categoria === 'rollo_mp' && (m.match_valor || '').trim().toLowerCase() === (pedidoSel.tipo || '').trim().toLowerCase();
     })
-    .sort((a, b) => (a.fecha_recepcion || '').localeCompare(b.fecha_recepcion || '') || (a.created || '').localeCompare(b.created || ''))
+    .sort((a, b) => (a.numero ?? 0) - (b.numero ?? 0) || (a.fecha_recepcion || '').localeCompare(b.fecha_recepcion || '') || (a.created || '').localeCompare(b.created || ''))
     : [];
   // Si solo hay una tarima activa de ese tipo no hay nada que decidir en
   // realidad -- se preselecciona sola para no hacer al operador tocar una

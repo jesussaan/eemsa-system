@@ -292,11 +292,12 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   const materialesFiltrados = materiales.filter(m => !busqueda || m.nombre.toLowerCase().includes(busqueda.toLowerCase()));
   const movimientosFiltrados = movimientos.filter(mv => !filtroMov || (mv.material_nombre || "").toLowerCase().includes(filtroMov.toLowerCase()));
 
-  // Orden FIFO: activas primero (la mas vieja arriba), agotadas al final --
-  // asi salta a la vista cual pallet se consume primero.
+  // Orden FIFO: activas primero (numero mas chico arriba -- el consumo
+  // automatico respeta este mismo orden, ver api/inventario.js
+  // descontarFIFO), agotadas al final.
   const tarimasOrdenadas = [...tarimas].sort((a, b) => {
     if (a.activa !== b.activa) return a.activa ? -1 : 1;
-    return (a.fecha_recepcion || "").localeCompare(b.fecha_recepcion || "") || (a.created || "").localeCompare(b.created || "");
+    return (a.numero ?? 0) - (b.numero ?? 0) || (a.fecha_recepcion || "").localeCompare(b.fecha_recepcion || "") || (a.created || "").localeCompare(b.created || "");
   });
   const tarimasFiltradas = tarimasOrdenadas
     .filter(t => !ocultarAgotadas || t.activa)
