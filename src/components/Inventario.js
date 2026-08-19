@@ -54,7 +54,11 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   const [movimientosCargados, setMovimientosCargados] = useState(false);
   const [filtroMov, setFiltroMov] = useState("");
   const [busquedaTarimas, setBusquedaTarimas] = useState("");
-  const [verAgotadas, setVerAgotadas] = useState(false);
+  // Por default se ven TODAS las tarimas (activas y agotadas) -- que una se
+  // agote nunca la debe hacer "desaparecer" de la pestana Tarimas, solo se
+  // marca en rojo. El boton de abajo sirve para ocultarlas si estorban,
+  // no para tener que ir a buscarlas.
+  const [ocultarAgotadas, setOcultarAgotadas] = useState(false);
   const [verQrTarimaId, setVerQrTarimaId] = useState(null);
   const [tarimaEscaneadaId, setTarimaEscaneadaId] = useState(null);
   const [salidaTarimaId, setSalidaTarimaId] = useState(null);
@@ -244,7 +248,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
     return (a.fecha_recepcion || "").localeCompare(b.fecha_recepcion || "") || (a.created || "").localeCompare(b.created || "");
   });
   const tarimasFiltradas = tarimasOrdenadas
-    .filter(t => verAgotadas || t.activa)
+    .filter(t => !ocultarAgotadas || t.activa)
     .filter(t => {
       if (!busquedaTarimas) return true;
       const mat = materialDe(t.material_id);
@@ -557,9 +561,9 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
 
           <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
             <input value={busquedaTarimas} onChange={e => setBusquedaTarimas(e.target.value)} placeholder="🔍 Buscar material, lote, proveedor…" style={{ ...inputStyle, flex: 1, minWidth: 200 }} />
-            <button className={`btn btn-sm ${verAgotadas ? "btn-primary" : "btn-ghost"}`} onClick={() => setVerAgotadas(v => !v)}>{verAgotadas ? "✓ Viendo agotadas" : "Ver agotadas"}</button>
+            <button className={`btn btn-sm ${ocultarAgotadas ? "btn-primary" : "btn-ghost"}`} onClick={() => setOcultarAgotadas(v => !v)}>{ocultarAgotadas ? "✓ Ocultando agotadas" : "Ocultar agotadas"}</button>
           </div>
-          {tarimasFiltradas.length === 0 ? <p className="empty">Sin tarimas{verAgotadas ? "" : " activas"}. Registra una entrada en la pestaña Stock.</p> : (
+          {tarimasFiltradas.length === 0 ? <p className="empty">Sin tarimas{ocultarAgotadas ? " activas" : ""}. Registra una entrada en la pestaña Stock.</p> : (
             <div className="list">
               {tarimasFiltradas.map(t => {
                 const mat = materialDe(t.material_id);
