@@ -408,7 +408,11 @@ textarea { resize: vertical; min-height: 68px; }
   .imprimible .muted, .imprimible th { color: #444 !important; }
   .solo-impresion { display: block !important; }
   .no-imprimir { display: none !important; }
+  /* La ventana flotante (position:fixed) de la vista grande del QR hace que
+     el navegador la repita en cada hoja al imprimir -- durante impresion se
+     quita el "fixed" para que sea una sola pagina normal. */
+  .vista-grande-overlay { position: static !important; inset: auto !important; height: auto !important; }
   /* La etiqueta QR es una sola pagina, centrada, ocupando casi toda la hoja. */
-  .qr-pagina-completa { height: 100vh; }
+  .qr-pagina-completa { position: static !important; width: 100% !important; height: 100vh !important; page-break-after: avoid; page-break-inside: avoid; }
   .qr-pagina-completa .qr-grande svg { width: 80vmin; height: 80vmin; }
 }
