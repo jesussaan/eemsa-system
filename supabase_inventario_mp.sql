@@ -128,6 +128,24 @@ update public.tarimas t set numero = n.rn
 from numeradas n
 where t.id = n.id and t.numero is null;
 
+-- ---------------------------------------------------------------------
+-- 7) FIX: las politicas de lectura solo cubrian el rol "anon" (visitas sin
+-- sesion). Cualquier usuario CON sesion iniciada consulta como rol
+-- "authenticated", que es un rol distinto en Postgres -- no hereda "anon" --
+-- asi que para todo mundo logueado (osea, todo mundo que de verdad usa la
+-- app) materiales/tarimas/movimientos_inventario_mp se veian vacios aunque
+-- el dato si estuviera en la base. Se agrega "authenticated" a las 3
+-- politicas para cubrir ambos casos.
+-- ---------------------------------------------------------------------
+drop policy if exists "anon_select" on public.materiales;
+create policy "anon_select" on public.materiales for select to anon, authenticated using (true);
+
+drop policy if exists "anon_select" on public.movimientos_inventario_mp;
+create policy "anon_select" on public.movimientos_inventario_mp for select to anon, authenticated using (true);
+
+drop policy if exists "anon_select" on public.tarimas;
+create policy "anon_select" on public.tarimas for select to anon, authenticated using (true);
+
 -- =====================================================================
 -- ROLLBACK (si algo se rompe, corre esto para volver a como estaba)
 -- =====================================================================
