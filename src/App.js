@@ -385,7 +385,7 @@ function EemsaApp() {
       )}
       <main className="main">
         <Suspense fallback={<PantallaCargando />}>
-          {tab === "dash" && <Dashboard pedidos={pedidos} fallas={fallas} refacciones={refs} materiales={materiales} proveedores={proveedores} prodDiaria={prodDiaria} cliches={cliches} />}
+          {tab === "dash" && <Dashboard pedidos={pedidos} fallas={fallas} refacciones={refs} materiales={materiales} tarimas={tarimas} proveedores={proveedores} prodDiaria={prodDiaria} cliches={cliches} />}
           {tab === "ped"  && <Pedidos pedidos={pedidos} setPedidos={setPedidos} />}
           {tab === "cal"  && <CalendarioEntregas pedidos={pedidos} setPedidos={setPedidos} />}
           {tab === "prod" && <Produccion prodDiaria={prodDiaria} setProdDiaria={setProdDiaria} pedidos={pedidos} />}

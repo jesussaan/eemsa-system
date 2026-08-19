@@ -6,7 +6,7 @@ import { META_CAJAS, META_MERMA_PCT, REBOB_CLIENTE, REBOB_COLOR, SEV } from '../
 import { notificar } from '../lib/notificaciones';
 import { exportarExcel } from '../lib/exportExcel';
 import { analizarComponentes } from '../lib/mantenimiento';
-import { IcoDash, IcoFal, IcoMoney, IcoCompare, IcoTrendUp, IcoTrophy, IcoDroplet, IcoTapeRoll, IcoRef, IcoRoll, IcoStamp } from './Icons';
+import { IcoDash, IcoFal, IcoMoney, IcoCompare, IcoTrendUp, IcoTrophy, IcoDroplet, IcoTapeRoll, IcoRef, IcoRoll, IcoStamp, IcoBox } from './Icons';
 import EditorCostos from './EditorCostos';
 
 const SECCIONES = [
@@ -14,9 +14,15 @@ const SECCIONES = [
   { id: 'produccion', lbl: 'Producción', Icon: IcoTrendUp },
   { id: 'finanzas',   lbl: 'Finanzas',   Icon: IcoMoney },
   { id: 'consumibles', lbl: 'Consumibles', Icon: IcoDroplet },
+  { id: 'inventario', lbl: 'Inventario', Icon: IcoBox },
   { id: 'rebobinado', lbl: 'Rebobinado', Icon: IcoRoll },
   { id: 'cliches',    lbl: 'Clichés',    Icon: IcoStamp },
 ];
+// Mismos colores que ya usa el modulo Inventario (Inventario.js) para cada
+// categoria -- para que se reconozcan igual en todo el sistema.
+const CATEGORIA_COLOR = { rollo_mp: '#4b8fe8', tinta: '#9b6fe8', solvente: '#e8894b', centro: '#4be87a', otro: '#888888' };
+const CATEGORIA_LBL   = { rollo_mp: 'Rollo MP', tinta: 'Tinta', solvente: 'Solvente/Alcohol', centro: 'Centros', otro: 'Otro' };
+const ORDEN_CATEGORIAS_INV = ['rollo_mp', 'tinta', 'centro', 'solvente', 'otro'];
 const SubTitle = ({ icon: Icon, children }) => (
   <h3 className="sub-title"><span style={{ display: 'inline-flex', fontSize: 14 }}><Icon /></span>{children}</h3>
 );
@@ -66,7 +72,7 @@ const delta = (curr, prev) => {
   return { pct: Math.abs(pct), sube: curr >= prev };
 };
 
-export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, materiales = [], proveedores, prodDiaria, cliches = [] }) {
+export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, materiales = [], tarimas = [], proveedores, prodDiaria, cliches = [] }) {
   const [seccion, setSeccion] = useState('resumen');
 
   // Busca el material de Inventario ligado a una categoria+valor (ver
@@ -997,6 +1003,97 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, m
       </div>
 
       </>}
+
+      {seccion === 'inventario' && (() => {
+        const porCategoria = ORDEN_CATEGORIAS_INV.map(cat => {
+          const items = materiales.filter(m => (m.categoria || 'otro') === cat);
+          const valor = items.reduce((s, m) => s + (Number(m.costo_unitario || 0) * Number(m.stock || 0)), 0);
+          return { cat, items, valor };
+        }).filter(g => g.items.length > 0);
+        const valorTotal = materiales.reduce((s, m) => s + (Number(m.costo_unitario || 0) * Number(m.stock || 0)), 0);
+        const stockBajoInv = materiales.filter(m => Number(m.stock_min || 0) > 0 && Number(m.stock || 0) <= Number(m.stock_min)).length;
+        const tarimasActivas = tarimas.filter(t => t.activa).length;
+        const pieData = porCategoria.filter(g => g.valor > 0).map(g => ({ name: CATEGORIA_LBL[g.cat], value: g.valor, color: CATEGORIA_COLOR[g.cat] }));
+        const topMateriales = materiales
+          .map(m => ({ ...m, valor: Number(m.costo_unitario || 0) * Number(m.stock || 0) }))
+          .filter(m => m.valor > 0)
+          .sort((a, b) => b.valor - a.valor)
+          .slice(0, 15);
+
+        return (
+          <>
+            <div className="stat-grid" style={{ marginBottom: 20 }}>
+              <div className="stat-card accent"><div className="stat-val">{materiales.length}</div><div className="stat-lbl">Materiales</div></div>
+              <div className="stat-card blue"><div className="stat-val">${fmt(valorTotal)}</div><div className="stat-lbl">Valor total</div></div>
+              <div className={`stat-card ${stockBajoInv > 0 ? 'red' : 'green'}`}><div className="stat-val">{stockBajoInv}</div><div className="stat-lbl">Stock bajo ⚠</div></div>
+              <div className="stat-card accent"><div className="stat-val">{tarimasActivas}</div><div className="stat-lbl">Tarimas activas</div></div>
+            </div>
+
+            <SubTitle icon={IcoBox}>Valor por categoría</SubTitle>
+            <div style={chartCard}>
+              {pieData.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: '12px 0' }}>Sin costos capturados todavía — captúralos en Inventario para ver el valor.</div>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'center' }}>
+                  <ResponsiveContainer width={220} height={220}>
+                    <PieChart>
+                      <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90} paddingAngle={2}>
+                        {pieData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                      </Pie>
+                      <Tooltip formatter={(v) => [`$${fmt(Math.round(v))}`]} contentStyle={{ background: 'var(--card)', border: '1px solid var(--border-light)', borderRadius: 8, fontSize: 12 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{ display: 'grid', gap: 10, flex: 1, minWidth: 180 }}>
+                    {porCategoria.map(g => (
+                      <div key={g.cat} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                          <span style={{ width: 10, height: 10, borderRadius: '50%', background: CATEGORIA_COLOR[g.cat], display: 'inline-block', flexShrink: 0 }} />
+                          {CATEGORIA_LBL[g.cat]} <span style={{ color: 'var(--muted)' }}>({g.items.length})</span>
+                        </span>
+                        <span style={{ fontWeight: 700, color: CATEGORIA_COLOR[g.cat] }}>${fmt(g.valor)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <SubTitle icon={IcoMoney}>Materiales con más valor en stock</SubTitle>
+            <div style={chartCard}>
+              {topMateriales.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: '12px 0' }}>Sin costos capturados todavía.</div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                        {['Material', 'Categoría', 'Stock', 'Valor'].map(h => (
+                          <th key={h} style={{ padding: '6px 10px', color: 'var(--muted)', fontWeight: 600, textAlign: h === 'Material' || h === 'Categoría' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topMateriales.map((m, i) => {
+                        const color = CATEGORIA_COLOR[m.categoria] || CATEGORIA_COLOR.otro;
+                        const min = Number(m.stock_min || 0);
+                        const bajo = min > 0 && Number(m.stock || 0) <= min;
+                        return (
+                          <tr key={m.id} style={{ borderBottom: '1px solid var(--surface)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                            <td style={{ padding: '8px 10px', color: 'var(--text)', fontWeight: 600, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.match_valor || m.nombre}</td>
+                            <td style={{ padding: '8px 10px', color, fontWeight: 600 }}>{CATEGORIA_LBL[m.categoria] || 'Otro'}</td>
+                            <td style={{ padding: '8px 10px', textAlign: 'right', color: bajo ? 'var(--red)' : 'var(--muted)' }}>{fmt(m.stock)} {m.unidad}{bajo ? ' ⚠' : ''}</td>
+                            <td style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--blue)', fontWeight: 700 }}>${fmt(m.valor)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        );
+      })()}
 
       {seccion === 'rebobinado' && <>
       <div className="stat-grid" style={{ marginBottom: 20 }}>
