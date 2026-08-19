@@ -100,8 +100,32 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
     if (subTab === "stock" || subTab === "tarimas") codigoRef.current?.focus();
   }, [subTab]);
 
+  // Compara dos nombres ignorando mayus/minusculas, espacios de mas y el
+  // orden de las palabras -- asi "Cinta Blanca Janel" y "cinta janel
+  // blanca " se detectan como el mismo producto aunque no coincidan letra
+  // por letra. Ver el bug real que motivo esto: 5 materiales duplicados de
+  // la misma tarima, cada uno escrito un poco distinto.
+  const tokensDe = (s) => (s || "").toLowerCase().trim().replace(/[^\p{L}\p{N}\s]/gu, "").split(/\s+/).filter(Boolean).sort();
+  const nombresParecidos = (a, b) => {
+    const ta = tokensDe(a), tb = tokensDe(b);
+    if (!ta.length || !tb.length) return false;
+    if (ta.join(" ") === tb.join(" ")) return true;
+    const setB = new Set(tb);
+    const comunes = ta.filter(x => setB.has(x)).length;
+    return comunes / Math.min(ta.length, tb.length) >= 0.8;
+  };
+
   const crearMaterial = async () => {
     if (!form.nombre.trim()) { showToast("⚠ Nombre obligatorio"); return; }
+    const parecidos = materiales.filter(m => nombresParecidos(m.nombre, form.nombre));
+    if (parecidos.length > 0) {
+      const lista = parecidos.map(m => `• ${m.nombre} (stock: ${fmt(m.stock)} ${m.unidad})`).join("\n");
+      const seguro = await confirmar(
+        `Ya existe algo parecido:\n\n${lista}\n\n¿Seguro que quieres crear otro material nuevo? Si es el mismo, cancela y usa "+ Entrada" en el que ya existe.`,
+        { peligro: false, textoConfirmar: "Crear de todos modos", textoCancelar: "Cancelar" }
+      );
+      if (!seguro) return;
+    }
     setLoading(true);
     try {
       const res = await fetch('/api/inventario', {

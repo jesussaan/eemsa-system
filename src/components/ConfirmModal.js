@@ -40,7 +40,7 @@ export default function ConfirmModal() {
           <span style={{ display: "inline-flex", fontSize: 22, color: estado.peligro ? "var(--red)" : "var(--accent)", flexShrink: 0, marginTop: 1 }}>
             <IcoFal />
           </span>
-          <p style={{ color: "var(--text)", fontSize: 14, lineHeight: 1.5, margin: 0 }}>{estado.mensaje}</p>
+          <p style={{ color: "var(--text)", fontSize: 14, lineHeight: 1.5, margin: 0, whiteSpace: "pre-line" }}>{estado.mensaje}</p>
         </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button className="btn btn-ghost btn-sm" onClick={() => cerrar(false)}>{estado.textoCancelar}</button>
