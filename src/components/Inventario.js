@@ -3,7 +3,7 @@ import { authHeaders } from '../lib/auth';
 import { fmt } from '../lib/utils';
 import { confirmar } from '../lib/confirm';
 import { QRCodeSVG } from 'qrcode.react';
-import { TIPOS, ROLLOS_POR_CAJA_MP, CENTROS_POR_CAJA, LITROS_POR_TAMBO_SOLVENTE } from '../lib/constants';
+import { TIPOS, ROLLOS_POR_CAJA_MP, CENTROS_POR_CAJA, LITROS_POR_TAMBO_SOLVENTE, KG_POR_CUBETA_TINTA } from '../lib/constants';
 import { proyectarConsumoPendientes } from '../lib/produccion';
 import { sendWhatsApp } from '../utils/whatsapp';
 import { IcoPlus, IcoScan } from './Icons';
@@ -31,7 +31,7 @@ const CONTENEDOR_INFO = {
   rollo_mp: { label: "Tarima", icon: "🧱", ratioNombre: "Cajas", ratio: () => ROLLOS_POR_CAJA_MP, ratioTexto: () => `${ROLLOS_POR_CAJA_MP} rollos/caja` },
   centro:   { label: "Caja",   icon: "📦", ratioNombre: "Cajas", ratio: (mv) => CENTROS_POR_CAJA[mv] || 0, ratioTexto: (mv) => `${CENTROS_POR_CAJA[mv] || "?"} piezas/caja` },
   solvente: { label: "Tambo",  icon: "🛢️", ratioNombre: "Tambos", ratio: () => LITROS_POR_TAMBO_SOLVENTE, ratioTexto: () => `${LITROS_POR_TAMBO_SOLVENTE} L/tambo` },
-  tinta:    { label: "Cubeta", icon: "🪣", ratioNombre: null, ratio: null, ratioTexto: null },
+  tinta:    { label: "Cubeta", icon: "🪣", ratioNombre: "Cubetas", ratio: () => KG_POR_CUBETA_TINTA, ratioTexto: () => `${KG_POR_CUBETA_TINTA} kg/cubeta` },
   otro:     { label: "Lote",   icon: "🏷️", ratioNombre: null, ratio: null, ratioTexto: null },
 };
 const contenedorDe = (m) => CONTENEDOR_INFO[m?.categoria] || CONTENEDOR_INFO.otro;

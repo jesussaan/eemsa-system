@@ -8,10 +8,11 @@ export const TIPOS = ["Blanca", "Canela", "Transparente", "Engomado"];
 //   Centros (cores de carton): llegan en cajas sueltas (no en tarima),
 //     organizadas por ancho -- una caja de 2" trae 250 piezas, una de 3" 280.
 //   Solvente/alcohol: llega en tambos de 200 litros.
-//   Tinta: llega por cubeta, sin una conversion fija conocida.
+//   Tinta: llega por cubeta de 20 kg.
 export const ROLLOS_POR_CAJA_MP = 2;
 export const CENTROS_POR_CAJA = { '2': 250, '3': 280 };
 export const LITROS_POR_TAMBO_SOLVENTE = 200;
+export const KG_POR_CUBETA_TINTA = 20;
 export const OPERADORES = ["William", "Alfredo"];
 export const COMPS = ["Rodillo anilox", "Sistema de tintas", "Cliché/portacliché", "Motor principal", "Sistema de corte", "Banda transportadora", "Sistema eléctrico", "Resortes de Mandriles Chicos", "Otro"];
 export const COMPS_REBOBINADORA = ["Cuchillas de corte", "Motor rebobinador", "Sistema de frenado", "Mandriles", "Sistema eléctrico", "Otro"];
