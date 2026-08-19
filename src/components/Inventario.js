@@ -584,12 +584,19 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
             <input value={busquedaTarimas} onChange={e => setBusquedaTarimas(e.target.value)} placeholder="🔍 Buscar material, lote, proveedor…" style={{ ...inputStyle, flex: 1, minWidth: 200 }} />
             <button className={`btn btn-sm ${ocultarAgotadas ? "btn-primary" : "btn-ghost"}`} onClick={() => setOcultarAgotadas(v => !v)}>{ocultarAgotadas ? "✓ Ocultando agotadas" : "Ocultar agotadas"}</button>
           </div>
-          {tarimasFiltradas.length === 0 ? <p className="empty">Sin tarimas{ocultarAgotadas ? " activas" : ""}. Registra una entrada en la pestaña Stock.</p> : (
-            <div className="list">
-              {tarimasFiltradas.map(t => {
+          {tarimasFiltradas.length === 0 ? <p className="empty">Sin tarimas{ocultarAgotadas ? " activas" : ""}. Registra una entrada en la pestaña Stock.</p> : ORDEN_CATEGORIAS.map(cat => {
+            const items = tarimasFiltradas.filter(t => (materialDe(t.material_id)?.categoria || "otro") === cat);
+            if (items.length === 0) return null;
+            const color = CATEGORIA_COLOR[cat];
+            return (
+              <div key={cat} style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color, borderBottom: `2px solid ${color}`, paddingBottom: 6, marginBottom: 8 }}>
+                  {CONTENEDOR_INFO[cat].icon} {CATEGORIA_LBL[cat]}
+                </div>
+                <div className="list">
+              {items.map(t => {
                 const mat = materialDe(t.material_id);
                 const cont = contenedorDe(mat);
-                const color = CATEGORIA_COLOR[mat?.categoria] || CATEGORIA_COLOR.otro;
                 const esFifoSiguiente = t.activa && primeraFifoPorMaterial[t.material_id] === t.id;
                 return (
                   <div key={t.id} className="list-item" style={{ borderLeft: !t.activa ? "3px solid #3a3f5a" : esFifoSiguiente ? "3px solid #4be87a" : `3px solid ${color}`, opacity: t.activa ? 1 : 0.6 }}>
@@ -636,8 +643,10 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                   </div>
                 );
               })}
-            </div>
-          )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
