@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { requiereModo } from './_lib/auth.js';
+import { requiereModo, requiereAlgunModo } from './_lib/auth.js';
 import { uid, today } from '../src/lib/utils.js';
 
 const supabase = createClient(
@@ -79,9 +79,10 @@ async function manejarFallas(req, res) {
 const CAMPOS_EDITABLES_MATERIAL = ['material', 'tipo', 'cantidad', 'unidad', 'urgente', 'notas', 'proveedor'];
 
 async function manejarListaMateriales(req, res) {
-  if (!(await requiereModo(req, 'emilio'))) return res.status(401).json({ error: 'No autorizado' });
-
+  // Pedir un material lo puede disparar tambien Inventario (stock bajo),
+  // no solo Emilio -- marcar listo/editar/borrar se queda solo para Emilio.
   if (req.method === 'POST') {
+    if (!(await requiereAlgunModo(req, ['emilio', 'inventario']))) return res.status(401).json({ error: 'No autorizado' });
     const m = req.body || {};
     if (!m.material || !String(m.material).trim()) return res.status(400).json({ error: 'material es requerido' });
     const nuevo = {
@@ -95,6 +96,7 @@ async function manejarListaMateriales(req, res) {
   }
 
   if (req.method === 'PUT') {
+    if (!(await requiereModo(req, 'emilio'))) return res.status(401).json({ error: 'No autorizado' });
     const { action, id } = req.body || {};
     if (!id) return res.status(400).json({ error: 'id es requerido' });
 
@@ -118,6 +120,7 @@ async function manejarListaMateriales(req, res) {
   }
 
   if (req.method === 'DELETE') {
+    if (!(await requiereModo(req, 'emilio'))) return res.status(401).json({ error: 'No autorizado' });
     const { id } = req.body || {};
     if (!id) return res.status(400).json({ error: 'id es requerido' });
     const { error } = await supabase.from('lista_materiales').delete().eq('id', id);

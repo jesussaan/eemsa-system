@@ -47,7 +47,7 @@ const CATEGORIA_COLOR = {
 };
 const ORDEN_CATEGORIAS = ["rollo_mp", "tinta", "centro", "solvente", "otro"];
 
-export default function Inventario({ materiales, setMateriales, tarimas = [], setTarimas, pedidos = [], onSalir }) {
+export default function Inventario({ materiales, setMateriales, tarimas = [], setTarimas, pedidos = [], listaMateriales = [], setListaMateriales, onSalir }) {
   const [subTab, setSubTab] = useState("stock");
   const [form, setForm] = useState({ nombre: "", unidad: "Rollo", notas: "", categoria: "otro", match_valor: "" });
   const [toast, setToast] = useState("");
@@ -131,6 +131,33 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
     const setB = new Set(tb);
     const comunes = ta.filter(x => setB.has(x)).length;
     return comunes / Math.min(ta.length, tb.length) >= 0.8;
+  };
+
+  // ¿Ya hay un pedido pendiente en Modo Emilio para este material? Se
+  // relaciona por nombre parecido (lista_materiales es texto libre, no
+  // tiene un id de materiales) reusando el mismo comparador que ya usa
+  // crearMaterial para detectar duplicados.
+  const [pidiendoId, setPidiendoId] = useState(null);
+  const pedidoPendientePara = (m) => listaMateriales.find(lm => lm.status === "pendiente" && nombresParecidos(lm.material, m.nombre));
+  const TIPO_EMILIO = { rollo_mp: "Rollos", tinta: "Tinta", solvente: "Solvente", centro: "Otro", otro: "Otro" };
+
+  const pedirAEmilio = async (m) => {
+    if (pidiendoId) return;
+    setPidiendoId(m.id);
+    try {
+      const payload = {
+        material: m.nombre, tipo: TIPO_EMILIO[m.categoria] || "Otro",
+        cantidad: null, unidad: m.unidad, urgente: true,
+        notas: `Pedido automático desde Inventario — quedan ${fmt(m.stock)} ${m.unidad} (mín: ${fmt(m.stock_min || 0)}).`,
+        proveedor: null,
+      };
+      const res = await fetch('/api/registro?tabla=lista-materiales', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (!res.ok) { showToast("❌ " + (data.error || "Error al pedir")); setPidiendoId(null); return; }
+      setListaMateriales?.(p => [data, ...p]);
+      showToast(`✓ Se le avisó a Emilio: ${m.nombre}`);
+    } catch (e) { showToast("❌ Error: " + e.message); }
+    setPidiendoId(null);
   };
 
   const crearMaterial = async () => {
@@ -411,6 +438,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                   {items.map(m => {
                     const min = Number(m.stock_min || 0);
                     const bajo = min > 0 && Number(m.stock || 0) <= min;
+                    const pedidoPendiente = bajo ? pedidoPendientePara(m) : null;
                     return (
                       <div key={m.id} className="list-item" style={{ borderLeft: `3px solid ${bajo ? "#ff4d4d" : color}` }}>
                     <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
@@ -418,11 +446,17 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                         <strong>{m.nombre}</strong>
                         <span className={`badge ${bajo ? "b-red" : "b-green"}`}>Stock: {fmt(m.stock)} {m.unidad}</span>
                         {bajo && <span className="badge b-red">BAJO</span>}
+                        {pedidoPendiente && <span className="badge" style={{ background: "#4be87a22", color: "#4be87a", border: "1px solid #4be87a" }}>✓ Ya pedido a Emilio</span>}
                         {m.match_valor && (
                           <span className="badge" style={{ background: color + "22", color, border: `1px solid ${color}` }}>🤖 {m.match_valor}</span>
                         )}
                       </div>
-                      <div style={{ display: "flex", gap: 6 }}>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {bajo && !pedidoPendiente && (
+                          <button className="btn btn-ghost btn-sm" title="Pedir a Emilio" style={{ color: "#ff9900" }} onClick={() => pedirAEmilio(m)} disabled={pidiendoId === m.id}>
+                            {pidiendoId === m.id ? "…" : "📨 Pedir a Emilio"}
+                          </button>
+                        )}
                         <button className="btn btn-ghost btn-sm" title="Registrar entrada" style={{ color: "#4be87a" }} onClick={() => { setEntradaId(entradaId === m.id ? null : m.id); setCantidadEntrada(""); setContenedoresEntrada(""); setLoteEntrada(""); setProveedorEntrada(""); setTarimaRecienCreada(null); }} disabled={guardandoId === m.id}>
                           <Ico icon={IcoPlus} size={12} /> Entrada
                         </button>

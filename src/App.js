@@ -359,7 +359,7 @@ function EemsaApp() {
 
   if (modo === "inventario") return (
     <Suspense fallback={<PantallaCargando />}>
-      <Inventario materiales={materiales} setMateriales={setMateriales} tarimas={tarimas} setTarimas={setTarimas} pedidos={pedidos} onSalir={() => setModo(null)} />
+      <Inventario materiales={materiales} setMateriales={setMateriales} tarimas={tarimas} setTarimas={setTarimas} pedidos={pedidos} listaMateriales={listaMateriales} setListaMateriales={setListaMateriales} onSalir={() => setModo(null)} />
     </Suspense>
   );
 
