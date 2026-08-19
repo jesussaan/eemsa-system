@@ -140,15 +140,31 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   const [pidiendoId, setPidiendoId] = useState(null);
   const pedidoPendientePara = (m) => listaMateriales.find(lm => lm.status === "pendiente" && nombresParecidos(lm.material, m.nombre));
   const TIPO_EMILIO = { rollo_mp: "Rollos", tinta: "Tinta", solvente: "Solvente", centro: "Otro", otro: "Otro" };
+  // Tinta/Solvente/Centro solo se compran en su contenedor completo (cubeta,
+  // tambo, caja) -- no tiene caso pedir "6.8 kg de tinta" si el proveedor de
+  // todos modos vende la cubeta entera de 17kg. Rollo MP si se pide tal cual
+  // se necesita porque el proveedor lo surte por rollo.
+  const CONTENEDOR_UNIDAD_PEDIDO = { tinta: "Cubeta", solvente: "Tambo", centro: "Caja" };
+  const cantidadAPedir = (m) => {
+    const faltante = Math.max(Number(m.stock_min || 0) - Number(m.stock || 0), 0) || Number(m.stock_min || 0) || 1;
+    const unidadContenedor = CONTENEDOR_UNIDAD_PEDIDO[m.categoria];
+    if (unidadContenedor) {
+      const ratio = contenedorDe(m).ratio(m.match_valor) || 1;
+      const n = Math.max(1, Math.ceil(faltante / ratio));
+      return { cantidad: n, unidad: unidadContenedor + (n === 1 ? "" : "s") };
+    }
+    return { cantidad: Math.max(1, Math.ceil(faltante)), unidad: m.unidad };
+  };
 
   const pedirAEmilio = async (m) => {
     if (pidiendoId) return;
     setPidiendoId(m.id);
     try {
+      const { cantidad, unidad } = cantidadAPedir(m);
       const payload = {
         material: m.nombre, tipo: TIPO_EMILIO[m.categoria] || "Otro",
-        cantidad: null, unidad: m.unidad, urgente: true,
-        notas: `Pedido automático desde Inventario — quedan ${fmt(m.stock)} ${m.unidad} (mín: ${fmt(m.stock_min || 0)}).`,
+        cantidad, unidad, urgente: true,
+        notas: `Pedido automático desde Inventario — quedan ${fmt(m.stock)} ${m.unidad} (mín: ${fmt(m.stock_min || 0)} ${m.unidad}).`,
         proveedor: null,
       };
       const res = await fetch('/api/registro?tabla=lista-materiales', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) });
