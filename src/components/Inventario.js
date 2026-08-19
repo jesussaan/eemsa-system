@@ -709,14 +709,18 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
 
       {vistaGrande && (
         <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <button onClick={() => setVistaGrande(null)} aria-label="Cerrar"
+          <button className="no-imprimir" onClick={() => setVistaGrande(null)} aria-label="Cerrar"
             style={{ position: "absolute", top: 16, right: 16, fontSize: 30, lineHeight: 1, background: "transparent", border: "none", color: "#000", cursor: "pointer", padding: 8 }}>✕</button>
-          <div style={{ fontSize: 32, fontWeight: 800, color: "#111", textAlign: "center", marginBottom: 6 }}>{vistaGrande.linea1}</div>
-          {vistaGrande.linea2 && <div style={{ fontSize: 18, color: "#444", marginBottom: 20 }}>{vistaGrande.linea2}</div>}
-          <QRCodeSVG value={urlTarima(vistaGrande.id)} size={280} bgColor="#ffffff" fgColor="#000000" />
-          <div style={{ fontSize: 11, color: "#999", marginTop: 16, wordBreak: "break-all", maxWidth: "90vw", textAlign: "center" }}>{vistaGrande.id}</div>
-          <div style={{ fontSize: 12, color: "#888", marginTop: 24, textAlign: "center", maxWidth: 320 }}>Para imprimir, usa el menú de tu navegador (⋮ o compartir → Imprimir), o tómale captura de pantalla.</div>
-          <button className="btn btn-ghost btn-sm" style={{ marginTop: 20, color: "#666", border: "1px solid #ccc" }} onClick={() => setVistaGrande(null)}>Cerrar</button>
+          <div className="imprimible" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ fontSize: 32, fontWeight: 800, color: "#111", textAlign: "center", marginBottom: 6 }}>{vistaGrande.linea1}</div>
+            {vistaGrande.linea2 && <div style={{ fontSize: 18, color: "#444", marginBottom: 20 }}>{vistaGrande.linea2}</div>}
+            <QRCodeSVG value={urlTarima(vistaGrande.id)} size={280} bgColor="#ffffff" fgColor="#000000" />
+            <div style={{ fontSize: 11, color: "#999", marginTop: 16, wordBreak: "break-all", maxWidth: "90vw", textAlign: "center" }}>{vistaGrande.id}</div>
+          </div>
+          <div className="no-imprimir" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <button className="btn btn-primary" style={{ marginTop: 24 }} onClick={() => window.print()}>🖨️ Imprimir</button>
+            <button className="btn btn-ghost btn-sm" style={{ marginTop: 10, color: "#666", border: "1px solid #ccc" }} onClick={() => setVistaGrande(null)}>Cerrar</button>
+          </div>
         </div>
       )}
     </div>

@@ -402,4 +402,5 @@ textarea { resize: vertical; min-height: 68px; }
   .imprimible .stat-card, .imprimible .list-item { background: #fff !important; border: 1px solid #999 !important; }
   .imprimible .muted, .imprimible th { color: #444 !important; }
   .solo-impresion { display: block !important; }
+  .no-imprimir { display: none !important; }
 }
