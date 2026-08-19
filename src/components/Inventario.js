@@ -54,6 +54,9 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [codigo, setCodigo] = useState("");
+  const [editorCostosAbierto, setEditorCostosAbierto] = useState(false);
+  const [editVals, setEditVals] = useState({}); // { [material_id]: { costo_unitario, stock_min } }
+  const [guardandoCostos, setGuardandoCostos] = useState(false);
   const [entradaId, setEntradaId] = useState(null);
   const [cantidadEntrada, setCantidadEntrada] = useState("");
   const [contenedoresEntrada, setContenedoresEntrada] = useState(""); // cajas/tambos recibidos -- auto-llena cantidadEntrada
@@ -154,6 +157,43 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
       showToast("✓ Material agregado ☁️");
     } catch (e) { showToast("❌ Error: " + e.message); }
     setLoading(false);
+  };
+
+  // Editor masivo de costo/minimo -- un renglon por material, como ya hace
+  // EditorCostos.js con los costos fijos del Cotizador. Abre con los
+  // valores actuales de todos los materiales precargados.
+  const abrirEditorCostos = () => {
+    const vals = {};
+    materiales.forEach(m => { vals[m.id] = { costo_unitario: m.costo_unitario ?? "", stock_min: m.stock_min ?? "" }; });
+    setEditVals(vals);
+    setEditorCostosAbierto(true);
+  };
+
+  const guardarCostosMasivo = async () => {
+    setGuardandoCostos(true);
+    try {
+      const resultados = await Promise.all(materiales.map(async m => {
+        const v = editVals[m.id] || {};
+        const costoAntes = m.costo_unitario ?? "";
+        const minAntes = m.stock_min ?? "";
+        if (String(v.costo_unitario ?? "") === String(costoAntes) && String(v.stock_min ?? "") === String(minAntes)) return null; // sin cambios, no llama a la API
+        const res = await fetch('/api/inventario', {
+          method: 'PUT', headers: authHeaders(),
+          body: JSON.stringify({ id: m.id, costo_unitario: v.costo_unitario, stock_min: v.stock_min }),
+        });
+        return res.ok ? await res.json() : null;
+      }));
+      const actualizados = resultados.filter(Boolean);
+      if (actualizados.length) {
+        setMateriales(ms => ms.map(x => {
+          const upd = actualizados.find(a => a.id === x.id);
+          return upd ? { ...x, costo_unitario: upd.costo_unitario, stock_min: upd.stock_min } : x;
+        }));
+      }
+      showToast(actualizados.length ? `✓ ${actualizados.length} material(es) actualizados` : "Sin cambios");
+      setEditorCostosAbierto(false);
+    } catch (e) { showToast("❌ Error: " + e.message); }
+    setGuardandoCostos(false);
   };
 
   const eliminarMaterial = async (m) => {
@@ -351,8 +391,15 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
           </div>
           <button className="btn btn-primary btn-block" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }} onClick={crearMaterial} disabled={loading}>{loading ? "Guardando…" : <><Ico icon={IcoPlus} size={15} /> Agregar al inventario</>}</button>
 
-          <h3 className="sub-title" style={{ marginTop: 20 }}>Materiales</h3>
-          <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar material…" style={{ ...inputStyle, marginBottom: 8 }} />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, flexWrap: "wrap", gap: 8 }}>
+            <h3 className="sub-title" style={{ margin: 0 }}>Materiales</h3>
+            {materiales.length > 0 && (
+              <button onClick={abrirEditorCostos} style={{ background: "transparent", border: "1px solid #2a2d3a", borderRadius: 8, color: "#9aa0bc", fontSize: 12, padding: "6px 12px", cursor: "pointer" }}>
+                ⚙️ Editar costos y mínimos
+              </button>
+            )}
+          </div>
+          <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="🔍 Buscar material…" style={{ ...inputStyle, marginBottom: 8, marginTop: 8 }} />
           {materiales.length === 0 ? <p className="empty">Sin materiales en inventario.</p> : ORDEN_CATEGORIAS.map(cat => {
             const items = materialesFiltrados.filter(m => (m.categoria || "otro") === cat);
             if (items.length === 0) return null;
@@ -737,6 +784,67 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
 
       {toast && <div className="toast">{toast}</div>}
       </main>
+
+      {editorCostosAbierto && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 200, overflowY: "auto", padding: "20px 16px 40px" }}>
+          <div style={{ maxWidth: 460, margin: "0 auto", background: "#181b24", borderRadius: 16, border: "1px solid #22263a", padding: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <div style={{ fontWeight: 700, fontSize: 16, color: "#e0e0e0" }}>⚙️ Editar costos y mínimos</div>
+              <button onClick={() => setEditorCostosAbierto(false)} style={{ background: "transparent", border: "none", color: "#545a78", fontSize: 22, cursor: "pointer" }}>✕</button>
+            </div>
+
+            {ORDEN_CATEGORIAS.map(cat => {
+              const items = materiales.filter(m => (m.categoria || "otro") === cat);
+              if (items.length === 0) return null;
+              const color = CATEGORIA_COLOR[cat];
+              return (
+                <div key={cat} style={{ marginBottom: 18 }}>
+                  <div style={{ fontSize: 10, color, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>{CONTENEDOR_INFO[cat].icon} {CATEGORIA_LBL[cat].toUpperCase()}</div>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {items.map(m => (
+                      <div key={m.id}>
+                        <div style={{ fontSize: 12, color: "#e0e0e0", fontWeight: 600, marginBottom: 4 }}>{m.match_valor || m.nombre}</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                          <div>
+                            <div style={{ fontSize: 10, color: "#545a78", marginBottom: 3 }}>Costo ($MXN)</div>
+                            <div style={{ display: "flex", alignItems: "center", background: "#0d0f14", border: "1px solid #2a2d3a", borderRadius: 6, overflow: "hidden" }}>
+                              <span style={{ padding: "0 8px", color: "#545a78", fontSize: 12 }}>$</span>
+                              <input type="number" step="0.01" min="0"
+                                value={editVals[m.id]?.costo_unitario ?? ""}
+                                onChange={e => setEditVals(v => ({ ...v, [m.id]: { ...v[m.id], costo_unitario: e.target.value } }))}
+                                style={{ flex: 1, background: "transparent", border: "none", color: "#e0e0e0", fontSize: 13, padding: "7px 8px 7px 0", outline: "none" }} />
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: "#545a78", marginBottom: 3 }}>Stock mínimo</div>
+                            <div style={{ background: "#0d0f14", border: "1px solid #2a2d3a", borderRadius: 6, overflow: "hidden" }}>
+                              <input type="number" step="1" min="0"
+                                value={editVals[m.id]?.stock_min ?? ""}
+                                onChange={e => setEditVals(v => ({ ...v, [m.id]: { ...v[m.id], stock_min: e.target.value } }))}
+                                style={{ width: "100%", background: "transparent", border: "none", color: "#e0e0e0", fontSize: 13, padding: "7px 8px", outline: "none", boxSizing: "border-box" }} />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 8 }}>
+              <button onClick={() => setEditorCostosAbierto(false)}
+                style={{ padding: "12px 0", borderRadius: 10, border: "1px solid #2a2d3a", background: "transparent", color: "#9aa0bc", fontSize: 14, cursor: "pointer" }}>
+                Cancelar
+              </button>
+              <button onClick={guardarCostosMasivo} disabled={guardandoCostos}
+                style={{ padding: "12px 0", borderRadius: 10, border: "none", background: guardandoCostos ? "#2a2d3a" : "#4be87a", color: "#000", fontSize: 14, fontWeight: 800, cursor: guardandoCostos ? "default" : "pointer" }}>
+                {guardandoCostos ? "Guardando…" : "💾 Guardar todo"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {vistaGrande && (
         <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>

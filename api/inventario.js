@@ -43,6 +43,7 @@ export default async function handler(req, res) {
   const usuario = await requiereAlgunModo(req, MODOS_INVENTARIO);
   if (!usuario) return res.status(401).json({ error: 'No autorizado' });
   if (req.method === 'POST') return crearMaterial(req, res);
+  if (req.method === 'PUT') return editarMaterial(req, res);
   if (req.method === 'DELETE') return eliminarMaterial(req, res);
   return res.status(405).json({ error: 'Method not allowed' });
 }
@@ -76,6 +77,20 @@ async function crearMaterial(req, res) {
     } catch (_) { /* el material ya quedo creado; el stock inicial se puede cargar despues como entrada normal */ }
   }
   return res.status(200).json(nuevo);
+}
+
+// Deja corregir despues el costo unitario y el stock minimo de un material
+// ya creado -- antes solo se podian capturar al momento de darlo de alta.
+async function editarMaterial(req, res) {
+  const { id, costo_unitario, stock_min } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'id es requerido' });
+  const update = {};
+  if (costo_unitario !== undefined) update.costo_unitario = (costo_unitario === '' || costo_unitario == null) ? null : Number(costo_unitario);
+  if (stock_min !== undefined) update.stock_min = (stock_min === '' || stock_min == null) ? 0 : Number(stock_min);
+  if (Object.keys(update).length === 0) return res.status(400).json({ error: 'Nada que actualizar' });
+  const { data, error } = await supabase.from('materiales').update(update).eq('id', id).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  return res.status(200).json(data);
 }
 
 async function eliminarMaterial(req, res) {
