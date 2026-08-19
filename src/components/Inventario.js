@@ -254,6 +254,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, marginTop: 12, flexWrap: "wrap" }}>
         <button className={`btn ${subTab === "stock" ? "btn-primary" : "btn-ghost"}`} onClick={() => setSubTab("stock")}>📦 Stock</button>
+        <button className={`btn ${subTab === "resumen" ? "btn-primary" : "btn-ghost"}`} onClick={() => setSubTab("resumen")}>📊 Resumen</button>
         <button className={`btn ${subTab === "tarimas" ? "btn-primary" : "btn-ghost"}`} onClick={() => setSubTab("tarimas")}>🧱 Tarimas</button>
         <button className={`btn ${subTab === "proyeccion" ? "btn-primary" : "btn-ghost"}`} onClick={() => setSubTab("proyeccion")}>📈 Proyección</button>
         <button className={`btn ${subTab === "movimientos" ? "btn-primary" : "btn-ghost"}`} onClick={() => setSubTab("movimientos")}>📋 Movimientos</button>
@@ -392,6 +393,95 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
           )}
         </div>
       )}
+
+      {subTab === "resumen" && (() => {
+        const ordenCategorias = ["rollo_mp", "tinta", "centro", "solvente", "otro"];
+        const grupos = ordenCategorias
+          .map(cat => ({ cat, items: materiales.filter(m => (m.categoria || "otro") === cat) }))
+          .filter(g => g.items.length > 0);
+        const valorTotal = materiales.reduce((s, m) => s + (Number(m.costo_unitario || 0) * Number(m.stock || 0)), 0);
+        const tarimasActivasTotal = tarimas.filter(t => t.activa).length;
+        return (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
+              <h3 className="sub-title" style={{ margin: 0 }}>Resumen — inventario completo</h3>
+              <button className="btn btn-primary btn-sm" onClick={() => window.print()}>🖨️ Imprimir</button>
+            </div>
+            <p className="muted" style={{ marginBottom: 14 }}>Cada material con su total y el detalle de sus tarimas — para llevar en mano al hacer conteo físico.</p>
+
+            <div className="imprimible">
+              <div style={{ display: "none" }} className="solo-impresion">
+                <h2 style={{ marginBottom: 2 }}>EEMSA System — Inventario de Materia Prima</h2>
+                <div style={{ fontSize: 12, color: "#444", marginBottom: 16 }}>Generado: {new Date().toLocaleString("es-MX")}</div>
+              </div>
+
+              <div className="stat-grid" style={{ marginBottom: 16 }}>
+                <div className="stat-card accent"><div className="stat-val">{materiales.length}</div><div className="stat-lbl">Materiales</div></div>
+                <div className="stat-card blue"><div className="stat-val">${fmt(valorTotal)}</div><div className="stat-lbl">Valor total</div></div>
+                <div className="stat-card accent"><div className="stat-val">{tarimasActivasTotal}</div><div className="stat-lbl">Tarimas activas</div></div>
+              </div>
+
+              {materiales.length === 0 ? <p className="empty">Sin materiales en inventario.</p> : grupos.map(g => {
+                const info = CONTENEDOR_INFO[g.cat];
+                const valorGrupo = g.items.reduce((s, m) => s + (Number(m.costo_unitario || 0) * Number(m.stock || 0)), 0);
+                return (
+                  <div key={g.cat} style={{ marginBottom: 22, breakInside: "avoid" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #c9922a", paddingBottom: 6, marginBottom: 10 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: "#c9922a" }}>{info.icon} {CATEGORIA_LBL[g.cat]}</span>
+                      {valorGrupo > 0 && <span style={{ fontSize: 12, color: "#666" }}>${fmt(valorGrupo)}</span>}
+                    </div>
+                    {g.items
+                      .sort((a, b) => (a.match_valor || a.nombre || "").localeCompare(b.match_valor || b.nombre || ""))
+                      .map(m => {
+                        const min = Number(m.stock_min || 0);
+                        const bajo = min > 0 && Number(m.stock || 0) <= min;
+                        const tarimasMaterial = tarimas.filter(t => t.material_id === m.id && t.activa)
+                          .sort((a, b) => (a.numero || 0) - (b.numero || 0));
+                        return (
+                          <div key={m.id} style={{ marginBottom: 14, breakInside: "avoid" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, background: "var(--surface, #13161e)", borderRadius: 8, padding: "8px 12px", borderLeft: bajo ? "3px solid #ff4d4d" : "3px solid #4be87a" }}>
+                              <div>
+                                <strong>{m.match_valor || m.nombre}</strong>
+                                {m.match_valor && <span className="muted" style={{ marginLeft: 6 }}>({m.nombre})</span>}
+                                {bajo && <span className="badge b-red" style={{ marginLeft: 6 }}>BAJO</span>}
+                              </div>
+                              <strong style={{ color: bajo ? "#ff4d4d" : "#4be87a" }}>Total: {fmt(m.stock)} {m.unidad}</strong>
+                            </div>
+                            {tarimasMaterial.length > 0 && (
+                              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, marginTop: 4 }}>
+                                <thead>
+                                  <tr>
+                                    {["#", info.label, "Lote", "Recibida", "Sistema", "Conteo físico"].map(h => (
+                                      <th key={h} style={{ textAlign: "left", padding: "4px 8px", color: "#888", fontWeight: 600, borderBottom: "1px solid #2a2d3a" }}>{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {tarimasMaterial.map(t => (
+                                    <tr key={t.id}>
+                                      <td style={{ padding: "4px 8px", borderBottom: "1px solid #1a1d26" }}>{t.numero ?? "?"}</td>
+                                      <td style={{ padding: "4px 8px", borderBottom: "1px solid #1a1d26" }}>{info.label} #{t.numero ?? "?"}</td>
+                                      <td style={{ padding: "4px 8px", borderBottom: "1px solid #1a1d26" }}>{t.lote || "—"}</td>
+                                      <td style={{ padding: "4px 8px", borderBottom: "1px solid #1a1d26" }}>{t.fecha_recepcion}</td>
+                                      <td style={{ padding: "4px 8px", borderBottom: "1px solid #1a1d26", fontWeight: 700 }}>{fmt(t.cantidad_actual)}</td>
+                                      <td style={{ padding: "4px 8px", borderBottom: "1px solid #1a1d26", width: 90 }}>
+                                        <span style={{ display: "inline-block", width: 70, borderBottom: "1px solid #888" }}>&nbsp;</span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {subTab === "tarimas" && (
         <div>

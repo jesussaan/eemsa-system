@@ -389,3 +389,17 @@ textarea { resize: vertical; min-height: 68px; }
   animation: pulse 1.4s ease-in-out infinite;
 }
 @keyframes pulse { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+/* Imprimir solo una parte de la pantalla (ej. el Resumen de Inventario para
+   conteo fisico) -- envuelve lo que si debe salir en un <div class="imprimible">
+   y llama window.print() directo, sin ventana/iframe aparte (eso fallaba en
+   celular, ver Inventario.js). ".solo-impresion" es al reves: contenido que
+   solo existe en el papel (encabezado con fecha), oculto en pantalla. */
+@media print {
+  body * { visibility: hidden; }
+  .imprimible, .imprimible * { visibility: visible; }
+  .imprimible { position: absolute; left: 0; top: 0; width: 100%; color: #000; background: #fff; }
+  .imprimible .stat-card, .imprimible .list-item { background: #fff !important; border: 1px solid #999 !important; }
+  .imprimible .muted, .imprimible th { color: #444 !important; }
+  .solo-impresion { display: block !important; }
+}
