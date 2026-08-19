@@ -49,7 +49,7 @@ const ORDEN_CATEGORIAS = ["rollo_mp", "tinta", "centro", "solvente", "otro"];
 
 export default function Inventario({ materiales, setMateriales, tarimas = [], setTarimas, pedidos = [], onSalir }) {
   const [subTab, setSubTab] = useState("stock");
-  const [form, setForm] = useState({ nombre: "", unidad: "Rollo", stock: "0", stock_min: "0", costo_unitario: "", notas: "", categoria: "otro", match_valor: "" });
+  const [form, setForm] = useState({ nombre: "", unidad: "Rollo", notas: "", categoria: "otro", match_valor: "" });
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState("");
@@ -148,12 +148,12 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
     try {
       const res = await fetch('/api/inventario', {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ nombre: form.nombre, unidad: form.unidad, stock: form.stock, stock_min: form.stock_min, costo_unitario: form.costo_unitario, notas: form.notas, categoria: form.categoria, match_valor: form.categoria === "otro" ? null : form.match_valor }),
+        body: JSON.stringify({ nombre: form.nombre, unidad: form.unidad, notas: form.notas, categoria: form.categoria, match_valor: form.categoria === "otro" ? null : form.match_valor }),
       });
       const nuevo = await res.json();
       if (!res.ok) { showToast("❌ Error: " + (nuevo.error || "desconocido")); setLoading(false); return; }
       setMateriales(m => [nuevo, ...m]);
-      setForm({ nombre: "", unidad: "Rollo", stock: "0", stock_min: "0", costo_unitario: "", notas: "", categoria: "otro", match_valor: "" });
+      setForm({ nombre: "", unidad: "Rollo", notas: "", categoria: "otro", match_valor: "" });
       showToast("✓ Material agregado ☁️");
     } catch (e) { showToast("❌ Error: " + e.message); }
     setLoading(false);
@@ -354,9 +354,6 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
             <div className="field"><label>Unidad</label>
               <select value={form.unidad} onChange={e => upd("unidad", e.target.value)}>{UNIDADES.map(u => <option key={u}>{u}</option>)}</select>
             </div>
-            <div className="field"><label>Stock inicial</label><input type="number" value={form.stock} onChange={e => upd("stock", e.target.value)} placeholder="0" /></div>
-            <div className="field"><label>Stock mínimo</label><input type="number" value={form.stock_min} onChange={e => upd("stock_min", e.target.value)} placeholder="0" /></div>
-            <div className="field"><label>Costo unitario ($MXN)</label><input type="number" value={form.costo_unitario} onChange={e => upd("costo_unitario", e.target.value)} placeholder="Opcional" /></div>
             <div className="field"><label>Categoría (auto-consumo)</label>
               <select value={form.categoria} onChange={e => { upd("categoria", e.target.value); upd("match_valor", ""); }}>
                 {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
