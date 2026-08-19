@@ -275,6 +275,11 @@ async function descontarTarimaEspecifica(tarimaId, cantidad, { motivo, origen, p
 // insensitive); si no existe todavia lo crea con stock 0 para no perder el
 // movimiento -- compras lo ve aparecer en Inventario y le carga stock real
 // y minimo. Devuelve null si no hay nada que matchear (valor vacio).
+// Deja solo letras/numeros en mayuscula para comparar codigos de color sin
+// que importen espacios, guiones ni sufijos Pantone (ej. "ROJO 032" vs
+// "ROJO 032-C" deben ser el mismo material).
+const normalizarCodigo = (s) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
 async function resolverOCrearMaterial(categoria, matchValor, nombreSugerido, unidadSugerida) {
   const valor = (matchValor || '').trim();
   if (!valor) return { material: null, creado: false };
@@ -283,6 +288,19 @@ async function resolverOCrearMaterial(categoria, matchValor, nombreSugerido, uni
   if (error) throw Object.assign(new Error(error.message), { status: 500 });
   const encontrado = (existentes || []).find(m => (m.match_valor || '').trim().toLowerCase() === valor.toLowerCase());
   if (encontrado) return { material: encontrado, creado: false };
+
+  // Sin match exacto: intenta por codigo normalizado (sin espacios/guiones),
+  // aceptando que uno sea prefijo del otro (cubre sufijos Pantone tipo -C/-U
+  // que a veces se omiten al capturar el pedido). Solo se usa si hay un unico
+  // candidato, para no adivinar mal entre dos tintas parecidas.
+  const valorNorm = normalizarCodigo(valor);
+  if (valorNorm) {
+    const candidatos = (existentes || []).filter(m => {
+      const mvNorm = normalizarCodigo(m.match_valor);
+      return mvNorm && (mvNorm.startsWith(valorNorm) || valorNorm.startsWith(mvNorm));
+    });
+    if (candidatos.length === 1) return { material: candidatos[0], creado: false };
+  }
 
   const nuevo = {
     id: uid(), created: today(),
