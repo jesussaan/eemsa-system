@@ -390,6 +390,11 @@ textarea { resize: vertical; min-height: 68px; }
 }
 @keyframes pulse { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
 
+/* QR de tarima a tamano completo -- para que se alcance a leer desde abajo
+   si la tarima queda arriba en un rack. vmin escala con el tamano de
+   pantalla/hoja tanto en la vista previa como ya impreso. */
+.qr-grande svg { width: 70vmin; height: 70vmin; max-width: 100%; }
+
 /* Imprimir solo una parte de la pantalla (ej. el Resumen de Inventario para
    conteo fisico) -- envuelve lo que si debe salir en un <div class="imprimible">
    y llama window.print() directo, sin ventana/iframe aparte (eso fallaba en
@@ -403,4 +408,7 @@ textarea { resize: vertical; min-height: 68px; }
   .imprimible .muted, .imprimible th { color: #444 !important; }
   .solo-impresion { display: block !important; }
   .no-imprimir { display: none !important; }
+  /* La etiqueta QR es una sola pagina, centrada, ocupando casi toda la hoja. */
+  .qr-pagina-completa { height: 100vh; }
+  .qr-pagina-completa .qr-grande svg { width: 80vmin; height: 80vmin; }
 }
