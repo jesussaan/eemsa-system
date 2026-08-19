@@ -68,16 +68,22 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   const materialDe = (tarimaOMaterialId) => materiales.find(m => m.id === tarimaOMaterialId);
   const escapeHtml = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-  // Abre una ventana aparte solo con el QR (tomado del SVG ya renderizado en
-  // pantalla, sin depender de otra libreria) mas el nombre/lote, del tamano
-  // de una etiqueta, y dispara el dialogo de impresion del navegador --
-  // window.print() usa la impresora que el usuario elija ahi mismo.
+  // Imprime el QR (tomado del SVG ya renderizado en pantalla) mas el
+  // nombre/cantidad/lote, usando un iframe oculto en vez de una ventana
+  // aparte -- window.open() en celular a veces navega fuera de la app en
+  // vez de abrir aparte, y al volver se pierde todo el estado de React (la
+  // tarima ya habia quedado guardada, pero la pantalla se veia "vacia").
+  // El iframe nunca dejar la pagina actual, asi que eso ya no puede pasar.
   const imprimirEtiqueta = (containerId, tarimaId, linea1, linea2) => {
     const cont = document.getElementById(containerId);
     if (!cont) return;
-    const win = window.open("", "_blank", "width=600,height=760");
-    if (!win) { showToast("⚠ El navegador bloqueó la ventana de impresión — habilita los pop-ups para este sitio"); return; }
-    win.document.write(`<!doctype html><html><head><title>Etiqueta ${escapeHtml(tarimaId)}</title>
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+    document.body.appendChild(iframe);
+    const limpiar = () => { if (iframe.parentNode) iframe.parentNode.removeChild(iframe); };
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(`<!doctype html><html><head><title>Etiqueta ${escapeHtml(tarimaId)}</title>
       <style>
         @page { margin: 10mm; }
         * { box-sizing: border-box; }
@@ -94,9 +100,12 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
         ${linea2 ? `<div class="l2">${escapeHtml(linea2)}</div>` : ""}
         ${cont.innerHTML}
         <div class="qrid">${escapeHtml(tarimaId)}</div>
-        <script>window.onload = function() { window.print(); };</script>
       </body></html>`);
-    win.document.close();
+    doc.close();
+    iframe.contentWindow.onafterprint = limpiar;
+    setTimeout(limpiar, 60000); // por si el navegador no dispara onafterprint
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
   };
 
   // Historial se carga solo la primera vez que se abre esa pestana (igual
