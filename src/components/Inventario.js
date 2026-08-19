@@ -75,14 +75,19 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   const imprimirEtiqueta = (containerId, tarimaId, linea1, linea2) => {
     const cont = document.getElementById(containerId);
     if (!cont) return;
-    const win = window.open("", "_blank", "width=420,height=520");
+    const win = window.open("", "_blank", "width=600,height=760");
     if (!win) { showToast("⚠ El navegador bloqueó la ventana de impresión — habilita los pop-ups para este sitio"); return; }
     win.document.write(`<!doctype html><html><head><title>Etiqueta ${escapeHtml(tarimaId)}</title>
       <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-        .l1 { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
-        .l2 { font-size: 12px; color: #444; margin-bottom: 12px; }
-        .qrid { font-size: 9px; color: #888; word-break: break-all; margin-top: 8px; max-width: 260px; margin-left: auto; margin-right: auto; }
+        @page { margin: 10mm; }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; }
+        body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px;
+          display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .l1 { font-size: 42px; font-weight: 800; margin-bottom: 8px; line-height: 1.1; }
+        .l2 { font-size: 24px; color: #333; margin-bottom: 20px; }
+        svg { width: min(85vw, 85vh); height: auto; max-width: 700px; }
+        .qrid { font-size: 13px; color: #888; word-break: break-all; margin-top: 16px; max-width: 90vw; }
       </style></head>
       <body>
         <div class="l1">${escapeHtml(linea1)}</div>
