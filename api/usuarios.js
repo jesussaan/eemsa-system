@@ -1,6 +1,6 @@
 import { supabaseAdmin, requiereAdmin } from './_lib/auth.js';
 
-const MODOS_VALIDOS = ['operador', 'ventas', 'emilio', 'rebobinado', 'supervisor', 'cotizador'];
+const MODOS_VALIDOS = ['operador', 'ventas', 'emilio', 'rebobinado', 'supervisor', 'cotizador', 'inventario'];
 
 // ?propio=1 (GET): perfil del usuario que manda el token -- cualquier cuenta
 // logueada, incluso sin modos asignados/pendiente de aprobar (es justo el
