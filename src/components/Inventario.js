@@ -66,47 +66,14 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2600); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const materialDe = (tarimaOMaterialId) => materiales.find(m => m.id === tarimaOMaterialId);
-  const escapeHtml = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-  // Imprime el QR (tomado del SVG ya renderizado en pantalla) mas el
-  // nombre/cantidad/lote, usando un iframe oculto en vez de una ventana
-  // aparte -- window.open() en celular a veces navega fuera de la app en
-  // vez de abrir aparte, y al volver se pierde todo el estado de React (la
-  // tarima ya habia quedado guardada, pero la pantalla se veia "vacia").
-  // El iframe nunca dejar la pagina actual, asi que eso ya no puede pasar.
-  const imprimirEtiqueta = (containerId, tarimaId, linea1, linea2) => {
-    const cont = document.getElementById(containerId);
-    if (!cont) return;
-    const iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
-    document.body.appendChild(iframe);
-    const limpiar = () => { if (iframe.parentNode) iframe.parentNode.removeChild(iframe); };
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(`<!doctype html><html><head><title>Etiqueta ${escapeHtml(tarimaId)}</title>
-      <style>
-        @page { margin: 10mm; }
-        * { box-sizing: border-box; }
-        html, body { height: 100%; }
-        body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px;
-          display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .l1 { font-size: 42px; font-weight: 800; margin-bottom: 8px; line-height: 1.1; }
-        .l2 { font-size: 24px; color: #333; margin-bottom: 20px; }
-        svg { width: min(85vw, 85vh); height: auto; max-width: 700px; }
-        .qrid { font-size: 13px; color: #888; word-break: break-all; margin-top: 16px; max-width: 90vw; }
-      </style></head>
-      <body>
-        <div class="l1">${escapeHtml(linea1)}</div>
-        ${linea2 ? `<div class="l2">${escapeHtml(linea2)}</div>` : ""}
-        ${cont.innerHTML}
-        <div class="qrid">${escapeHtml(tarimaId)}</div>
-      </body></html>`);
-    doc.close();
-    iframe.contentWindow.onafterprint = limpiar;
-    setTimeout(limpiar, 60000); // por si el navegador no dispara onafterprint
-    iframe.contentWindow.focus();
-    iframe.contentWindow.print();
-  };
+  // Vista grande del QR (pantalla completa, dentro de la misma app) -- antes
+  // se llamaba a window.print()/window.open(), pero en varios celulares eso
+  // abre un dialogo del sistema sin boton claro de "regresar"; si alguien se
+  // queda atorado ahi y fuerza cerrar la app puede sentir que se perdio la
+  // tarima (no es asi: ya quedo guardada, solo se pierde la pantalla). Esta
+  // vista es 100% de React -- el "✕" siempre funciona. Para imprimir de
+  // verdad, se usa el menu de imprimir del propio navegador desde aqui.
+  const [vistaGrande, setVistaGrande] = useState(null); // { id, linea1, linea2 }
 
   // Historial se carga solo la primera vez que se abre esa pestana (igual
   // que quejas_mp en Refacciones.js), para no bajar todo el historial de
@@ -396,11 +363,11 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                     {tarimaRecienCreada && tarimaRecienCreada.material_id === m.id && (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: 10, padding: 12, background: "#0d0f14", borderRadius: 10, border: "1px solid #4be87a" }}>
                         <span style={{ fontSize: 12, color: "#4be87a", fontWeight: 700 }}>✓ {contenedorDe(m).icon} {contenedorDe(m).label} #{tarimaRecienCreada.numero} creada — imprime este QR</span>
-                        <div id={`qr-nueva-${tarimaRecienCreada.id}`}><QRCodeSVG value={tarimaRecienCreada.id} size={110} bgColor="#0d0f14" fgColor="#e0e0e0" /></div>
+                        <QRCodeSVG value={tarimaRecienCreada.id} size={110} bgColor="#0d0f14" fgColor="#e0e0e0" />
                         <span style={{ fontSize: 11, color: "#666", wordBreak: "break-all", textAlign: "center" }}>{tarimaRecienCreada.id}</span>
                         {tarimaRecienCreada.lote && <span className="muted" style={{ fontSize: 11 }}>Lote: {tarimaRecienCreada.lote}</span>}
                         <div style={{ display: "flex", gap: 6 }}>
-                          <button className="btn btn-primary btn-sm" onClick={() => imprimirEtiqueta(`qr-nueva-${tarimaRecienCreada.id}`, tarimaRecienCreada.id, `${m.nombre} #${tarimaRecienCreada.numero}`, `${fmt(tarimaRecienCreada.cantidad_inicial)} ${m.unidad}${tarimaRecienCreada.lote ? ` · Lote: ${tarimaRecienCreada.lote}` : ""}`)}>🖨️ Imprimir</button>
+                          <button className="btn btn-primary btn-sm" onClick={() => setVistaGrande({ id: tarimaRecienCreada.id, linea1: `${m.nombre} #${tarimaRecienCreada.numero}`, linea2: tarimaRecienCreada.lote ? `Lote: ${tarimaRecienCreada.lote}` : "" })}>🔍 Ver / imprimir</button>
                           <button className="btn btn-ghost btn-sm" onClick={() => setTarimaRecienCreada(null)}>Cerrar</button>
                         </div>
                       </div>
@@ -496,9 +463,9 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
 
                     {verQrTarimaId === t.id && (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: 10, padding: 12, background: "#0d0f14", borderRadius: 10 }}>
-                        <div id={`qr-tarima-${t.id}`}><QRCodeSVG value={t.id} size={110} bgColor="#0d0f14" fgColor="#e0e0e0" /></div>
+                        <QRCodeSVG value={t.id} size={110} bgColor="#0d0f14" fgColor="#e0e0e0" />
                         <span style={{ fontSize: 11, color: "#666", wordBreak: "break-all", textAlign: "center" }}>{t.id}</span>
-                        <button className="btn btn-primary btn-sm" onClick={() => imprimirEtiqueta(`qr-tarima-${t.id}`, t.id, `${mat?.nombre || ""} #${t.numero ?? "?"}`, `${fmt(t.cantidad_actual)} ${mat?.unidad || ""} disponibles${t.lote ? ` · Lote: ${t.lote}` : ""}`)}>🖨️ Imprimir</button>
+                        <button className="btn btn-primary btn-sm" onClick={() => setVistaGrande({ id: t.id, linea1: `${mat?.nombre || ""} #${t.numero ?? "?"}`, linea2: t.lote ? `Lote: ${t.lote}` : "" })}>🔍 Ver / imprimir</button>
                       </div>
                     )}
 
@@ -611,6 +578,19 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
 
       {toast && <div className="toast">{toast}</div>}
       </main>
+
+      {vistaGrande && (
+        <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <button onClick={() => setVistaGrande(null)} aria-label="Cerrar"
+            style={{ position: "absolute", top: 16, right: 16, fontSize: 30, lineHeight: 1, background: "transparent", border: "none", color: "#000", cursor: "pointer", padding: 8 }}>✕</button>
+          <div style={{ fontSize: 32, fontWeight: 800, color: "#111", textAlign: "center", marginBottom: 6 }}>{vistaGrande.linea1}</div>
+          {vistaGrande.linea2 && <div style={{ fontSize: 18, color: "#444", marginBottom: 20 }}>{vistaGrande.linea2}</div>}
+          <QRCodeSVG value={vistaGrande.id} size={280} bgColor="#ffffff" fgColor="#000000" />
+          <div style={{ fontSize: 11, color: "#999", marginTop: 16, wordBreak: "break-all", maxWidth: "90vw", textAlign: "center" }}>{vistaGrande.id}</div>
+          <div style={{ fontSize: 12, color: "#888", marginTop: 24, textAlign: "center", maxWidth: 320 }}>Para imprimir, usa el menú de tu navegador (⋮ o compartir → Imprimir), o tómale captura de pantalla.</div>
+          <button className="btn btn-ghost btn-sm" style={{ marginTop: 20, color: "#666", border: "1px solid #ccc" }} onClick={() => setVistaGrande(null)}>Cerrar</button>
+        </div>
+      )}
     </div>
   );
 }
