@@ -95,9 +95,13 @@ export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
     // Color(s) de tinta que este cliente pide mas seguido -- para que la
     // proxima vez que Ventas le levante un pedido, ya sepa de una vez cual
     // es sin tener que buscarlo en el historial ni preguntarle a Produccion.
+    // El pedido trae el color primario en "color" (Pedidos.js/Supervisor) o
+    // en "tinta_tipo" (ModoVentas.js) segun donde se haya anotado -- mismo
+    // fallback que ya usa ModoOperador al armar la corrida.
     const colorCounts = c.pedidos.reduce((acc, p) => {
-      if (p.color)  acc[p.color]  = (acc[p.color]  || 0) + 1;
-      if (p.color2) acc[p.color2] = (acc[p.color2] || 0) + 1;
+      const principal = p.color || p.tinta_tipo;
+      if (principal) acc[principal] = (acc[principal] || 0) + 1;
+      if (p.color2)  acc[p.color2]  = (acc[p.color2]  || 0) + 1;
       return acc;
     }, {});
     const coloresOrdenados = Object.entries(colorCounts).sort((a, b) => b[1] - a[1]);
