@@ -419,4 +419,9 @@ textarea { resize: vertical; min-height: 68px; }
   /* La etiqueta QR es una sola pagina, centrada, ocupando casi toda la hoja. */
   .qr-pagina-completa { position: static !important; width: 100% !important; height: 100vh !important; page-break-after: avoid; page-break-inside: avoid; }
   .qr-pagina-completa .qr-grande svg { width: 80vmin; height: 80vmin; }
+  /* Imprimir todos los QR de las tarimas (Tarimas > Imprimir todos los QR):
+     cada etiqueta en su propia hoja -- el salto va ANTES de cada una menos
+     la primera (selector de hermano adyacente), asi no queda una hoja en
+     blanco de mas al principio ni al final. */
+  .qr-pagina-completa + .qr-pagina-completa { page-break-before: always; }
 }

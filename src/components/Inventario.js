@@ -248,6 +248,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   // vista es 100% de React -- el "✕" siempre funciona. Para imprimir de
   // verdad, se usa el menu de imprimir del propio navegador desde aqui.
   const [vistaGrande, setVistaGrande] = useState(null); // { id, linea1, linea2 }
+  const [qrLoteAbierto, setQrLoteAbierto] = useState(false); // imprimir el QR de TODAS las tarimas activas, una por hoja
 
   // Historial se carga solo la primera vez que se abre esa pestana (igual
   // que quejas_mp en Refacciones.js), para no bajar todo el historial de
@@ -875,6 +876,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
           <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
             <input value={busquedaTarimas} onChange={e => setBusquedaTarimas(e.target.value)} placeholder="🔍 Buscar material, lote, proveedor…" style={{ ...inputStyle, flex: 1, minWidth: 200 }} />
             <button className={`btn btn-sm ${ocultarAgotadas ? "btn-primary" : "btn-ghost"}`} onClick={() => setOcultarAgotadas(v => !v)}>{ocultarAgotadas ? "✓ Ocultando agotadas" : "Ocultar agotadas"}</button>
+            <button className="btn btn-primary btn-sm" onClick={() => setQrLoteAbierto(true)}>🖨️ Imprimir todos los QR</button>
           </div>
           {tarimasFiltradas.length === 0 ? <p className="empty">Sin tarimas{ocultarAgotadas ? " activas" : ""}. Registra una entrada en la pestaña Stock.</p> : ORDEN_CATEGORIAS.map(cat => {
             const items = tarimasFiltradas.filter(t => (materialDe(t.material_id)?.categoria || "otro") === cat);
@@ -1107,6 +1109,41 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
           </div>
         </div>
       )}
+
+      {qrLoteAbierto && (() => {
+        const paraImprimir = tarimasFiltradas.filter(t => t.activa);
+        return (
+          <div className="vista-grande-overlay" style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 999, overflowY: "auto", padding: 24 }}>
+            <button className="no-imprimir" onClick={() => setQrLoteAbierto(false)} aria-label="Cerrar"
+              style={{ position: "absolute", top: 16, right: 16, fontSize: 30, lineHeight: 1, background: "transparent", border: "none", color: "#000", cursor: "pointer", padding: 8, zIndex: 2 }}>✕</button>
+
+            <div className="no-imprimir" style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>{paraImprimir.length} tarima(s) activa(s) — una etiqueta por hoja</div>
+              <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={() => window.print()}>🖨️ Imprimir todo</button>
+              <button className="btn btn-ghost btn-sm" style={{ marginTop: 10, marginLeft: 8, color: "#666", border: "1px solid #ccc" }} onClick={() => setQrLoteAbierto(false)}>Cerrar</button>
+            </div>
+
+            {paraImprimir.length === 0 ? (
+              <p className="no-imprimir" style={{ textAlign: "center", color: "#666" }}>No hay tarimas activas para imprimir.</p>
+            ) : (
+              <div className="imprimible">
+                {paraImprimir.map(t => {
+                  const mat = materialDe(t.material_id);
+                  const cont = contenedorDe(mat);
+                  return (
+                    <div key={t.id} className="qr-pagina-completa" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: "100%", height: "100vh", boxSizing: "border-box" }}>
+                      <div style={{ fontSize: "clamp(28px, 6vw, 64px)", fontWeight: 800, color: "#111", textAlign: "center", marginBottom: 10, lineHeight: 1.1 }}>{mat?.nombre || "Material eliminado"} — {cont.label} #{t.numero ?? "?"}</div>
+                      {t.lote && <div style={{ fontSize: "clamp(16px, 3vw, 32px)", color: "#444", marginBottom: 24 }}>Lote: {t.lote}</div>}
+                      <div className="qr-grande"><QRCodeSVG value={urlTarima(t.id)} size={280} bgColor="#ffffff" fgColor="#000000" /></div>
+                      <div style={{ fontSize: "clamp(11px, 1.5vw, 16px)", color: "#999", marginTop: 20, wordBreak: "break-all", maxWidth: "90vw", textAlign: "center" }}>{t.id}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {scannerAbierto && (
         <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
