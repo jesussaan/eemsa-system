@@ -223,7 +223,7 @@ async function ajustarConteo(req, res, usuario) {
     const { error: errMov } = await supabase.from('movimientos_inventario_mp').insert([{
       material_id: material.id, material_nombre: material.nombre,
       tipo: delta > 0 ? 'entrada' : 'salida', cantidad: Math.abs(delta),
-      motivo: 'Ajuste por conteo físico', origen: 'ajuste_conteo', tarima_id: tarima.id, usuario_email: usuario.email || '',
+      motivo: 'Ajuste por conteo físico', origen: 'manual', tarima_id: tarima.id, usuario_email: usuario.email || '',
     }]);
     if (errMov) return res.status(500).json({ error: errMov.message });
 
