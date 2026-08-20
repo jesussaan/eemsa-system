@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { authHeaders } from '../lib/auth';
-import { fmt } from '../lib/utils';
+import { fmt, cargarBorrador, guardarBorrador } from '../lib/utils';
 import { confirmar } from '../lib/confirm';
 import { QRCodeSVG } from 'qrcode.react';
+import jsQR from 'jsqr';
 import { TIPOS, ROLLOS_POR_CAJA_MP, CENTROS_POR_CAJA, LITROS_POR_TAMBO_SOLVENTE, KG_POR_CUBETA_TINTA } from '../lib/constants';
 import { proyectarConsumoPendientes } from '../lib/produccion';
 import { sendWhatsApp } from '../utils/whatsapp';
@@ -80,6 +81,98 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   const [motivoSalida, setMotivoSalida] = useState("");
   const [guardandoSalidaId, setGuardandoSalidaId] = useState(null);
   const codigoRef = useRef(null);
+
+  // Conteo físico: prende un modo donde cada tarima escaneada se va sumando
+  // contra lo que el sistema dice que hay -- antes esto era la columna en
+  // blanco del Resumen impreso para llenar a mano; ahora, si se activa este
+  // modo, se llena sola con lo que se va escaneando. Se guarda en
+  // localStorage para no perder el avance si se recarga a medio recorrido
+  // del almacén (mismo patrón que el borrador de Modo Ventas).
+  const [contando, setContando] = useState(() => cargarBorrador("eemsa_inv_contando", false));
+  const [tarimasContadas, setTarimasContadas] = useState(() => cargarBorrador("eemsa_inv_conteo_tarimas", {})); // { [tarimaId]: isoTimestamp }
+  const [scannerAbierto, setScannerAbierto] = useState(false);
+  const [errorCamara, setErrorCamara] = useState(null);
+  const [codigoManualConteo, setCodigoManualConteo] = useState("");
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const rafRef = useRef(null);
+  const ultimoEscaneoRef = useRef({ val: null, at: 0 });
+
+  useEffect(() => guardarBorrador("eemsa_inv_contando", contando), [contando]);
+  useEffect(() => guardarBorrador("eemsa_inv_conteo_tarimas", tarimasContadas), [tarimasContadas]);
+  // Si se sale de la pantalla con la cámara prendida, se corta la cámara
+  // igual -- que nunca se quede encendida de fondo consumiendo batería.
+  useEffect(() => () => { if (streamRef.current) streamRef.current.getTracks().forEach(tr => tr.stop()); if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
+
+  const detenerCamara = () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    if (streamRef.current) { streamRef.current.getTracks().forEach(tr => tr.stop()); streamRef.current = null; }
+  };
+
+  const procesarCodigoConteo = (raw) => {
+    const val = idDeCodigo(String(raw || "").trim());
+    if (!val) return;
+    const t = tarimas.find(x => x.id === val);
+    if (!t) { showToast("⚠ QR no reconocido"); if (navigator.vibrate) navigator.vibrate([60, 40, 60]); return; }
+    const mat = materialDe(t.material_id);
+    if (tarimasContadas[t.id]) {
+      showToast(`↺ Ya contada: ${mat?.nombre || "Tarima"} #${t.numero ?? "?"}`);
+      if (navigator.vibrate) navigator.vibrate(30);
+      return;
+    }
+    setTarimasContadas(prev => ({ ...prev, [t.id]: new Date().toISOString() }));
+    showToast(`✓ Contada: ${mat?.nombre || "Tarima"} #${t.numero ?? "?"} — ${fmt(t.cantidad_actual)} ${mat?.unidad || ""}`);
+    if (navigator.vibrate) navigator.vibrate(80);
+  };
+
+  const iniciarCamara = async () => {
+    setErrorCamara(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      streamRef.current = stream;
+      if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
+      const tick = () => {
+        const video = videoRef.current, canvas = canvasRef.current;
+        if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
+          canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(img.data, img.width, img.height);
+          if (code?.data) {
+            const ahora = Date.now();
+            // Mientras el QR sigue frente a la cámara no se repite el mismo
+            // aviso una y otra vez -- solo cuando cambia el codigo o pasan 2s.
+            if (!(ultimoEscaneoRef.current.val === code.data && ahora - ultimoEscaneoRef.current.at < 2000)) {
+              ultimoEscaneoRef.current = { val: code.data, at: ahora };
+              procesarCodigoConteo(code.data);
+            }
+          }
+        }
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      rafRef.current = requestAnimationFrame(tick);
+    } catch (e) {
+      setErrorCamara("No se pudo acceder a la cámara" + (e?.message ? `: ${e.message}` : "") + ". Escribe el código manualmente abajo.");
+    }
+  };
+
+  const abrirScanner = () => { setScannerAbierto(true); iniciarCamara(); };
+  const cerrarScanner = () => { detenerCamara(); setScannerAbierto(false); setErrorCamara(null); setCodigoManualConteo(""); };
+  const onManualConteoKey = (e) => {
+    if (e.key !== "Enter") return;
+    procesarCodigoConteo(codigoManualConteo);
+    setCodigoManualConteo("");
+  };
+  const terminarConteo = async () => {
+    const total = Object.keys(tarimasContadas).length;
+    if (!(await confirmar(`¿Terminar conteo físico? Se contaron ${total} tarima(s) en esta sesión — se borra el avance.`))) return;
+    cerrarScanner();
+    setContando(false);
+    setTarimasContadas({});
+  };
 
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2600); };
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -544,13 +637,28 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
           .filter(g => g.items.length > 0);
         const valorTotal = materiales.reduce((s, m) => s + (Number(m.costo_unitario || 0) * Number(m.stock || 0)), 0);
         const tarimasActivasTotal = tarimas.filter(t => t.activa).length;
+        const tarimasContadasActivas = Object.keys(tarimasContadas).filter(id => tarimas.some(t => t.id === id && t.activa));
         return (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
               <h3 className="sub-title" style={{ margin: 0 }}>Resumen — inventario completo</h3>
-              <button className="btn btn-primary btn-sm" onClick={() => window.print()}>🖨️ Imprimir</button>
+              <div className="no-imprimir" style={{ display: "flex", gap: 8 }}>
+                {!contando
+                  ? <button className="btn btn-ghost btn-sm" style={{ color: "#4be87a", border: "1px solid #4be87a" }} onClick={() => setContando(true)}>📋 Iniciar conteo físico</button>
+                  : <button className="btn btn-ghost btn-sm" style={{ color: "#ff9900", border: "1px solid #ff9900" }} onClick={terminarConteo}>✕ Terminar conteo</button>}
+                <button className="btn btn-primary btn-sm" onClick={() => window.print()}>🖨️ Imprimir</button>
+              </div>
             </div>
             <p className="muted" style={{ marginBottom: 14 }}>Cada material con su total y el detalle de sus tarimas — para llevar en mano al hacer conteo físico.</p>
+
+            {contando && (
+              <div className="no-imprimir" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, background: "rgba(75,232,122,0.08)", border: "1px solid rgba(75,232,122,0.3)", borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
+                <div style={{ fontSize: 13, color: "#4be87a", fontWeight: 700 }}>
+                  🔵 Conteo en curso — {tarimasContadasActivas.length} / {tarimasActivasTotal} tarimas escaneadas
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={abrirScanner}>📷 Escanear tarima</button>
+              </div>
+            )}
 
             <div className="imprimible">
               <div style={{ display: "none" }} className="solo-impresion">
@@ -581,6 +689,10 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                         const bajo = min > 0 && Number(m.stock || 0) <= min;
                         const tarimasMaterial = tarimas.filter(t => t.material_id === m.id && t.activa)
                           .sort((a, b) => (a.numero || 0) - (b.numero || 0));
+                        const tarimasContadasMaterial = tarimasMaterial.filter(t => tarimasContadas[t.id]);
+                        const sumaContada = tarimasContadasMaterial.reduce((s, t) => s + Number(t.cantidad_actual || 0), 0);
+                        const completo = contando && tarimasMaterial.length > 0 && tarimasContadasMaterial.length === tarimasMaterial.length;
+                        const diferencia = completo ? Number((sumaContada - Number(m.stock || 0)).toFixed(2)) : null;
                         return (
                           <div key={m.id} style={{ marginBottom: 14, breakInside: "avoid" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, background: "var(--surface, #13161e)", borderRadius: 8, padding: "8px 12px", borderLeft: `3px solid ${bajo ? "#ff4d4d" : color}` }}>
@@ -591,6 +703,17 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                               </div>
                               <strong style={{ color: bajo ? "#ff4d4d" : color }}>Total: {fmt(m.stock)} {m.unidad}</strong>
                             </div>
+                            {contando && tarimasMaterial.length > 0 && (
+                              <div className="no-imprimir" style={{ fontSize: 12, padding: "4px 12px", color: tarimasContadasMaterial.length === 0 ? "#666" : !completo ? "#ff9900" : diferencia === 0 ? "#4be87a" : "#ff4d4d" }}>
+                                {tarimasContadasMaterial.length === 0
+                                  ? "Sin contar todavía"
+                                  : !completo
+                                    ? `En progreso: ${tarimasContadasMaterial.length}/${tarimasMaterial.length} tarimas — ${fmt(sumaContada)} ${m.unidad} contados hasta ahora`
+                                    : diferencia === 0
+                                      ? `✓ Cuadra — ${fmt(sumaContada)} ${m.unidad} contados`
+                                      : `⚠ Diferencia: ${diferencia > 0 ? "+" : ""}${fmt(diferencia)} ${m.unidad} (contado ${fmt(sumaContada)} vs sistema ${fmt(m.stock)})`}
+                              </div>
+                            )}
                             {tarimasMaterial.length > 0 && (
                               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, marginTop: 4 }}>
                                 <thead>
@@ -609,7 +732,11 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                                       <td style={{ padding: "4px 8px", borderBottom: "1px solid #1a1d26" }}>{t.fecha_recepcion}</td>
                                       <td style={{ padding: "4px 8px", borderBottom: "1px solid #1a1d26", fontWeight: 700 }}>{fmt(t.cantidad_actual)}</td>
                                       <td style={{ padding: "4px 8px", borderBottom: "1px solid #1a1d26", width: 90 }}>
-                                        <span style={{ display: "inline-block", width: 70, borderBottom: "1px solid #888" }}>&nbsp;</span>
+                                        {contando
+                                          ? (tarimasContadas[t.id]
+                                            ? <span style={{ color: "#4be87a", fontWeight: 700 }}>✓ {fmt(t.cantidad_actual)}</span>
+                                            : <span className="no-imprimir" style={{ color: "#666" }}>— pendiente</span>)
+                                          : <span style={{ display: "inline-block", width: 70, borderBottom: "1px solid #888" }}>&nbsp;</span>}
                                       </td>
                                     </tr>
                                   ))}
@@ -908,6 +1035,36 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
             <button className="btn btn-primary" style={{ marginTop: 24 }} onClick={() => window.print()}>🖨️ Imprimir</button>
             <button className="btn btn-ghost btn-sm" style={{ marginTop: 10, color: "#666", border: "1px solid #ccc" }} onClick={() => setVistaGrande(null)}>Cerrar</button>
           </div>
+        </div>
+      )}
+
+      {scannerAbierto && (
+        <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <button onClick={cerrarScanner} aria-label="Cerrar"
+            style={{ position: "absolute", top: 16, right: 16, fontSize: 30, lineHeight: 1, background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: 44, height: 44, color: "#fff", cursor: "pointer", zIndex: 2 }}>✕</button>
+
+          <div style={{ fontSize: 13, color: "#4be87a", fontWeight: 700, marginBottom: 10, textAlign: "center" }}>
+            📷 Apunta al QR de la tarima — {Object.keys(tarimasContadas).length} contadas hasta ahora
+          </div>
+
+          <div style={{ position: "relative", width: "100%", maxWidth: 420, aspectRatio: "1", borderRadius: 16, overflow: "hidden", background: "#111" }}>
+            <video ref={videoRef} autoPlay playsInline muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <div style={{ position: "absolute", inset: 24, border: "3px solid #4be87a", borderRadius: 12, pointerEvents: "none" }} />
+          </div>
+          <canvas ref={canvasRef} style={{ display: "none" }} />
+
+          {errorCamara && (
+            <div style={{ color: "#ff9900", fontSize: 13, marginTop: 14, maxWidth: 380, textAlign: "center" }}>{errorCamara}</div>
+          )}
+
+          <div style={{ width: "100%", maxWidth: 380, marginTop: 18 }}>
+            <label style={{ fontSize: 12, color: "#9aa0bc", display: "block", marginBottom: 5 }}>O escanea con pistola / escribe el código y presiona Enter</label>
+            <input value={codigoManualConteo} onChange={e => setCodigoManualConteo(e.target.value)} onKeyDown={onManualConteoKey}
+              placeholder="Código de la tarima" autoFocus={!!errorCamara}
+              style={{ width: "100%", background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "10px 12px", color: "#e0e0e0", fontSize: 14, boxSizing: "border-box" }} />
+          </div>
+
+          <button className="btn btn-ghost btn-sm" style={{ marginTop: 16, color: "#ccc", border: "1px solid #444" }} onClick={cerrarScanner}>Cerrar escáner</button>
         </div>
       )}
     </div>
