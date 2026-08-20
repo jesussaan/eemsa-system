@@ -64,8 +64,7 @@ export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
       ? Math.ceil((proximoEst - new Date(today() + "T12:00:00")) / 86400000)
       : null;
 
-    const cajasTotal    = c.pedidos.reduce((s, p) => s + Number(p.cajas || 0), 0);
-    const cajasSolicita = c.pedidos.length > 0 ? (cajasTotal / c.pedidos.length).toFixed(1) : null;
+    const cajasTotal = c.pedidos.reduce((s, p) => s + Number(p.cajas || 0), 0);
 
     // Pedidos activos (anotado o en proceso)
     const pedidosActivos = c.pedidos.filter(p => p.status === "proceso" || p.status === "anotado");
@@ -109,7 +108,7 @@ export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
 
     const color = diasDesdeUltimo === null ? "#666" : diasDesdeUltimo < 30 ? "#4be87a" : diasDesdeUltimo <= 60 ? "#ff9900" : "#ff4d4d";
 
-    return { ...c, cajasTotal, cajasSolicita, cajasActivas, pedidosActivos, ultimaFecha, diasDesdeUltimo, frecuencia, proximoEst, diasParaProximo, mermaPromedio, costoProm, tiempoProm, topMedidas, topColores, coloresOrdenados, color, sorted };
+    return { ...c, cajasTotal, cajasActivas, pedidosActivos, ultimaFecha, diasDesdeUltimo, frecuencia, proximoEst, diasParaProximo, mermaPromedio, costoProm, tiempoProm, topMedidas, topColores, coloresOrdenados, color, sorted };
   }).sort((a, b) => (a.diasDesdeUltimo ?? 9999) - (b.diasDesdeUltimo ?? 9999));
 
   const porTab = {
@@ -401,7 +400,7 @@ export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
                   <tr key={c.nombre}>
                     <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px", fontWeight: 700 }}>{c.nombre}</td>
                     <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px" }}>{c.topMedidas[0]?.[0] || "—"}</td>
-                    <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px" }}>{c.cajasSolicita ? `${c.cajasSolicita} cajas` : "—"}</td>
+                    <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px" }}>{c.cajasTotal ? `${c.cajasTotal} cajas` : "—"}</td>
                     <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px" }}>{c.costoProm != null ? `$${c.costoProm.toFixed(2)}/pza` : "—"}</td>
                     <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px" }}>{c.mermaPromedio != null ? `${c.mermaPromedio}%` : "—"}</td>
                     <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px" }}>{c.diasDesdeUltimo != null ? `${c.diasDesdeUltimo}d` : "—"}</td>
