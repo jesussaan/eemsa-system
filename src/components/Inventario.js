@@ -93,6 +93,11 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   const [scannerAbierto, setScannerAbierto] = useState(false);
   const [errorCamara, setErrorCamara] = useState(null);
   const [codigoManualConteo, setCodigoManualConteo] = useState("");
+  // Tarima recien escaneada esperando que se confirme/corrija la cantidad
+  // fisica real antes de sumarla al conteo (ver procesarCodigoConteo).
+  const [pendienteConfirmar, setPendienteConfirmar] = useState(null); // tarima completa
+  const [cantidadConfirmar, setCantidadConfirmar] = useState("");
+  const [ajustandoId, setAjustandoId] = useState(null); // material_id que se esta ajustando al conteo
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -112,6 +117,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   };
 
   const procesarCodigoConteo = (raw) => {
+    if (pendienteConfirmar) return; // ya hay una tarima esperando que se confirme su cantidad -- no atropellar
     const val = idDeCodigo(String(raw || "").trim());
     if (!val) return;
     const t = tarimas.find(x => x.id === val);
@@ -122,10 +128,27 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
       if (navigator.vibrate) navigator.vibrate(30);
       return;
     }
-    setTarimasContadas(prev => ({ ...prev, [t.id]: new Date().toISOString() }));
-    showToast(`✓ Contada: ${mat?.nombre || "Tarima"} #${t.numero ?? "?"} — ${fmt(t.cantidad_actual)} ${mat?.unidad || ""}`);
     if (navigator.vibrate) navigator.vibrate(80);
+    // No se asume que lo fisico es igual a lo que dice el sistema -- se pide
+    // confirmar/corregir la cantidad real (precargada con lo que el sistema
+    // tiene, para no escribir de mas cuando si cuadra).
+    setPendienteConfirmar(t);
+    setCantidadConfirmar(String(t.cantidad_actual));
   };
+
+  const confirmarConteoTarima = () => {
+    if (!pendienteConfirmar) return;
+    const cant = Number(cantidadConfirmar);
+    if (!(cant >= 0)) { showToast("⚠ Cantidad inválida"); return; }
+    const t = pendienteConfirmar;
+    const mat = materialDe(t.material_id);
+    setTarimasContadas(prev => ({ ...prev, [t.id]: { at: new Date().toISOString(), cantidadContada: cant } }));
+    const difiere = cant !== Number(t.cantidad_actual);
+    showToast(`${difiere ? "⚠" : "✓"} Contada: ${mat?.nombre || "Tarima"} #${t.numero ?? "?"} — ${fmt(cant)} ${mat?.unidad || ""}${difiere ? ` (sistema: ${fmt(t.cantidad_actual)})` : ""}`);
+    setPendienteConfirmar(null);
+    setCantidadConfirmar("");
+  };
+  const cancelarConteoTarima = () => { setPendienteConfirmar(null); setCantidadConfirmar(""); };
 
   const iniciarCamara = async () => {
     setErrorCamara(null);
@@ -160,7 +183,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
   };
 
   const abrirScanner = () => { setScannerAbierto(true); iniciarCamara(); };
-  const cerrarScanner = () => { detenerCamara(); setScannerAbierto(false); setErrorCamara(null); setCodigoManualConteo(""); };
+  const cerrarScanner = () => { detenerCamara(); setScannerAbierto(false); setErrorCamara(null); setCodigoManualConteo(""); setPendienteConfirmar(null); setCantidadConfirmar(""); };
   const onManualConteoKey = (e) => {
     if (e.key !== "Enter") return;
     procesarCodigoConteo(codigoManualConteo);
@@ -172,6 +195,41 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
     cerrarScanner();
     setContando(false);
     setTarimasContadas({});
+  };
+
+  // Corrige tarima.cantidad_actual (y el stock cacheado del material) a lo
+  // que de verdad se conto en el recorrido -- deja un movimiento de "ajuste"
+  // en el historial para que quede rastro de por que cambio sin que haya
+  // habido una salida/entrada real.
+  const ajustarConteoMaterial = async (m, tarimasContadasMaterial) => {
+    if (ajustandoId) return;
+    const ajustes = tarimasContadasMaterial
+      .filter(t => Number(tarimasContadas[t.id].cantidadContada) !== Number(t.cantidad_actual))
+      .map(t => ({ tarima_id: t.id, cantidad_contada: Number(tarimasContadas[t.id].cantidadContada) }));
+    if (ajustes.length === 0) { showToast("No hay diferencias que ajustar"); return; }
+    if (!(await confirmar(`¿Ajustar ${ajustes.length} tarima(s) de "${m.nombre}" a lo contado físicamente? Se corrige el stock del sistema y queda registrado como ajuste.`))) return;
+    setAjustandoId(m.id);
+    try {
+      const res = await fetch('/api/inventario?accion=ajustar-conteo', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ajustes }) });
+      const data = await res.json();
+      if (!res.ok) { showToast("❌ " + (data.error || "Error al ajustar")); setAjustandoId(null); return; }
+      setTarimas(ts => ts.map(x => {
+        const r = data.resultados.find(rr => rr.tarima_id === x.id);
+        return r ? { ...x, cantidad_actual: r.cantidad_actual, activa: r.activa } : x;
+      }));
+      const ultimoStockMaterial = data.resultados.filter(r => r.material_id === m.id).pop()?.stock;
+      if (ultimoStockMaterial !== undefined) setMateriales(ms => ms.map(x => x.id === m.id ? { ...x, stock: ultimoStockMaterial } : x));
+      // Ya quedaron reconciliadas -- se actualiza el conteo local a lo mismo
+      // que el sistema para que la tarjeta siga marcando "completo" en vez
+      // de volver a "en progreso" por haber tocado su cantidad_actual.
+      setTarimasContadas(prev => {
+        const cp = { ...prev };
+        ajustes.forEach(a => { if (cp[a.tarima_id]) cp[a.tarima_id] = { ...cp[a.tarima_id], cantidadContada: a.cantidad_contada }; });
+        return cp;
+      });
+      showToast(`✓ Ajustado: ${m.nombre}`);
+    } catch (e) { showToast("❌ Error: " + e.message); }
+    setAjustandoId(null);
   };
 
   const showToast = t => { setToast(t); setTimeout(() => setToast(""), 2600); };
@@ -690,7 +748,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                         const tarimasMaterial = tarimas.filter(t => t.material_id === m.id && t.activa)
                           .sort((a, b) => (a.numero || 0) - (b.numero || 0));
                         const tarimasContadasMaterial = tarimasMaterial.filter(t => tarimasContadas[t.id]);
-                        const sumaContada = tarimasContadasMaterial.reduce((s, t) => s + Number(t.cantidad_actual || 0), 0);
+                        const sumaContada = tarimasContadasMaterial.reduce((s, t) => s + Number(tarimasContadas[t.id].cantidadContada || 0), 0);
                         const completo = contando && tarimasMaterial.length > 0 && tarimasContadasMaterial.length === tarimasMaterial.length;
                         const diferencia = completo ? Number((sumaContada - Number(m.stock || 0)).toFixed(2)) : null;
                         return (
@@ -704,14 +762,22 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                               <strong style={{ color: bajo ? "#ff4d4d" : color }}>Total: {fmt(m.stock)} {m.unidad}</strong>
                             </div>
                             {contando && tarimasMaterial.length > 0 && (
-                              <div className="no-imprimir" style={{ fontSize: 12, padding: "4px 12px", color: tarimasContadasMaterial.length === 0 ? "#666" : !completo ? "#ff9900" : diferencia === 0 ? "#4be87a" : "#ff4d4d" }}>
-                                {tarimasContadasMaterial.length === 0
-                                  ? "Sin contar todavía"
-                                  : !completo
-                                    ? `En progreso: ${tarimasContadasMaterial.length}/${tarimasMaterial.length} tarimas — ${fmt(sumaContada)} ${m.unidad} contados hasta ahora`
-                                    : diferencia === 0
-                                      ? `✓ Cuadra — ${fmt(sumaContada)} ${m.unidad} contados`
-                                      : `⚠ Diferencia: ${diferencia > 0 ? "+" : ""}${fmt(diferencia)} ${m.unidad} (contado ${fmt(sumaContada)} vs sistema ${fmt(m.stock)})`}
+                              <div className="no-imprimir" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, fontSize: 12, padding: "4px 12px" }}>
+                                <span style={{ color: tarimasContadasMaterial.length === 0 ? "#666" : !completo ? "#ff9900" : diferencia === 0 ? "#4be87a" : "#ff4d4d" }}>
+                                  {tarimasContadasMaterial.length === 0
+                                    ? "Sin contar todavía"
+                                    : !completo
+                                      ? `En progreso: ${tarimasContadasMaterial.length}/${tarimasMaterial.length} tarimas — ${fmt(sumaContada)} ${m.unidad} contados hasta ahora`
+                                      : diferencia === 0
+                                        ? `✓ Cuadra — ${fmt(sumaContada)} ${m.unidad} contados`
+                                        : `⚠ Diferencia: ${diferencia > 0 ? "+" : ""}${fmt(diferencia)} ${m.unidad} (contado ${fmt(sumaContada)} vs sistema ${fmt(m.stock)})`}
+                                </span>
+                                {completo && diferencia !== 0 && (
+                                  <button className="btn btn-ghost btn-sm" style={{ color: "#ff4d4d", border: "1px solid #ff4d4d" }}
+                                    disabled={ajustandoId === m.id} onClick={() => ajustarConteoMaterial(m, tarimasContadasMaterial)}>
+                                    {ajustandoId === m.id ? "Ajustando…" : "⚖️ Ajustar a lo contado"}
+                                  </button>
+                                )}
                               </div>
                             )}
                             {tarimasMaterial.length > 0 && (
@@ -734,7 +800,11 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                                       <td style={{ padding: "4px 8px", borderBottom: "1px solid #1a1d26", width: 90 }}>
                                         {contando
                                           ? (tarimasContadas[t.id]
-                                            ? <span style={{ color: "#4be87a", fontWeight: 700 }}>✓ {fmt(t.cantidad_actual)}</span>
+                                            ? (() => {
+                                                const cc = Number(tarimasContadas[t.id].cantidadContada);
+                                                const ok = cc === Number(t.cantidad_actual);
+                                                return <span style={{ color: ok ? "#4be87a" : "#ff4d4d", fontWeight: 700 }}>{ok ? "✓" : "⚠"} {fmt(cc)}</span>;
+                                              })()
                                             : <span className="no-imprimir" style={{ color: "#666" }}>— pendiente</span>)
                                           : <span style={{ display: "inline-block", width: 70, borderBottom: "1px solid #888" }}>&nbsp;</span>}
                                       </td>
@@ -1053,16 +1123,36 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
           </div>
           <canvas ref={canvasRef} style={{ display: "none" }} />
 
-          {errorCamara && (
+          {errorCamara && !pendienteConfirmar && (
             <div style={{ color: "#ff9900", fontSize: 13, marginTop: 14, maxWidth: 380, textAlign: "center" }}>{errorCamara}</div>
           )}
 
-          <div style={{ width: "100%", maxWidth: 380, marginTop: 18 }}>
-            <label style={{ fontSize: 12, color: "#9aa0bc", display: "block", marginBottom: 5 }}>O escanea con pistola / escribe el código y presiona Enter</label>
-            <input value={codigoManualConteo} onChange={e => setCodigoManualConteo(e.target.value)} onKeyDown={onManualConteoKey}
-              placeholder="Código de la tarima" autoFocus={!!errorCamara}
-              style={{ width: "100%", background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "10px 12px", color: "#e0e0e0", fontSize: 14, boxSizing: "border-box" }} />
-          </div>
+          {pendienteConfirmar ? (() => {
+            const mat = materialDe(pendienteConfirmar.material_id);
+            return (
+              <div style={{ width: "100%", maxWidth: 380, marginTop: 18, background: "#14171f", border: "1.5px solid #4be87a", borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#e0e0e0" }}>{mat?.nombre || "Material"} · #{pendienteConfirmar.numero ?? "?"}</div>
+                {pendienteConfirmar.lote && <div className="muted" style={{ marginBottom: 8 }}>{pendienteConfirmar.lote}</div>}
+                <div className="muted" style={{ marginBottom: 8 }}>Sistema dice: {fmt(pendienteConfirmar.cantidad_actual)} {mat?.unidad || ""}</div>
+                <label style={{ fontSize: 12, color: "#9aa0bc", display: "block", marginBottom: 5 }}>¿Cuánto hay físicamente? (corrígelo si no cuadra)</label>
+                <input type="number" value={cantidadConfirmar} onChange={e => setCantidadConfirmar(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") confirmarConteoTarima(); if (e.key === "Escape") cancelarConteoTarima(); }}
+                  autoFocus onFocus={e => e.target.select()}
+                  style={{ width: "100%", background: "#1a1d26", border: "1px solid #4be87a", borderRadius: 8, padding: "10px 12px", color: "#e0e0e0", fontSize: 16, fontWeight: 700, boxSizing: "border-box", marginBottom: 10 }} />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn btn-ghost btn-sm" style={{ flex: 1, color: "#ccc", border: "1px solid #444" }} onClick={cancelarConteoTarima}>Cancelar</button>
+                  <button className="btn btn-primary btn-sm" style={{ flex: 2 }} onClick={confirmarConteoTarima}>✓ Confirmar</button>
+                </div>
+              </div>
+            );
+          })() : (
+            <div style={{ width: "100%", maxWidth: 380, marginTop: 18 }}>
+              <label style={{ fontSize: 12, color: "#9aa0bc", display: "block", marginBottom: 5 }}>O escanea con pistola / escribe el código y presiona Enter</label>
+              <input value={codigoManualConteo} onChange={e => setCodigoManualConteo(e.target.value)} onKeyDown={onManualConteoKey}
+                placeholder="Código de la tarima" autoFocus={!!errorCamara}
+                style={{ width: "100%", background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "10px 12px", color: "#e0e0e0", fontSize: 14, boxSizing: "border-box" }} />
+            </div>
+          )}
 
           <button className="btn btn-ghost btn-sm" style={{ marginTop: 16, color: "#ccc", border: "1px solid #444" }} onClick={cerrarScanner}>Cerrar escáner</button>
         </div>

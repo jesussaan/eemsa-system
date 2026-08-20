@@ -40,6 +40,12 @@ export default async function handler(req, res) {
     return registrarSalidaTarima(req, res, usuario);
   }
 
+  if (req.query.accion === 'ajustar-conteo' && req.method === 'POST') {
+    const usuario = await requiereAlgunModo(req, MODOS_INVENTARIO);
+    if (!usuario) return res.status(401).json({ error: 'No autorizado' });
+    return ajustarConteo(req, res, usuario);
+  }
+
   const usuario = await requiereAlgunModo(req, MODOS_INVENTARIO);
   if (!usuario) return res.status(401).json({ error: 'No autorizado' });
   if (req.method === 'POST') return crearMaterial(req, res);
@@ -181,6 +187,50 @@ async function registrarSalidaTarima(req, res, usuario) {
   const min = Number(material.stock_min || 0);
   const cruzoMinimo = min > 0 && stockAntes > min && nuevoStock <= min;
   return res.status(200).json({ ok: true, stock: nuevoStock, stock_min: min, cruzoMinimo, tarima_agotada: nuevaCantidadTarima <= 0 });
+}
+
+// Corrige tarima.cantidad_actual (y el stock cacheado del material) a lo que
+// de verdad se conto en un conteo fisico -- a diferencia de una salida, aqui
+// la cantidad puede quedar arriba o abajo de lo que el sistema tenia (una
+// tarima se pudo haber usado sin registrar el movimiento, o se conto mal
+// antes). Deja un movimiento de "ajuste" por cada tarima que de verdad
+// cambio, para que quede rastro de por que se movio el stock sin que haya
+// una entrada/salida real detras.
+async function ajustarConteo(req, res, usuario) {
+  const { ajustes } = req.body || {}; // [{ tarima_id, cantidad_contada }]
+  if (!Array.isArray(ajustes) || ajustes.length === 0) return res.status(400).json({ error: 'ajustes es requerido' });
+
+  const resultados = [];
+  for (const a of ajustes) {
+    const cantidadContada = Number(a.cantidad_contada);
+    if (!a.tarima_id || !(cantidadContada >= 0)) continue;
+
+    const { data: tarima, error: errTar } = await supabase.from('tarimas').select('*').eq('id', a.tarima_id).single();
+    if (errTar || !tarima) continue;
+    const delta = cantidadContada - Number(tarima.cantidad_actual);
+    if (delta === 0) continue;
+
+    const { data: material, error: errMat } = await supabase.from('materiales').select('*').eq('id', tarima.material_id).single();
+    if (errMat || !material) continue;
+
+    const { error: errUpdTar } = await supabase.from('tarimas').update({ cantidad_actual: cantidadContada, activa: cantidadContada > 0 }).eq('id', tarima.id);
+    if (errUpdTar) return res.status(500).json({ error: errUpdTar.message });
+
+    const nuevoStock = Number(material.stock) + delta;
+    const { error: errUpdMat } = await supabase.from('materiales').update({ stock: nuevoStock }).eq('id', material.id);
+    if (errUpdMat) return res.status(500).json({ error: errUpdMat.message });
+
+    const { error: errMov } = await supabase.from('movimientos_inventario_mp').insert([{
+      material_id: material.id, material_nombre: material.nombre,
+      tipo: delta > 0 ? 'entrada' : 'salida', cantidad: Math.abs(delta),
+      motivo: 'Ajuste por conteo físico', origen: 'ajuste_conteo', tarima_id: tarima.id, usuario_email: usuario.email || '',
+    }]);
+    if (errMov) return res.status(500).json({ error: errMov.message });
+
+    resultados.push({ tarima_id: tarima.id, material_id: material.id, cantidad_actual: cantidadContada, activa: cantidadContada > 0, stock: nuevoStock });
+  }
+
+  return res.status(200).json({ ok: true, resultados });
 }
 
 // Descuenta `cantidadTotal` de un material tomando primero de la tarima
