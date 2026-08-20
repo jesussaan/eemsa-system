@@ -14,6 +14,7 @@ export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
   const [orden, setOrden] = useState("recientes");
   const [toast, setToast] = useState("");
   const [copiando, setCopiando] = useState(null);
+  const [vistaImprimir, setVistaImprimir] = useState(false);
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(""), 2500); };
 
@@ -75,6 +76,14 @@ export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
       ? (pedConMerma.reduce((s, p) => s + Number(p.merma_pct), 0) / pedConMerma.length).toFixed(1)
       : null;
 
+    // Costo por pieza promedio -- lo carga Modo Operador al terminar un
+    // pedido (viene de la Calculadora de Produccion), no todos los pedidos
+    // terminados lo traen (los mas viejos, de antes de esa funcion).
+    const pedConCosto = c.pedidos.filter(p => p.status === "terminado" && p.costo_pieza != null);
+    const costoProm   = pedConCosto.length > 0
+      ? (pedConCosto.reduce((s, p) => s + Number(p.costo_pieza), 0) / pedConCosto.length)
+      : null;
+
     const pedConTiempo = c.pedidos.filter(p => p.status === "terminado" && p.fecha_inicio && p.fecha_termino);
     const tiempoProm   = pedConTiempo.length > 0
       ? Math.round(pedConTiempo.reduce((s, p) => s + (new Date(p.fecha_termino + "T12:00:00") - new Date(p.fecha_inicio + "T12:00:00")) / 86400000 + 1, 0) / pedConTiempo.length)
@@ -95,7 +104,7 @@ export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
 
     const color = diasDesdeUltimo === null ? "#666" : diasDesdeUltimo < 30 ? "#4be87a" : diasDesdeUltimo <= 60 ? "#ff9900" : "#ff4d4d";
 
-    return { ...c, cajasTotal, cajasSolicita, cajasActivas, pedidosActivos, ultimaFecha, diasDesdeUltimo, frecuencia, proximoEst, diasParaProximo, mermaPromedio, tiempoProm, topMedidas, topColores, color, sorted };
+    return { ...c, cajasTotal, cajasSolicita, cajasActivas, pedidosActivos, ultimaFecha, diasDesdeUltimo, frecuencia, proximoEst, diasParaProximo, mermaPromedio, costoProm, tiempoProm, topMedidas, topColores, color, sorted };
   }).sort((a, b) => (a.diasDesdeUltimo ?? 9999) - (b.diasDesdeUltimo ?? 9999));
 
   const porTab = {
@@ -120,7 +129,10 @@ export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
 
   return (
     <div>
-      <h2 className="sec-title">👥 Clientes</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+        <h2 className="sec-title" style={{ margin: 0 }}>👥 Clientes</h2>
+        <button className="btn btn-ghost btn-sm" onClick={() => setVistaImprimir(true)}>🖨️ Hoja imprimible</button>
+      </div>
 
       {/* Stats globales */}
       <div className="stat-grid">
@@ -355,6 +367,49 @@ export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
             <button className="btn btn-ghost btn-block" style={{ marginTop: 14 }} disabled={copiando === seleccionado.nombre} onClick={() => copiarLinkPortal(seleccionado.nombre)}>
               {copiando === seleccionado.nombre ? "Copiando…" : "🔗 Copiar link del portal"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Hoja imprimible -- tabla resumen por cliente, misma lista/orden/
+          filtro que se ve en pantalla, para llevar en mano o mandar a
+          imprenta/compras. */}
+      {vistaImprimir && (
+        <div className="vista-grande-overlay" style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 999, overflowY: "auto", padding: 24 }}>
+          <button className="no-imprimir" onClick={() => setVistaImprimir(false)} aria-label="Cerrar"
+            style={{ position: "absolute", top: 16, right: 16, fontSize: 30, lineHeight: 1, background: "transparent", border: "none", color: "#000", cursor: "pointer", padding: 8 }}>✕</button>
+
+          <div className="imprimible">
+            <h2 style={{ marginBottom: 2, color: "#111" }}>EEMSA System — Resumen de Clientes</h2>
+            <div style={{ fontSize: 12, color: "#444", marginBottom: 16 }}>Generado: {new Date().toLocaleString("es-MX")}</div>
+
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, color: "#111" }}>
+              <thead>
+                <tr>
+                  {["Cliente", "Medida", "Cantidad", "Costo", "Merma", "Días de su último pedido", "Pantone"].map(h => (
+                    <th key={h} style={{ textAlign: "left", borderBottom: "2px solid #333", padding: "6px 8px" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtrados.map(c => (
+                  <tr key={c.nombre}>
+                    <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px", fontWeight: 700 }}>{c.nombre}</td>
+                    <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px" }}>{c.topMedidas[0]?.[0] || "—"}</td>
+                    <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px" }}>{c.cajasSolicita ? `${c.cajasSolicita} cajas` : "—"}</td>
+                    <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px" }}>{c.costoProm != null ? `$${c.costoProm.toFixed(2)}/pza` : "—"}</td>
+                    <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px" }}>{c.mermaPromedio != null ? `${c.mermaPromedio}%` : "—"}</td>
+                    <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px" }}>{c.diasDesdeUltimo != null ? `${c.diasDesdeUltimo}d` : "—"}</td>
+                    <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px" }}>{c.topColores[0]?.[0] || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="no-imprimir" style={{ display: "flex", gap: 10, marginTop: 20 }}>
+            <button className="btn btn-primary" onClick={() => window.print()}>🖨️ Imprimir</button>
+            <button className="btn btn-ghost btn-sm" style={{ color: "#666", border: "1px solid #ccc" }} onClick={() => setVistaImprimir(false)}>Cerrar</button>
           </div>
         </div>
       )}
