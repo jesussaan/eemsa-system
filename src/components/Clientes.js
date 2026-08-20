@@ -100,11 +100,12 @@ export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
       if (p.color2) acc[p.color2] = (acc[p.color2] || 0) + 1;
       return acc;
     }, {});
-    const topColores = Object.entries(colorCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const coloresOrdenados = Object.entries(colorCounts).sort((a, b) => b[1] - a[1]);
+    const topColores = coloresOrdenados.slice(0, 3);
 
     const color = diasDesdeUltimo === null ? "#666" : diasDesdeUltimo < 30 ? "#4be87a" : diasDesdeUltimo <= 60 ? "#ff9900" : "#ff4d4d";
 
-    return { ...c, cajasTotal, cajasSolicita, cajasActivas, pedidosActivos, ultimaFecha, diasDesdeUltimo, frecuencia, proximoEst, diasParaProximo, mermaPromedio, costoProm, tiempoProm, topMedidas, topColores, color, sorted };
+    return { ...c, cajasTotal, cajasSolicita, cajasActivas, pedidosActivos, ultimaFecha, diasDesdeUltimo, frecuencia, proximoEst, diasParaProximo, mermaPromedio, costoProm, tiempoProm, topMedidas, topColores, coloresOrdenados, color, sorted };
   }).sort((a, b) => (a.diasDesdeUltimo ?? 9999) - (b.diasDesdeUltimo ?? 9999));
 
   const porTab = {
@@ -400,7 +401,7 @@ export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
                     <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px" }}>{c.costoProm != null ? `$${c.costoProm.toFixed(2)}/pza` : "—"}</td>
                     <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px" }}>{c.mermaPromedio != null ? `${c.mermaPromedio}%` : "—"}</td>
                     <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px" }}>{c.diasDesdeUltimo != null ? `${c.diasDesdeUltimo}d` : "—"}</td>
-                    <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px" }}>{c.topColores[0]?.[0] || "—"}</td>
+                    <td style={{ borderBottom: "1px solid #ccc", padding: "6px 8px" }}>{c.coloresOrdenados.length > 0 ? c.coloresOrdenados.map(([col]) => col).join(", ") : "—"}</td>
                   </tr>
                 ))}
               </tbody>
