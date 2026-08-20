@@ -401,6 +401,10 @@ textarea { resize: vertical; min-height: 68px; }
    celular, ver Inventario.js). ".solo-impresion" es al reves: contenido que
    solo existe en el papel (encabezado con fecha), oculto en pantalla. */
 @media print {
+  /* body/html se quedan con el fondo oscuro del tema (--bg) aunque sus hijos
+     esten en visibility:hidden -- eso es lo que salia en negro en el espacio
+     sobrante de la hoja. */
+  html, body { background: #fff !important; }
   body * { visibility: hidden; }
   .imprimible, .imprimible * { visibility: visible; }
   .imprimible { position: absolute; left: 0; top: 0; width: 100%; color: #000; background: #fff; }
