@@ -93,7 +93,8 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
   // de mas abajo, cuando carga un plan, actualiza esos mismos registros en
   // vez de crear otros nuevos, y descuenta 1 jumbo de la tarima.
   const [planeandoMaterialId, setPlaneandoMaterialId] = useState(null);
-  const [planCortes, setPlanCortes] = useState([{ id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0] }]);
+  const planCorteInicial = () => ({ id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0], anchoTocado: false, largoPiezaTocado: false });
+  const [planCortes, setPlanCortes] = useState([planCorteInicial()]);
   const [planMaterial, setPlanMaterial] = useState(REBOB_MATERIALES[0]);
   const [planAdhesivo, setPlanAdhesivo] = useState(REBOB_TIPOS[0]);
   const [guardandoPlan, setGuardandoPlan] = useState(false);
@@ -161,10 +162,10 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
     const { material, adhesivo } = materialAdhesivoDe(mat);
     setPlanMaterial(material);
     setPlanAdhesivo(adhesivo);
-    setPlanCortes([{ id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0] }]);
+    setPlanCortes([planCorteInicial()]);
   };
   const cerrarPlaneacion = () => setPlaneandoMaterialId(null);
-  const agregarPlanCorte = () => setPlanCortes(cs => [...cs, { id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0] }]);
+  const agregarPlanCorte = () => setPlanCortes(cs => [...cs, planCorteInicial()]);
   const quitarPlanCorte = (id) => setPlanCortes(cs => cs.filter(c => c.id !== id));
   const updPlanCorte = (id, k, v) => setPlanCortes(cs => cs.map(c => c.id === id ? { ...c, [k]: v } : c));
 
@@ -542,8 +543,12 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
                   <label style={{ fontSize: 12, color: "#888" }}>¿A qué medida(s) lo vas a cortar?</label>
                   {planCortes.map((c, i) => (
                     <div key={c.id} style={{ display: "flex", gap: 8, alignItems: "flex-end", marginTop: 8 }}>
-                      <div className="field" style={{ flex: 1 }}><label>Ancho</label><select value={c.ancho} onChange={e => updPlanCorte(c.id, "ancho", e.target.value)}>{REBOB_ANCHOS.map(a => <option key={a} value={a}>{a}</option>)}</select></div>
-                      <div className="field" style={{ flex: 1 }}><label>Largo pieza (m)</label><select value={c.largoPieza} onChange={e => updPlanCorte(c.id, "largoPieza", e.target.value)}>{REBOB_LARGOS_PIEZA.map(l => <option key={l} value={l}>{l}m</option>)}</select></div>
+                      <div className="field" style={{ flex: 1 }}><label>Ancho</label>
+                        <select className={c.anchoTocado ? 'campo-listo' : 'campo-pendiente'} value={c.ancho} onChange={e => { updPlanCorte(c.id, "ancho", e.target.value); updPlanCorte(c.id, "anchoTocado", true); }} onClick={() => updPlanCorte(c.id, "anchoTocado", true)}>{REBOB_ANCHOS.map(a => <option key={a} value={a}>{a}</option>)}</select>
+                      </div>
+                      <div className="field" style={{ flex: 1 }}><label>Largo pieza (m)</label>
+                        <select className={c.largoPiezaTocado ? 'campo-listo' : 'campo-pendiente'} value={c.largoPieza} onChange={e => { updPlanCorte(c.id, "largoPieza", e.target.value); updPlanCorte(c.id, "largoPiezaTocado", true); }} onClick={() => updPlanCorte(c.id, "largoPiezaTocado", true)}>{REBOB_LARGOS_PIEZA.map(l => <option key={l} value={l}>{l}m</option>)}</select>
+                      </div>
                       <div style={{ fontSize: 11, color: "#666", paddingBottom: 8, whiteSpace: "nowrap" }}>{calcularPiezasTeoricas(c.ancho, c.largoPieza)} pzas teóricas</div>
                       {planCortes.length > 1 && <button onClick={() => quitarPlanCorte(c.id)} style={{ background: "transparent", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: 12, paddingBottom: 8 }}>✕</button>}
                     </div>
