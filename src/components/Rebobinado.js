@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { QRCodeSVG } from 'qrcode.react';
 import { authHeaders } from '../lib/auth';
 import { uid, today } from '../lib/utils';
 import { REBOB_CLIENTE, REBOB_COLOR, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, REBOB_PIEZAS_POR_VUELTA, REBOB_CAJAS_POR_CAMA, calcularPiezasTeoricas } from '../lib/constants';
@@ -49,7 +50,19 @@ const calcularFraccionesRollo = (listaCortes) => {
     : Number(f.toFixed(4)));
 };
 
-export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
+// Adivina material/adhesivo de un jumbo a partir del nombre/match_valor de
+// su material en Inventario (ej. "Jumbo Transparente Hotmelt") -- solo para
+// prellenar la planeacion, el operador siempre lo puede corregir con los
+// selects de toda la vida. Mismo criterio de busqueda por substring que ya
+// usa chipColor en ModoOperador.js para adivinar colores.
+const detectarMaterialAdhesivo = (texto) => {
+  const t = (texto || '').toLowerCase();
+  const material = REBOB_MATERIALES.find(m => t.includes(m.toLowerCase())) || REBOB_MATERIALES[0];
+  const adhesivo = REBOB_TIPOS.find(a => t.includes(a.toLowerCase()) || (a === 'Acrílico' && t.includes('acril'))) || REBOB_TIPOS[0];
+  return { material, adhesivo };
+};
+
+export default function Rebobinado({ pedidos, setPedidos, tarimas = [], materiales = [], onSalir }) {
   const formInicial = {
     adhesivo: REBOB_TIPOS[0], material: REBOB_MATERIALES[0],
     fecha_inicio: today(), fecha_termino: today(), notas: "",
@@ -66,6 +79,154 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
   const updCorte = (id, k, v) => setCortes(cs => cs.map(c => c.id === id ? { ...c, [k]: v } : c));
   const agregarCorte = () => setCortes(cs => [...cs, corteInicial()]);
   const quitarCorte = (id) => setCortes(cs => cs.filter(c => c.id !== id));
+
+  // ── Planeacion de jumbos ───────────────────────────────────────────────
+  // Cada jumbo fisico ya es una tarima (categoria "jumbo" en Inventario,
+  // ver supabase_jumbos.sql). Planear = crear pedido(s) status "anotado"
+  // ligados a esa tarima (tarima_jumbo_id) ANTES de cortar -- el corte real
+  // de mas abajo, cuando carga un plan, actualiza esos mismos registros en
+  // vez de crear otros nuevos, y descuenta 1 jumbo de la tarima.
+  const [planeandoTarimaId, setPlaneandoTarimaId] = useState(null);
+  const [planCortes, setPlanCortes] = useState([{ id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0] }]);
+  const [planMaterial, setPlanMaterial] = useState(REBOB_MATERIALES[0]);
+  const [planAdhesivo, setPlanAdhesivo] = useState(REBOB_TIPOS[0]);
+  const [guardandoPlan, setGuardandoPlan] = useState(false);
+  // Cuando se elige "Cortar este jumbo" de la cola, el formulario de abajo
+  // (el mismo de siempre) se prellena con lo planeado y se recuerda aqui
+  // para que Guardar actualice esos registros en vez de crear otros, y
+  // descuente el jumbo -- null significa flujo libre (como siempre fue).
+  const [grupoActivo, setGrupoActivo] = useState(null);
+  const [qrPizarraAbierto, setQrPizarraAbierto] = useState(false);
+  const urlPizarraRebobinado = `${window.location.origin}/pizarra-rebobinado`;
+
+  // Jumbos disponibles: tarimas activas de categoria "jumbo" con al menos 1
+  // sin comprometer todavia en un plan (anotado/proceso).
+  const gruposPlaneados = Object.values(
+    pedidos.filter(p => p.cliente === REBOB_CLIENTE && (p.status === "anotado" || p.status === "proceso"))
+      .reduce((acc, p) => {
+        const key = p.folio_rebobinado != null ? `f${p.folio_rebobinado}` : p.id;
+        (acc[key] = acc[key] || []).push(p);
+        return acc;
+      }, {})
+  ).map(g => [...g].sort((a, b) => String(a.num).localeCompare(String(b.num))))
+   .sort((a, b) => (a[0].orden ?? 9999) - (b[0].orden ?? 9999));
+  const comprometidosPorTarima = {};
+  gruposPlaneados.forEach(g => {
+    const tid = g[0].tarima_jumbo_id;
+    if (tid) comprometidosPorTarima[tid] = (comprometidosPorTarima[tid] || 0) + 1;
+  });
+  const candidatosJumbo = tarimas
+    .filter(t => t.activa && Number(t.cantidad_actual) > 0)
+    .filter(t => materiales.find(m => m.id === t.material_id)?.categoria === "jumbo")
+    .map(t => ({ tarima: t, disponibles: Number(t.cantidad_actual) - (comprometidosPorTarima[t.id] || 0) }))
+    .filter(x => x.disponibles > 0)
+    .sort((a, b) => (a.tarima.numero ?? 0) - (b.tarima.numero ?? 0));
+
+  const actualizarPedidoRebob = (id, campos) => fetch('/api/pedidos', {
+    method: 'PUT', headers: authHeaders(),
+    body: JSON.stringify({ action: 'rebobinado_editar', id, ...campos }),
+  });
+
+  const abrirPlaneacion = (tarimaId) => {
+    setPlaneandoTarimaId(tarimaId);
+    const t = candidatosJumbo.find(x => x.tarima.id === tarimaId)?.tarima;
+    const mat = t ? materiales.find(m => m.id === t.material_id) : null;
+    const { material, adhesivo } = detectarMaterialAdhesivo(mat?.nombre || mat?.match_valor || "");
+    setPlanMaterial(material);
+    setPlanAdhesivo(adhesivo);
+    setPlanCortes([{ id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0] }]);
+  };
+  const cerrarPlaneacion = () => setPlaneandoTarimaId(null);
+  const agregarPlanCorte = () => setPlanCortes(cs => [...cs, { id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0] }]);
+  const quitarPlanCorte = (id) => setPlanCortes(cs => cs.filter(c => c.id !== id));
+  const updPlanCorte = (id, k, v) => setPlanCortes(cs => cs.map(c => c.id === id ? { ...c, [k]: v } : c));
+
+  const guardarPlan = async () => {
+    if (!planeandoTarimaId || planCortes.length === 0) { showToast("⚠ Elige un jumbo y al menos una medida"); return; }
+    setGuardandoPlan(true);
+    const folioNum = Math.max(0, ...pedidos.filter(p => p.cliente === REBOB_CLIENTE).map(p => Number(p.folio_rebobinado) || 0)) + 1;
+    const ordenNuevo = Math.max(0, ...gruposPlaneados.map(g => g[0].orden ?? 0)) + 1;
+    const mixto = planCortes.length > 1;
+    const nuevos = [];
+    for (let i = 0; i < planCortes.length; i++) {
+      const c = planCortes[i];
+      const num = mixto ? `${folioNum}${String.fromCharCode(65 + i)}` : String(folioNum);
+      const nuevo = {
+        id: uid(), created: today(),
+        cliente: REBOB_CLIENTE, num, folio_rebobinado: folioNum, orden: ordenNuevo,
+        tipo: planMaterial, color: planAdhesivo, medida: `${c.ancho} x ${c.largoPieza}m`,
+        cajas: 1, // placeholder -- se reemplaza con lo real al registrar el corte (POST exige cajas > 0)
+        fecha_solicitud: today(), status: "anotado",
+        tarima_jumbo_id: planeandoTarimaId,
+        notas: `Planeado: ${calcularPiezasTeoricas(c.ancho, c.largoPieza)} pzas teóricas${mixto ? " — rollo mixto" : ""}`,
+      };
+      const res = await fetch('/api/pedidos', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(`❌ Error al planear ${c.ancho} x ${c.largoPieza}m: ${data.error || "desconocido"}`);
+        if (nuevos.length) setPedidos(ps => [...nuevos, ...ps]);
+        setGuardandoPlan(false);
+        return;
+      }
+      nuevos.push(nuevo);
+    }
+    setPedidos(ps => {
+      const idsExistentes = new Set(ps.map(x => x.id));
+      const faltantes = nuevos.filter(n => !idsExistentes.has(n.id));
+      return [...faltantes, ...ps];
+    });
+    setPlaneandoTarimaId(null);
+    showToast(`✓ Jumbo planeado — folio ${folioNum}${mixto ? ` (${planCortes.length} medidas)` : ""}`);
+    setGuardandoPlan(false);
+  };
+
+  const moverPlan = async (folio, dir) => {
+    const idx = gruposPlaneados.findIndex(g => g[0].folio_rebobinado === folio);
+    const otroIdx = idx + dir;
+    if (idx < 0 || otroIdx < 0 || otroIdx >= gruposPlaneados.length) return;
+    const a = gruposPlaneados[idx], b = gruposPlaneados[otroIdx];
+    const ordenA = a[0].orden ?? 0, ordenB = b[0].orden ?? 0;
+    await Promise.all([
+      ...a.map(p => actualizarPedidoRebob(p.id, { orden: ordenB })),
+      ...b.map(p => actualizarPedidoRebob(p.id, { orden: ordenA })),
+    ]);
+    setPedidos(ps => ps.map(p => {
+      if (a.some(x => x.id === p.id)) return { ...p, orden: ordenB };
+      if (b.some(x => x.id === p.id)) return { ...p, orden: ordenA };
+      return p;
+    }));
+  };
+
+  const cancelarPlan = async (grupo) => {
+    if (!(await confirmar(`¿Cancelar el plan del folio #${grupo[0].folio_rebobinado}? El jumbo se queda disponible para planear de nuevo.`))) return;
+    await Promise.all(grupo.map(p => fetch('/api/pedidos', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id: p.id }) })));
+    setPedidos(ps => ps.filter(p => !grupo.some(g => g.id === p.id)));
+    showToast("✓ Plan cancelado — jumbo disponible de nuevo");
+  };
+
+  // Carga un jumbo planeado en el formulario de siempre (Medidas que
+  // salieron) para capturar lo real -- ancho/largo quedan fijos a lo
+  // planeado (si la realidad de verdad salio en otras medidas, mejor
+  // cancelar el plan y registrar libre). id de cada corte = id real del
+  // pedido "anotado" para poder actualizarlo en vez de crear otro.
+  const cargarPlanParaCortar = (grupo) => {
+    setForm(f => ({ ...f, adhesivo: grupo[0].color, material: grupo[0].tipo }));
+    setMaterialTocado(true);
+    setAdhesivoTocado(true);
+    setCortes(grupo.map(p => {
+      const { ancho, largoPieza } = parseMedidaRebob(p.medida);
+      return { id: p.id, ancho, largoPieza, cajasCompletas: "", piezasSueltas: "", merma: "", anchoTocado: true, largoPiezaTocado: true, camasCompletas: "", cajasUltimaCama: "" };
+    }));
+    setGrupoActivo(grupo);
+    showToast(`📋 Cargado folio #${grupo[0].folio_rebobinado} — captura lo real y guarda`);
+  };
+  const cancelarCargaPlan = () => {
+    setGrupoActivo(null);
+    setCortes([corteInicial()]);
+    setForm(formInicial);
+    setMaterialTocado(false);
+    setAdhesivoTocado(false);
+  };
 
   // Mismo rollo MP (8000m) a veces sale mezclado -- parte a una medida y
   // parte a otra -- en vez de una sola medida fija para todo el rollo.
@@ -97,7 +258,53 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
     const validos = cortes.filter(c => (Number(c.cajasCompletas) || 0) > 0 || (Number(c.piezasSueltas) || 0) > 0);
     if (validos.length === 0) { showToast("⚠ Llena cajas completas o piezas sueltas en al menos una medida"); return; }
     setLoading(true);
+    const fracciones = calcularFraccionesRollo(validos);
 
+    // Si se cargo un jumbo planeado (grupoActivo), esto ya no crea pedidos
+    // nuevos -- actualiza los mismos registros "anotado" que la planeacion
+    // ya creo (mismo folio/num de siempre) y descuenta el jumbo de su
+    // tarima. Si alguna medida planeada se quedo en blanco (no salio de
+    // verdad), se borra en vez de dejarla huerfana en "anotado".
+    if (grupoActivo) {
+      const idsAUsar = new Set(validos.map(c => c.id));
+      const sobrantes = grupoActivo.filter(p => !idsAUsar.has(p.id));
+      for (let i = 0; i < validos.length; i++) {
+        const c = validos[i];
+        const calc = calcCorte(c);
+        const notaSueltas = calc.piezasSueltasN > 0 ? ` · ${calc.piezasSueltasN} pzas sueltas (no completan caja)` : "";
+        const updates = {
+          cajas: calc.cajasCompletasN, piezas_prod: calc.piezasReal, rollos_usados: fracciones[i],
+          merma: calc.mermaNum, merma_pct: calc.mermaPct, status: "pendiente",
+          notas: (form.notas || `Teórico: ${calc.piezasTeoricas} pzas (${calc.vueltas} vueltas x ${c.ancho})`) + notaSueltas,
+        };
+        const res = await actualizarPedidoRebob(c.id, updates);
+        if (!res.ok) { showToast(`❌ Error al guardar ${c.ancho} x ${c.largoPieza}m`); setLoading(false); return; }
+        setPedidos(ps => ps.map(p => p.id === c.id ? { ...p, ...updates } : p));
+      }
+      if (sobrantes.length) {
+        await Promise.all(sobrantes.map(p => fetch('/api/pedidos', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ id: p.id }) })));
+        setPedidos(ps => ps.filter(p => !sobrantes.some(s => s.id === p.id)));
+      }
+      // Descuenta 1 jumbo de la tarima -- se pidio que sea en cuanto se
+      // registra el corte real, sin esperar a que Emilio de de alta.
+      try {
+        await fetch('/api/inventario?accion=consumo-jumbo', {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ tarima_id: grupoActivo[0].tarima_jumbo_id, pedido_num: grupoActivo[0].folio_rebobinado }),
+        });
+      } catch (_) {}
+      const folioNum = grupoActivo[0].folio_rebobinado;
+      setGrupoActivo(null);
+      setCortes([corteInicial()]);
+      setForm(formInicial);
+      setMaterialTocado(false);
+      setAdhesivoTocado(false);
+      showToast(`✓ Folio ${folioNum} registrado — jumbo descontado — ya aparece en Modo Emilio para dar de alta`);
+      setLoading(false);
+      return;
+    }
+
+    // Flujo libre (sin plan previo) -- exactamente como siempre funciono.
     // Folio propio de Rebobinado (empieza en 1) en su propia columna --
     // "num" antes era el mismo consecutivo compartido con pedidos de
     // cliente (por eso los registros viejos tienen numeros altos, 84, 90...);
@@ -111,7 +318,6 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
       .filter(p => p.cliente === REBOB_CLIENTE)
       .map(p => Number(p.folio_rebobinado) || 0)) + 1;
     const mixtoReal = validos.length > 1;
-    const fracciones = calcularFraccionesRollo(validos);
     const nuevos = [];
     for (let i = 0; i < validos.length; i++) {
       const c = validos[i];
@@ -240,16 +446,102 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 16, color: "#e0e0e0", letterSpacing: ".06em" }}>EEMSA System</div>
           <div style={{ fontSize: 10, color: "var(--teal)", fontWeight: 700, letterSpacing: ".08em" }}>MODO REBOBINADO</div>
         </div>
-        <button onClick={onSalir} style={{ marginLeft: "auto", fontSize: 11, color: "#666", background: "transparent", border: "none", cursor: "pointer", padding: "4px 8px" }}>← Salir</button>
+        <button onClick={() => setQrPizarraAbierto(true)} style={{ marginLeft: "auto", fontSize: 11, color: "var(--teal)", background: "transparent", border: "1px solid var(--teal)", borderRadius: 6, cursor: "pointer", padding: "5px 10px" }}>🖨️ QR Pizarra</button>
+        <button onClick={onSalir} style={{ fontSize: 11, color: "#666", background: "transparent", border: "none", cursor: "pointer", padding: "4px 8px" }}>← Salir</button>
       </header>
 
       <main style={{ flex: 1, padding: "16px 16px 82px", maxWidth: 640, margin: "0 auto", width: "100%" }}>
       <h2 className="sec-title">Rebobinado</h2>
 
+      <h3 className="sub-title">Jumbos planeados <span style={{ color: "#666", fontWeight: 400, fontSize: 12 }}>({gruposPlaneados.length})</span></h3>
+      {gruposPlaneados.length === 0 ? (
+        <p className="empty" style={{ marginBottom: 12 }}>Sin jumbos planeados todavía — planea uno abajo o registra libre como siempre.</p>
+      ) : (
+        <div style={{ marginBottom: 14 }}>
+          {gruposPlaneados.map((g, i) => (
+            <div key={g[0].folio_rebobinado ?? g[0].id} style={{ background: "#1a1d26", borderRadius: 10, padding: 12, marginBottom: 8, display: "flex", gap: 10, alignItems: "stretch", border: g[0].status === "proceso" ? "1px solid var(--teal)" : "1px solid #2a2e3a" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3 }}>
+                <div style={{ color: "var(--teal)", fontWeight: 800, fontSize: 15 }}>{i + 1}</div>
+                <button onClick={() => moverPlan(g[0].folio_rebobinado, -1)} disabled={i === 0} style={{ background: "#0d0f14", border: "1px solid #2a2e3a", borderRadius: 6, color: i === 0 ? "#333" : "#ccc", width: 24, height: 24, cursor: i === 0 ? "default" : "pointer", fontSize: 11 }}>▲</button>
+                <button onClick={() => moverPlan(g[0].folio_rebobinado, 1)} disabled={i === gruposPlaneados.length - 1} style={{ background: "#0d0f14", border: "1px solid #2a2e3a", borderRadius: 6, color: i === gruposPlaneados.length - 1 ? "#333" : "#ccc", width: 24, height: 24, cursor: i === gruposPlaneados.length - 1 ? "default" : "pointer", fontSize: 11 }}>▼</button>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
+                  <strong style={{ fontSize: 14 }}>Folio #{g[0].folio_rebobinado} · {g[0].tipo} · {g[0].color}</strong>
+                  {(() => { const t = tarimas.find(x => x.id === g[0].tarima_jumbo_id); return t ? <span style={{ fontSize: 11, color: "#888" }}>Tarima #{t.numero ?? "?"}{t.lote ? ` · ${t.lote}` : ""}</span> : null; })()}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                  {g.map(p => <span key={p.id} className="badge b-accent" style={{ fontSize: 12 }}>{p.medida}</span>)}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn btn-primary btn-sm" onClick={() => cargarPlanParaCortar(g)}>✂️ Cortar este jumbo</button>
+                  <button onClick={() => cancelarPlan(g)} style={{ background: "transparent", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: 12 }}>✕ Cancelar plan</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button className="btn btn-ghost btn-block" style={{ marginBottom: 20 }} onClick={() => planeandoTarimaId ? cerrarPlaneacion() : abrirPlaneacion(candidatosJumbo[0]?.tarima.id || "elegir")}>
+        {planeandoTarimaId ? "✕ Cerrar planeación" : "+ Planear un jumbo"}
+      </button>
+
+      {planeandoTarimaId && (
+        <div style={{ background: "#1a1d26", border: "1px solid var(--teal)", borderRadius: 10, padding: 14, marginBottom: 20 }}>
+          <h3 className="sub-title" style={{ marginTop: 0 }}>Planear jumbo</h3>
+          {candidatosJumbo.length === 0 ? (
+            <p className="empty">No hay jumbos disponibles en Inventario (categoría "Jumbo") sin planear todavía. Da uno de alta ahí primero.</p>
+          ) : (
+            <>
+              <div className="field" style={{ marginBottom: 10 }}>
+                <label>¿Cuál jumbo?</label>
+                <select className="campo-listo" value={planeandoTarimaId === "elegir" ? "" : planeandoTarimaId} onChange={e => abrirPlaneacion(e.target.value)}>
+                  <option value="" disabled>Elige un jumbo…</option>
+                  {candidatosJumbo.map(x => {
+                    const mat = materiales.find(m => m.id === x.tarima.material_id);
+                    return <option key={x.tarima.id} value={x.tarima.id}>Tarima #{x.tarima.numero ?? "?"} — {mat?.nombre || "Jumbo"} ({x.disponibles} disponible{x.disponibles === 1 ? "" : "s"})</option>;
+                  })}
+                </select>
+              </div>
+              {planeandoTarimaId !== "elegir" && (
+                <>
+                  <div className="form-grid" style={{ marginBottom: 10 }}>
+                    <div className="field"><label>Rollo (material)</label><select value={planMaterial} onChange={e => setPlanMaterial(e.target.value)}>{REBOB_MATERIALES.map(m => <option key={m}>{m}</option>)}</select></div>
+                    <div className="field"><label>Adhesivo</label><select value={planAdhesivo} onChange={e => setPlanAdhesivo(e.target.value)}>{REBOB_TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
+                  </div>
+                  <label style={{ fontSize: 12, color: "#888" }}>¿A qué medida(s) lo vas a cortar?</label>
+                  {planCortes.map((c, i) => (
+                    <div key={c.id} style={{ display: "flex", gap: 8, alignItems: "flex-end", marginTop: 8 }}>
+                      <div className="field" style={{ flex: 1 }}><label>Ancho</label><select value={c.ancho} onChange={e => updPlanCorte(c.id, "ancho", e.target.value)}>{REBOB_ANCHOS.map(a => <option key={a} value={a}>{a}</option>)}</select></div>
+                      <div className="field" style={{ flex: 1 }}><label>Largo pieza (m)</label><select value={c.largoPieza} onChange={e => updPlanCorte(c.id, "largoPieza", e.target.value)}>{REBOB_LARGOS_PIEZA.map(l => <option key={l} value={l}>{l}m</option>)}</select></div>
+                      <div style={{ fontSize: 11, color: "#666", paddingBottom: 8, whiteSpace: "nowrap" }}>{calcularPiezasTeoricas(c.ancho, c.largoPieza)} pzas teóricas</div>
+                      {planCortes.length > 1 && <button onClick={() => quitarPlanCorte(c.id)} style={{ background: "transparent", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: 12, paddingBottom: 8 }}>✕</button>}
+                    </div>
+                  ))}
+                  <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={agregarPlanCorte}>+ Agregar otra medida (rollo mixto)</button>
+                  <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                    <button className="btn btn-primary" onClick={guardarPlan} disabled={guardandoPlan}>{guardandoPlan ? "Guardando…" : "✓ Guardar plan"}</button>
+                    <button className="btn btn-ghost" onClick={cerrarPlaneacion}>Cancelar</button>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {grupoActivo && (
+        <div style={{ background: "rgba(62,207,192,0.12)", border: "1px solid var(--teal)", borderRadius: 10, padding: "10px 14px", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 13, color: "var(--teal)" }}>📋 Capturando el corte real del folio #{grupoActivo[0].folio_rebobinado} planeado</span>
+          <button onClick={cancelarCargaPlan} style={{ background: "transparent", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: 12 }}>✕ Salir sin guardar</button>
+        </div>
+      )}
+
       <h3 className="sub-title">Rollo (material) del jumbo — {REBOB_LARGO_JUMBO_M}m</h3>
       <div className="form-grid">
-        <div className="field"><label>Rollo (material) *</label><select className={materialTocado ? 'campo-listo' : 'campo-pendiente'} value={form.material} onChange={e => { upd("material", e.target.value); setMaterialTocado(true); }} onClick={() => setMaterialTocado(true)}>{REBOB_MATERIALES.map(m => <option key={m}>{m}</option>)}</select></div>
-        <div className="field"><label>Adhesivo *</label><select className={adhesivoTocado ? 'campo-listo' : 'campo-pendiente'} value={form.adhesivo} onChange={e => { upd("adhesivo", e.target.value); setAdhesivoTocado(true); }} onClick={() => setAdhesivoTocado(true)}>{REBOB_TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
+        <div className="field"><label>Rollo (material) *</label><select disabled={!!grupoActivo} className={materialTocado ? 'campo-listo' : 'campo-pendiente'} value={form.material} onChange={e => { upd("material", e.target.value); setMaterialTocado(true); }} onClick={() => setMaterialTocado(true)}>{REBOB_MATERIALES.map(m => <option key={m}>{m}</option>)}</select></div>
+        <div className="field"><label>Adhesivo *</label><select disabled={!!grupoActivo} className={adhesivoTocado ? 'campo-listo' : 'campo-pendiente'} value={form.adhesivo} onChange={e => { upd("adhesivo", e.target.value); setAdhesivoTocado(true); }} onClick={() => setAdhesivoTocado(true)}>{REBOB_TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
         <div className="field"><label>Operador</label><input readOnly value={REBOB_OPERADOR_EQUIPO} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
         <div className="field"><label>Fecha inicio</label><input type="date" value={form.fecha_inicio} onChange={e => upd("fecha_inicio", e.target.value)} /></div>
         <div className="field"><label>Fecha término</label><input type="date" value={form.fecha_termino} onChange={e => upd("fecha_termino", e.target.value)} /></div>
@@ -269,15 +561,15 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
             {esMixto && (
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: "#888", letterSpacing: ".05em" }}>MEDIDA {i + 1}</span>
-                {cortes.length > 1 && <button onClick={() => quitarCorte(c.id)} style={{ background: "transparent", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: 12 }}>✕ Quitar</button>}
+                {cortes.length > 1 && !grupoActivo && <button onClick={() => quitarCorte(c.id)} style={{ background: "transparent", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: 12 }}>✕ Quitar</button>}
               </div>
             )}
             <div className="form-grid">
-              <div className="field"><label>Ancho de corte</label>
-                <select className={c.anchoTocado ? 'campo-listo' : 'campo-pendiente'} value={c.ancho} onChange={e => { updCorte(c.id, "ancho", e.target.value); updCorte(c.id, "anchoTocado", true); }} onClick={() => updCorte(c.id, "anchoTocado", true)}>{REBOB_ANCHOS.map(a => <option key={a} value={a}>{a}</option>)}</select>
+              <div className="field"><label>Ancho de corte{grupoActivo ? " (planeado)" : ""}</label>
+                <select disabled={!!grupoActivo} className={c.anchoTocado ? 'campo-listo' : 'campo-pendiente'} value={c.ancho} onChange={e => { updCorte(c.id, "ancho", e.target.value); updCorte(c.id, "anchoTocado", true); }} onClick={() => updCorte(c.id, "anchoTocado", true)}>{REBOB_ANCHOS.map(a => <option key={a} value={a}>{a}</option>)}</select>
               </div>
-              <div className="field"><label>Largo de pieza (m)</label>
-                <select className={c.largoPiezaTocado ? 'campo-listo' : 'campo-pendiente'} value={c.largoPieza} onChange={e => { updCorte(c.id, "largoPieza", e.target.value); updCorte(c.id, "largoPiezaTocado", true); }} onClick={() => updCorte(c.id, "largoPiezaTocado", true)}>{REBOB_LARGOS_PIEZA.map(l => <option key={l} value={l}>{l}m</option>)}</select>
+              <div className="field"><label>Largo de pieza (m){grupoActivo ? " (planeado)" : ""}</label>
+                <select disabled={!!grupoActivo} className={c.largoPiezaTocado ? 'campo-listo' : 'campo-pendiente'} value={c.largoPieza} onChange={e => { updCorte(c.id, "largoPieza", e.target.value); updCorte(c.id, "largoPiezaTocado", true); }} onClick={() => updCorte(c.id, "largoPiezaTocado", true)}>{REBOB_LARGOS_PIEZA.map(l => <option key={l} value={l}>{l}m</option>)}</select>
               </div>
               <div className="field full">
                 <label>Conteo por camas <span style={{ color: "#666", fontWeight: 400 }}>({REBOB_CAJAS_POR_CAMA}/cama · {calc.piezasPorCaja} pzas/caja)</span></label>
@@ -321,7 +613,7 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
           </div>
         );
       })()}
-      <button className="btn btn-ghost btn-block" style={{ marginBottom: 20 }} onClick={agregarCorte}>+ Agregar otra medida (rollo mixto)</button>
+      {!grupoActivo && <button className="btn btn-ghost btn-block" style={{ marginBottom: 20 }} onClick={agregarCorte}>+ Agregar otra medida (rollo mixto)</button>}
 
       <div className="form-grid">
         <div className="field full"><label>Notas</label><textarea value={form.notas} onChange={e => upd("notas", e.target.value)} placeholder="Opcional — si no escribes nada, se guarda el cálculo teórico" /></div>
@@ -385,6 +677,23 @@ export default function Rebobinado({ pedidos, setPedidos, onSalir }) {
 
       {toast && <div className="toast">{toast}</div>}
       </main>
+
+      {qrPizarraAbierto && (
+        <div className="vista-grande-overlay" style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <button className="no-imprimir" onClick={() => setQrPizarraAbierto(false)} aria-label="Cerrar"
+            style={{ position: "absolute", top: 16, right: 16, fontSize: 30, lineHeight: 1, background: "transparent", border: "none", color: "#000", cursor: "pointer", padding: 8 }}>✕</button>
+          <div className="imprimible qr-pagina-completa" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
+            <div style={{ fontSize: "clamp(24px, 5vw, 48px)", fontWeight: 800, color: "#111", textAlign: "center", marginBottom: 10, lineHeight: 1.1 }}>Pizarra en vivo — Rebobinado</div>
+            <div style={{ fontSize: "clamp(13px, 2vw, 20px)", color: "#444", marginBottom: 24 }}>Escanea para ver los jumbos planeados y a qué medida va cada uno</div>
+            <div className="qr-grande"><QRCodeSVG value={urlPizarraRebobinado} size={280} bgColor="#ffffff" fgColor="#000000" /></div>
+            <div style={{ fontSize: "clamp(11px, 1.5vw, 16px)", color: "#999", marginTop: 20, wordBreak: "break-all", maxWidth: "90vw", textAlign: "center" }}>{urlPizarraRebobinado}</div>
+          </div>
+          <div className="no-imprimir" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <button className="btn btn-primary" style={{ marginTop: 24 }} onClick={() => window.print()}>🖨️ Imprimir</button>
+            <button className="btn btn-ghost btn-sm" style={{ marginTop: 10, color: "#666", border: "1px solid #ccc" }} onClick={() => setQrPizarraAbierto(false)}>Cerrar</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

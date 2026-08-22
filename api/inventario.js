@@ -46,6 +46,17 @@ export default async function handler(req, res) {
     return ajustarConteo(req, res, usuario);
   }
 
+  // Rebobinado descuenta 1 jumbo de su tarima al registrar el corte real
+  // (ver Rebobinado.js) -- no es pantalla de Inventario, se autoriza aparte
+  // igual que consumo-automatico. Restringido a categoria "jumbo" nada mas
+  // (ver validacion dentro de consumoJumbo) para no darle a Modo Rebobinado
+  // el mismo alcance que salida-tarima (que puede tocar cualquier tarima).
+  if (req.query.accion === 'consumo-jumbo' && req.method === 'POST') {
+    const usuario = await requiereAlgunModo(req, ['rebobinado']);
+    if (!usuario) return res.status(401).json({ error: 'No autorizado' });
+    return consumoJumbo(req, res, usuario);
+  }
+
   const usuario = await requiereAlgunModo(req, MODOS_INVENTARIO);
   if (!usuario) return res.status(401).json({ error: 'No autorizado' });
   if (req.method === 'POST') return crearMaterial(req, res);
@@ -54,7 +65,7 @@ export default async function handler(req, res) {
   return res.status(405).json({ error: 'Method not allowed' });
 }
 
-const CATEGORIAS = ['rollo_mp', 'tinta', 'solvente', 'centro', 'otro'];
+const CATEGORIAS = ['rollo_mp', 'tinta', 'solvente', 'centro', 'jumbo', 'otro'];
 
 async function crearMaterial(req, res) {
   const { nombre, unidad, stock, stock_min, costo_unitario, notas, categoria, match_valor } = req.body || {};
@@ -464,6 +475,32 @@ async function consumoAutomatico(req, res, usuario) {
   }
 
   return res.status(200).json({ ok: true, materiales: resultados });
+}
+
+// Descuenta 1 jumbo de una tarima especifica (categoria "jumbo") -- se
+// llama desde Rebobinado.js justo al registrar el corte real de un jumbo
+// que se habia planeado (el plan vive como pedido(s) status "anotado"
+// ligados a tarima_jumbo_id, ver Rebobinado.js), sin esperar a que Emilio
+// lo de de alta (asi lo pidio el usuario). Solo deja tocar tarimas de esa
+// categoria para no darle a Modo Rebobinado el mismo alcance que
+// salida-tarima (cualquier tarima, cualquier motivo).
+async function consumoJumbo(req, res, usuario) {
+  const { tarima_id, pedido_num } = req.body || {};
+  if (!tarima_id) return res.status(400).json({ error: 'tarima_id es requerido' });
+  const { data: tarima, error: errTar } = await supabase.from('tarimas').select('*').eq('id', tarima_id).single();
+  if (errTar || !tarima) return res.status(404).json({ error: 'Tarima no encontrada' });
+  const { data: material, error: errMat } = await supabase.from('materiales').select('*').eq('id', tarima.material_id).single();
+  if (errMat || !material) return res.status(404).json({ error: 'Material no encontrado' });
+  if (material.categoria !== 'jumbo') return res.status(400).json({ error: 'Esa tarima no es de categoría jumbo' });
+  if (!(Number(tarima.cantidad_actual) > 0)) return res.status(400).json({ error: 'Esa tarima ya no tiene jumbos disponibles' });
+
+  try {
+    const motivo = `Rebobinado${pedido_num ? ` — folio #${pedido_num}` : ''}`;
+    const r = await descontarTarimasEspecificas([{ id: tarima_id, cantidad: 1 }], 1, { motivo, origen: 'rebobinado', pedido_num, usuario_email: usuario.email });
+    return res.status(200).json({ ok: true, stock: r.stock, tarima_agotada: Number(tarima.cantidad_actual) - 1 <= 0 });
+  } catch (e) {
+    return res.status(e.status || 500).json({ error: e.message });
+  }
 }
 
 async function listarMovimientos(req, res) {

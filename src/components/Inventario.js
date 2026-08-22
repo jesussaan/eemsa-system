@@ -20,6 +20,7 @@ const CATEGORIAS = [
   { key: "tinta",    label: "Tinta (por color)" },
   { key: "solvente", label: "Solvente/Alcohol" },
   { key: "centro",   label: "Centros (por ancho)" },
+  { key: "jumbo",    label: "Jumbo (Rebobinado, por material+adhesivo)" },
 ];
 const CATEGORIA_LBL = Object.fromEntries(CATEGORIAS.map(c => [c.key, c.label]));
 const ANCHOS_CENTRO = Object.keys(CENTROS_POR_CAJA); // ['2','3']
@@ -33,6 +34,10 @@ const CONTENEDOR_INFO = {
   centro:   { label: "Caja",   icon: "📦", ratioNombre: "Cajas", ratio: (mv) => CENTROS_POR_CAJA[mv] || 0, ratioTexto: (mv) => `${CENTROS_POR_CAJA[mv] || "?"} piezas/caja` },
   solvente: { label: "Tambo",  icon: "🛢️", ratioNombre: "Tambos", ratio: () => LITROS_POR_TAMBO_SOLVENTE, ratioTexto: () => `${LITROS_POR_TAMBO_SOLVENTE} L/tambo` },
   tinta:    { label: "Cubeta", icon: "🪣", ratioNombre: "Cubetas", ratio: () => KG_POR_CUBETA_TINTA, ratioTexto: () => `${KG_POR_CUBETA_TINTA} kg/cubeta` },
+  // Jumbo: cada tarima es una tarima fisica que puede traer mas de un jumbo
+  // encima (el usuario confirmo que a veces llegan 2 en la misma tarima) --
+  // "cuantos jumbos" se captura directo, sin conversion de contenedor.
+  jumbo:    { label: "Tarima", icon: "🧻", ratioNombre: null, ratio: null, ratioTexto: null },
   otro:     { label: "Lote",   icon: "🏷️", ratioNombre: null, ratio: null, ratioTexto: null },
 };
 const contenedorDe = (m) => CONTENEDOR_INFO[m?.categoria] || CONTENEDOR_INFO.otro;
@@ -44,9 +49,10 @@ const CATEGORIA_COLOR = {
   tinta:    "#9b6fe8", // violeta — Tinta
   solvente: "#e8894b", // naranja — Alcohol/Solvente
   centro:   "#4be87a", // verde — Centros
+  jumbo:    "#3ecfc0", // teal — Rebobinado (mismo color que REBOB_COLOR)
   otro:     "#888888",
 };
-const ORDEN_CATEGORIAS = ["rollo_mp", "tinta", "centro", "solvente", "otro"];
+const ORDEN_CATEGORIAS = ["rollo_mp", "tinta", "centro", "solvente", "jumbo", "otro"];
 
 export default function Inventario({ materiales, setMateriales, tarimas = [], setTarimas, pedidos = [], listaMateriales = [], setListaMateriales, onSalir }) {
   const [subTab, setSubTab] = useState("stock");

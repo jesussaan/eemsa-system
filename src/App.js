@@ -28,6 +28,7 @@ const CalendarioEntregas = lazy(() => import("./components/CalendarioEntregas"))
 const PortalCliente = lazy(() => import("./components/PortalCliente"));
 const InfoTarima = lazy(() => import("./components/InfoTarima"));
 const PizarraOperador = lazy(() => import("./components/PizarraOperador"));
+const PizarraRebobinado = lazy(() => import("./components/PizarraRebobinado"));
 const AdminUsuarios = lazy(() => import("./components/AdminUsuarios"));
 
 const PantallaCargando = () => (
@@ -112,6 +113,7 @@ export default function App() {
   // imprimirse UNA vez como QR (ver boton en ModoOperador.js) y que el
   // operador lo escanee cuantas veces quiera sin necesitar cuenta.
   const pizarraMatch = window.location.pathname.match(/^\/pizarra\/?$/);
+  const pizarraRebobMatch = window.location.pathname.match(/^\/pizarra-rebobinado\/?$/);
   return (
     <>
       <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 1000, display: "flex", flexDirection: "column" }}>
@@ -125,6 +127,8 @@ export default function App() {
         ? <Suspense fallback={<PantallaCargando />}><InfoTarima id={tarimaMatch[1]} /></Suspense>
         : pizarraMatch
         ? <Suspense fallback={<PantallaCargando />}><PizarraOperador /></Suspense>
+        : pizarraRebobMatch
+        ? <Suspense fallback={<PantallaCargando />}><PizarraRebobinado /></Suspense>
         : <EemsaApp />}
     </>
   );
@@ -344,6 +348,7 @@ function EemsaApp() {
     <Suspense fallback={<PantallaCargando />}>
       <Rebobinado
         pedidos={pedidos} setPedidos={setPedidos}
+        tarimas={tarimas} materiales={materiales}
         onSalir={() => setModo(null)}
       />
     </Suspense>

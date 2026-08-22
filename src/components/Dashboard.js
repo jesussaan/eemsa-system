@@ -21,9 +21,9 @@ const SECCIONES = [
 ];
 // Mismos colores que ya usa el modulo Inventario (Inventario.js) para cada
 // categoria -- para que se reconozcan igual en todo el sistema.
-const CATEGORIA_COLOR = { rollo_mp: '#4b8fe8', tinta: '#9b6fe8', solvente: '#e8894b', centro: '#4be87a', otro: '#888888' };
-const CATEGORIA_LBL   = { rollo_mp: 'Rollo MP', tinta: 'Tinta', solvente: 'Solvente/Alcohol', centro: 'Centros', otro: 'Otro' };
-const ORDEN_CATEGORIAS_INV = ['rollo_mp', 'tinta', 'centro', 'solvente', 'otro'];
+const CATEGORIA_COLOR = { rollo_mp: '#4b8fe8', tinta: '#9b6fe8', solvente: '#e8894b', centro: '#4be87a', jumbo: '#3ecfc0', otro: '#888888' };
+const CATEGORIA_LBL   = { rollo_mp: 'Rollo MP', tinta: 'Tinta', solvente: 'Solvente/Alcohol', centro: 'Centros', jumbo: 'Jumbo (Rebob.)', otro: 'Otro' };
+const ORDEN_CATEGORIAS_INV = ['rollo_mp', 'tinta', 'centro', 'solvente', 'jumbo', 'otro'];
 const SubTitle = ({ icon: Icon, children }) => (
   <h3 className="sub-title"><span style={{ display: 'inline-flex', fontSize: 14 }}><Icon /></span>{children}</h3>
 );

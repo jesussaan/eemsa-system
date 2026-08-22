@@ -28,7 +28,7 @@ const CAMPOS_CREAR = [
   'ancho', 'largo', 'color', 'color2', 'color_cinta', 'tinta_tipo',
   'maq', 'op', 'fecha_solicitud', 'fecha_estimada', 'fecha_inicio', 'fecha_termino',
   'piezas_prod', 'merma', 'merma_pct', 'rollos_usados', 'notas', 'status',
-  'cliche_url', 'folio_rebobinado',
+  'cliche_url', 'folio_rebobinado', 'orden', 'tarima_jumbo_id',
 ];
 
 export default async function handler(req, res) {
@@ -79,20 +79,24 @@ export default async function handler(req, res) {
     }
 
     if (action === 'rebobinado_editar') {
-      // Rebobinado corrige sus propios registros de stock (no son pedidos de
-      // cliente real) mientras sigan "pendiente" -- whitelist propia y mas
-      // angosta que CAMPOS_ESTADO porque aqui "cajas" es cajas completas del
-      // rollo, no cajas solicitadas de un pedido de cliente real, y no queremos
-      // que operador/emilio puedan tocar ese campo desde su flujo normal.
+      // Rebobinado corrige/avanza sus propios registros de stock (no son
+      // pedidos de cliente real) mientras Emilio no los haya dado de alta --
+      // whitelist propia y mas angosta que CAMPOS_ESTADO porque aqui "cajas"
+      // es cajas completas del rollo, no cajas solicitadas de un pedido de
+      // cliente real, y no queremos que operador/emilio puedan tocar ese
+      // campo desde su flujo normal. Antes solo dejaba corregir mientras
+      // status ya era "pendiente" (post-corte); ahora tambien cubre
+      // "anotado"/"proceso" (planeacion de jumbos: acomodar orden, avanzar
+      // status) -- se bloquea nada mas cuando ya quedo "terminado".
       const esSupervisor = await requiereModo(req, 'supervisor');
       if (!esSupervisor) {
         if (!(await requiereModo(req, 'rebobinado'))) return res.status(401).json({ error: 'No autorizado' });
         const { data: pedido } = await supabase.from('pedidos').select('cliente, status').eq('id', id).single();
-        if (!pedido || pedido.cliente !== REBOB_CLIENTE || pedido.status !== 'pendiente') {
+        if (!pedido || pedido.cliente !== REBOB_CLIENTE || pedido.status === 'terminado') {
           return res.status(401).json({ error: 'No autorizado' });
         }
       }
-      const CAMPOS_REBOBINADO = ['cajas', 'piezas_prod', 'merma', 'merma_pct', 'rollos_usados', 'notas'];
+      const CAMPOS_REBOBINADO = ['cajas', 'piezas_prod', 'merma', 'merma_pct', 'rollos_usados', 'notas', 'orden', 'status', 'tarima_jumbo_id'];
       const updates = {};
       for (const k of CAMPOS_REBOBINADO) if (req.body[k] !== undefined) updates[k] = req.body[k];
       if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'Sin campos válidos para actualizar' });
@@ -110,13 +114,13 @@ export default async function handler(req, res) {
 
     const esSupervisor = await requiereModo(req, 'supervisor');
     if (!esSupervisor) {
-      // Rebobinado puede borrar sus propios registros para corregir un error
-      // de captura, pero solo mientras sigan "pendiente" (antes de que Emilio
-      // les de de alta) -- no puede tocar pedidos de clientes reales ni algo
-      // que ya avanzo mas adelante en el flujo.
+      // Rebobinado puede borrar sus propios registros (un plan de jumbo que
+      // ya no va, o corregir un error de captura), mientras Emilio no los
+      // haya dado de alta -- no puede tocar pedidos de clientes reales ni
+      // algo que ya quedo "terminado".
       if (!(await requiereModo(req, 'rebobinado'))) return res.status(401).json({ error: 'No autorizado' });
       const { data: pedido } = await supabase.from('pedidos').select('cliente, status').eq('id', id).single();
-      if (!pedido || pedido.cliente !== REBOB_CLIENTE || pedido.status !== 'pendiente') {
+      if (!pedido || pedido.cliente !== REBOB_CLIENTE || pedido.status === 'terminado') {
         return res.status(401).json({ error: 'No autorizado' });
       }
     }
