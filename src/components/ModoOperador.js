@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { QRCodeSVG } from 'qrcode.react';
 import CalculadoraProduccion from './CalculadoraProduccion';
 import ClicheImg from './ClicheImg';
 import { supabase } from '../lib/supabase';
@@ -109,6 +110,11 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
   // que un QR equivocado (u otro material) se cuele como si fuera la
   // correcta.
   const [scannerTarimaAbierto, setScannerTarimaAbierto] = useState(false);
+  // QR fijo de la "pizarra en vivo" (ver PizarraOperador.js) -- se imprime
+  // una sola vez, el operador lo escanea cuantas veces quiera durante el
+  // dia sin necesitar cuenta ni entrar a esta app.
+  const [qrPizarraAbierto, setQrPizarraAbierto] = useState(false);
+  const urlPizarra = `${window.location.origin}/pizarra`;
   const manejarEscaneoTarima = (id) => {
     const t = tarimas.find(x => x.id === id);
     if (!t) { showToast("⚠ QR no reconocido"); return; }
@@ -521,6 +527,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
         </div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
           <NotifBell />
+          <button className="btn btn-ghost btn-sm" onClick={() => setQrPizarraAbierto(true)}>🖨️ QR Pizarra</button>
           <button className="btn btn-ghost btn-sm" onClick={onSalir}>Salir</button>
         </div>
       </header>
@@ -904,6 +911,23 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
       </div>
       {toast && <div className="toast">{toast}</div>}
       {scannerTarimaAbierto && <EscanerTarima onId={manejarEscaneoTarima} onCerrar={() => setScannerTarimaAbierto(false)} />}
+
+      {qrPizarraAbierto && (
+        <div className="vista-grande-overlay" style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <button className="no-imprimir" onClick={() => setQrPizarraAbierto(false)} aria-label="Cerrar"
+            style={{ position: "absolute", top: 16, right: 16, fontSize: 30, lineHeight: 1, background: "transparent", border: "none", color: "#000", cursor: "pointer", padding: 8 }}>✕</button>
+          <div className="imprimible qr-pagina-completa" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
+            <div style={{ fontSize: "clamp(24px, 5vw, 48px)", fontWeight: 800, color: "#111", textAlign: "center", marginBottom: 10, lineHeight: 1.1 }}>Pizarra en vivo — Modo Operador</div>
+            <div style={{ fontSize: "clamp(13px, 2vw, 20px)", color: "#444", marginBottom: 24 }}>Escanea para ver pedidos anotados / en proceso, sin necesitar cuenta</div>
+            <div className="qr-grande"><QRCodeSVG value={urlPizarra} size={280} bgColor="#ffffff" fgColor="#000000" /></div>
+            <div style={{ fontSize: "clamp(11px, 1.5vw, 16px)", color: "#999", marginTop: 20, wordBreak: "break-all", maxWidth: "90vw", textAlign: "center" }}>{urlPizarra}</div>
+          </div>
+          <div className="no-imprimir" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <button className="btn btn-primary" style={{ marginTop: 24 }} onClick={() => window.print()}>🖨️ Imprimir</button>
+            <button className="btn btn-ghost btn-sm" style={{ marginTop: 10, color: "#666", border: "1px solid #ccc" }} onClick={() => setQrPizarraAbierto(false)}>Cerrar</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
