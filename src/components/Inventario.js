@@ -4,7 +4,7 @@ import { fmt, cargarBorrador, guardarBorrador } from '../lib/utils';
 import { confirmar } from '../lib/confirm';
 import { QRCodeSVG } from 'qrcode.react';
 import jsQR from 'jsqr';
-import { TIPOS, ROLLOS_POR_CAJA_MP, CENTROS_POR_CAJA, LITROS_POR_TAMBO_SOLVENTE, KG_POR_CUBETA_TINTA } from '../lib/constants';
+import { TIPOS, ROLLOS_POR_CAJA_MP, CENTROS_POR_CAJA, LITROS_POR_TAMBO_SOLVENTE, KG_POR_CUBETA_TINTA, REBOB_MATERIALES, REBOB_TIPOS } from '../lib/constants';
 import { proyectarConsumoPendientes } from '../lib/produccion';
 import { sendWhatsApp } from '../utils/whatsapp';
 import { IcoPlus, IcoScan } from './Icons';
@@ -556,7 +556,14 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
               <select value={form.unidad} onChange={e => upd("unidad", e.target.value)}>{UNIDADES.map(u => <option key={u}>{u}</option>)}</select>
             </div>
             <div className="field"><label>Categoría (auto-consumo)</label>
-              <select value={form.categoria} onChange={e => { upd("categoria", e.target.value); upd("match_valor", ""); }}>
+              <select value={form.categoria} onChange={e => {
+                const cat = e.target.value;
+                upd("categoria", cat);
+                // Jumbo no es texto libre como los demas -- se guarda
+                // estructurado "Material|Adhesivo" (ver selects abajo) para
+                // que Rebobinado lo pueda leer sin adivinar por el nombre.
+                upd("match_valor", cat === "jumbo" ? `${REBOB_MATERIALES[0]}|${REBOB_TIPOS[0]}` : "");
+              }}>
                 {CATEGORIAS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
               </select>
             </div>
@@ -579,6 +586,26 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                 </select>
               </div>
             )}
+            {form.categoria === "jumbo" && (() => {
+              const [curMat, curAdh] = String(form.match_valor || "").split("|");
+              return (
+                <>
+                  <div className="field"><label>Material del jumbo</label>
+                    <select value={curMat || REBOB_MATERIALES[0]} onChange={e => upd("match_valor", `${e.target.value}|${curAdh || REBOB_TIPOS[0]}`)}>
+                      {REBOB_MATERIALES.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div className="field"><label>Adhesivo</label>
+                    <select value={curAdh || REBOB_TIPOS[0]} onChange={e => upd("match_valor", `${curMat || REBOB_MATERIALES[0]}|${e.target.value}`)}>
+                      {REBOB_TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div className="field full" style={{ fontSize: 11, color: "#666", marginTop: -6 }}>
+                    Rebobinado lo lee de aquí (no del nombre) para que el material/adhesivo salga automático al planear, sin poder equivocarse.
+                  </div>
+                </>
+              );
+            })()}
             {(form.categoria === "rollo_mp" || form.categoria === "tinta" || form.categoria === "centro") && (
               <div className="field full" style={{ fontSize: 11, color: "#666", marginTop: -6 }}>
                 {form.categoria === "centro"

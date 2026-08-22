@@ -50,16 +50,22 @@ const calcularFraccionesRollo = (listaCortes) => {
     : Number(f.toFixed(4)));
 };
 
-// Adivina material/adhesivo de un jumbo a partir del nombre/match_valor de
-// su material en Inventario (ej. "Jumbo Transparente Hotmelt") -- solo para
-// prellenar la planeacion, el operador siempre lo puede corregir con los
-// selects de toda la vida. Mismo criterio de busqueda por substring que ya
-// usa chipColor en ModoOperador.js para adivinar colores.
-const detectarMaterialAdhesivo = (texto) => {
-  const t = (texto || '').toLowerCase();
-  const material = REBOB_MATERIALES.find(m => t.includes(m.toLowerCase())) || REBOB_MATERIALES[0];
-  const adhesivo = REBOB_TIPOS.find(a => t.includes(a.toLowerCase()) || (a === 'Acrílico' && t.includes('acril'))) || REBOB_TIPOS[0];
-  return { material, adhesivo };
+// Material/adhesivo de un jumbo -- se lee de match_valor, que Inventario.js
+// ya guarda estructurado como "Material|Adhesivo" (selects propios para
+// categoria "jumbo", no texto libre) para que esto nunca falle ni haya que
+// corregirlo a mano en Rebobinado. Si el material es de antes de ese cambio
+// y no trae ese formato, se cae a adivinar por el nombre (mismo criterio de
+// substring que chipColor en ModoOperador.js) solo para no dejar la
+// planeacion en blanco -- de todos modos ya no es editable, asi que si la
+// adivinada esta mal hay que corregir el match_valor del material en
+// Inventario, no aqui.
+const materialAdhesivoDe = (material) => {
+  const [m1, a1] = String(material?.match_valor || '').split('|');
+  if (REBOB_MATERIALES.includes(m1) && REBOB_TIPOS.includes(a1)) return { material: m1, adhesivo: a1 };
+  const t = (material?.nombre || material?.match_valor || '').toLowerCase();
+  const material2 = REBOB_MATERIALES.find(m => t.includes(m.toLowerCase())) || REBOB_MATERIALES[0];
+  const adhesivo2 = REBOB_TIPOS.find(a => t.includes(a.toLowerCase()) || (a === 'Acrílico' && t.includes('acril'))) || REBOB_TIPOS[0];
+  return { material: material2, adhesivo: adhesivo2 };
 };
 
 export default function Rebobinado({ pedidos, setPedidos, tarimas = [], materiales = [], onSalir }) {
@@ -152,7 +158,7 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
   const abrirPlaneacion = (materialId) => {
     setPlaneandoMaterialId(materialId);
     const mat = materiales.find(m => m.id === materialId);
-    const { material, adhesivo } = detectarMaterialAdhesivo(mat?.nombre || mat?.match_valor || "");
+    const { material, adhesivo } = materialAdhesivoDe(mat);
     setPlanMaterial(material);
     setPlanAdhesivo(adhesivo);
     setPlanCortes([{ id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0] }]);
@@ -529,9 +535,10 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
               {planeandoMaterialId !== "elegir" && (
                 <>
                   <div className="form-grid" style={{ marginBottom: 10 }}>
-                    <div className="field"><label>Rollo (material)</label><select value={planMaterial} onChange={e => setPlanMaterial(e.target.value)}>{REBOB_MATERIALES.map(m => <option key={m}>{m}</option>)}</select></div>
-                    <div className="field"><label>Adhesivo</label><select value={planAdhesivo} onChange={e => setPlanAdhesivo(e.target.value)}>{REBOB_TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
+                    <div className="field"><label>Rollo (material)</label><input readOnly value={planMaterial} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
+                    <div className="field"><label>Adhesivo</label><input readOnly value={planAdhesivo} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
                   </div>
+                  <div style={{ fontSize: 11, color: "#666", marginTop: -6, marginBottom: 10 }}>Automático, según el tipo de jumbo elegido — para corregirlo, ajusta el material/adhesivo de este jumbo en Inventario.</div>
                   <label style={{ fontSize: 12, color: "#888" }}>¿A qué medida(s) lo vas a cortar?</label>
                   {planCortes.map((c, i) => (
                     <div key={c.id} style={{ display: "flex", gap: 8, alignItems: "flex-end", marginTop: 8 }}>
