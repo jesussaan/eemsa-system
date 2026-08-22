@@ -349,6 +349,12 @@ textarea { resize: vertical; min-height: 68px; }
 @media (min-width: 640px) {
   .mode-buttons { display: grid; grid-template-columns: repeat(2, 1fr); max-width: 620px; gap: 14px; }
 }
+/* Agrupa los botones de modo por maquina/proceso (Impresion/Rebobinado/
+   Administracion) en vez de una sola lista plana -- ver GRUPOS_MODO en
+   App.js. */
+.mode-group { width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 22px; }
+.mode-group:last-child { margin-bottom: 0; }
+.mode-group-lbl { font-size: 11px; color: var(--text-2); letter-spacing: .14em; text-transform: uppercase; margin-bottom: 12px; opacity: .75; }
 .mode-btn {
   width: 100%; padding: 16px 20px;
   border-radius: var(--r-lg);

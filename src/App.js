@@ -95,14 +95,24 @@ const TABS = [
 ];
 
 // Un modo por checkbox del panel de Usuarios (src/components/AdminUsuarios.js).
+// "grupo" solo se usa para acomodar la pantalla de seleccion de modo por
+// maquina/proceso (ver GRUPOS_MODO mas abajo) -- Emilio revisa las dos
+// maquinas (ver tabEmilio en ModoEmilio.js), asi que no va en "impresion" ni
+// "rebobinado" sino junto con Supervisor/Inventario en "admin".
 const MODOS_DISPONIBLES = [
-  { id: "operador",   Icon: IcoOperador,  lbl: "Modo Operador",   cls: "mode-btn-op" },
-  { id: "ventas",     Icon: IcoVentas,    lbl: "Módulo Ventas",   cls: "mode-btn-ven" },
-  { id: "emilio",     Icon: IcoEmilio,    lbl: "Modo Emilio",     cls: "mode-btn-emi" },
-  { id: "rebobinado", Icon: IcoRoll,      lbl: "Modo Rebobinado", cls: "mode-btn-reb" },
-  { id: "supervisor", Icon: IcoDash,      lbl: "Modo Supervisor", cls: "mode-btn-sup" },
-  { id: "cotizador",  Icon: IcoCotizador, lbl: "Cotizador",       cls: "mode-btn-cot" },
-  { id: "inventario", Icon: IcoBox,       lbl: "Inventario",      cls: "mode-btn-inv" },
+  { id: "operador",   Icon: IcoOperador,  lbl: "Modo Operador",   cls: "mode-btn-op",  grupo: "impresion" },
+  { id: "ventas",     Icon: IcoVentas,    lbl: "Módulo Ventas",   cls: "mode-btn-ven", grupo: "impresion" },
+  { id: "cotizador",  Icon: IcoCotizador, lbl: "Cotizador",       cls: "mode-btn-cot", grupo: "impresion" },
+  { id: "rebobinado", Icon: IcoRoll,      lbl: "Modo Rebobinado", cls: "mode-btn-reb", grupo: "rebobinado" },
+  { id: "emilio",     Icon: IcoEmilio,    lbl: "Modo Emilio",     cls: "mode-btn-emi", grupo: "admin" },
+  { id: "supervisor", Icon: IcoDash,      lbl: "Modo Supervisor", cls: "mode-btn-sup", grupo: "admin" },
+  { id: "inventario", Icon: IcoBox,       lbl: "Inventario",      cls: "mode-btn-inv", grupo: "admin" },
+];
+// Orden fijo en que aparecen los grupos en la pantalla de seleccion de modo.
+const GRUPOS_MODO = [
+  { id: "impresion",  lbl: "🖨️ Impresión" },
+  { id: "rebobinado", lbl: "🔄 Rebobinado" },
+  { id: "admin",      lbl: "⚙️ Administración" },
 ];
 
 export default function App() {
@@ -293,18 +303,28 @@ function EemsaApp() {
             ⚠ {errorCarga}
           </div>
         )}
-        <div className="mode-buttons">
-          {modosVisibles.map(m => (
-            <button key={m.id} className={`mode-btn ${m.cls}`} onClick={() => setModo(m.id)}>
-              <span style={{ display: "inline-flex", fontSize: 20 }}><m.Icon /></span> {m.lbl}
-            </button>
-          ))}
-          {perfil.esAdmin && (
-            <button className="mode-btn mode-btn-usr" onClick={() => setModo("usuarios")}>
-              <span style={{ display: "inline-flex", fontSize: 20 }}><IcoCli /></span> Usuarios
-            </button>
-          )}
-        </div>
+        {GRUPOS_MODO.map(g => {
+          const modosGrupo = modosVisibles.filter(m => m.grupo === g.id);
+          const esAdminYAdmin = g.id === "admin" && perfil.esAdmin;
+          if (modosGrupo.length === 0 && !esAdminYAdmin) return null;
+          return (
+            <div key={g.id} className="mode-group">
+              <div className="mode-group-lbl">{g.lbl}</div>
+              <div className="mode-buttons">
+                {modosGrupo.map(m => (
+                  <button key={m.id} className={`mode-btn ${m.cls}`} onClick={() => setModo(m.id)}>
+                    <span style={{ display: "inline-flex", fontSize: 20 }}><m.Icon /></span> {m.lbl}
+                  </button>
+                ))}
+                {esAdminYAdmin && (
+                  <button className="mode-btn mode-btn-usr" onClick={() => setModo("usuarios")}>
+                    <span style={{ display: "inline-flex", fontSize: 20 }}><IcoCli /></span> Usuarios
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
         <button
           onClick={() => cerrarSesion()}
           style={{ marginTop: 22, background: "transparent", border: "none", color: "var(--text-2)", fontSize: 11, cursor: "pointer", textDecoration: "underline" }}
