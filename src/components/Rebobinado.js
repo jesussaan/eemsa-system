@@ -86,7 +86,7 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
   // ligados a esa tarima (tarima_jumbo_id) ANTES de cortar -- el corte real
   // de mas abajo, cuando carga un plan, actualiza esos mismos registros en
   // vez de crear otros nuevos, y descuenta 1 jumbo de la tarima.
-  const [planeandoTarimaId, setPlaneandoTarimaId] = useState(null);
+  const [planeandoMaterialId, setPlaneandoMaterialId] = useState(null);
   const [planCortes, setPlanCortes] = useState([{ id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0] }]);
   const [planMaterial, setPlanMaterial] = useState(REBOB_MATERIALES[0]);
   const [planAdhesivo, setPlanAdhesivo] = useState(REBOB_TIPOS[0]);
@@ -121,28 +121,51 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
     .map(t => ({ tarima: t, disponibles: Number(t.cantidad_actual) - (comprometidosPorTarima[t.id] || 0) }))
     .filter(x => x.disponibles > 0)
     .sort((a, b) => (a.tarima.numero ?? 0) - (b.tarima.numero ?? 0));
+  // Planear se elige por TIPO (material: ej. "Jumbo Transparente Hotmelt"),
+  // no por numero de tarima -- puede haber varias tarimas del mismo tipo
+  // (distintos lotes recibidos en distintas fechas), asi que se agrupan
+  // aqui y la tarima especifica se resuelve sola al guardar (la que tenga
+  // menos disponibles primero, mismo criterio que ya usa la tinta, para no
+  // dejar varias tarimas del mismo tipo abiertas a medias).
+  const tiposJumboDisponibles = Object.values(
+    candidatosJumbo.reduce((acc, x) => {
+      const matId = x.tarima.material_id;
+      if (!acc[matId]) acc[matId] = { material_id: matId, disponibles: 0, candidatos: [] };
+      acc[matId].disponibles += x.disponibles;
+      acc[matId].candidatos.push(x);
+      return acc;
+    }, {})
+  ).map(g => ({ ...g, material: materiales.find(m => m.id === g.material_id) }))
+   .sort((a, b) => (a.material?.nombre || "").localeCompare(b.material?.nombre || ""));
+  const resolverTarimaParaTipo = (materialId) => {
+    const grupo = tiposJumboDisponibles.find(g => g.material_id === materialId);
+    if (!grupo) return null;
+    const ordenado = [...grupo.candidatos].sort((a, b) => a.disponibles - b.disponibles || (a.tarima.numero ?? 0) - (b.tarima.numero ?? 0));
+    return ordenado[0]?.tarima || null;
+  };
 
   const actualizarPedidoRebob = (id, campos) => fetch('/api/pedidos', {
     method: 'PUT', headers: authHeaders(),
     body: JSON.stringify({ action: 'rebobinado_editar', id, ...campos }),
   });
 
-  const abrirPlaneacion = (tarimaId) => {
-    setPlaneandoTarimaId(tarimaId);
-    const t = candidatosJumbo.find(x => x.tarima.id === tarimaId)?.tarima;
-    const mat = t ? materiales.find(m => m.id === t.material_id) : null;
+  const abrirPlaneacion = (materialId) => {
+    setPlaneandoMaterialId(materialId);
+    const mat = materiales.find(m => m.id === materialId);
     const { material, adhesivo } = detectarMaterialAdhesivo(mat?.nombre || mat?.match_valor || "");
     setPlanMaterial(material);
     setPlanAdhesivo(adhesivo);
     setPlanCortes([{ id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0] }]);
   };
-  const cerrarPlaneacion = () => setPlaneandoTarimaId(null);
+  const cerrarPlaneacion = () => setPlaneandoMaterialId(null);
   const agregarPlanCorte = () => setPlanCortes(cs => [...cs, { id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0] }]);
   const quitarPlanCorte = (id) => setPlanCortes(cs => cs.filter(c => c.id !== id));
   const updPlanCorte = (id, k, v) => setPlanCortes(cs => cs.map(c => c.id === id ? { ...c, [k]: v } : c));
 
   const guardarPlan = async () => {
-    if (!planeandoTarimaId || planCortes.length === 0) { showToast("⚠ Elige un jumbo y al menos una medida"); return; }
+    if (!planeandoMaterialId || planCortes.length === 0) { showToast("⚠ Elige un tipo de jumbo y al menos una medida"); return; }
+    const tarimaElegida = resolverTarimaParaTipo(planeandoMaterialId);
+    if (!tarimaElegida) { showToast("⚠ Ya no hay tarima disponible de ese tipo"); return; }
     setGuardandoPlan(true);
     const folioNum = Math.max(0, ...pedidos.filter(p => p.cliente === REBOB_CLIENTE).map(p => Number(p.folio_rebobinado) || 0)) + 1;
     const ordenNuevo = Math.max(0, ...gruposPlaneados.map(g => g[0].orden ?? 0)) + 1;
@@ -157,7 +180,7 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
         tipo: planMaterial, color: planAdhesivo, medida: `${c.ancho} x ${c.largoPieza}m`,
         cajas: 1, // placeholder -- se reemplaza con lo real al registrar el corte (POST exige cajas > 0)
         fecha_solicitud: today(), status: "anotado",
-        tarima_jumbo_id: planeandoTarimaId,
+        tarima_jumbo_id: tarimaElegida.id,
         notas: `Planeado: ${calcularPiezasTeoricas(c.ancho, c.largoPieza)} pzas teóricas${mixto ? " — rollo mixto" : ""}`,
       };
       const res = await fetch('/api/pedidos', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
@@ -175,7 +198,7 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
       const faltantes = nuevos.filter(n => !idsExistentes.has(n.id));
       return [...faltantes, ...ps];
     });
-    setPlaneandoTarimaId(null);
+    setPlaneandoMaterialId(null);
     showToast(`✓ Jumbo planeado — folio ${folioNum}${mixto ? ` (${planCortes.length} medidas)` : ""}`);
     setGuardandoPlan(false);
   };
@@ -483,28 +506,27 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
         </div>
       )}
 
-      <button className="btn btn-ghost btn-block" style={{ marginBottom: 20 }} onClick={() => planeandoTarimaId ? cerrarPlaneacion() : abrirPlaneacion(candidatosJumbo[0]?.tarima.id || "elegir")}>
-        {planeandoTarimaId ? "✕ Cerrar planeación" : "+ Planear un jumbo"}
+      <button className="btn btn-ghost btn-block" style={{ marginBottom: 20 }} onClick={() => planeandoMaterialId ? cerrarPlaneacion() : abrirPlaneacion(tiposJumboDisponibles[0]?.material_id || "elegir")}>
+        {planeandoMaterialId ? "✕ Cerrar planeación" : "+ Planear un jumbo"}
       </button>
 
-      {planeandoTarimaId && (
+      {planeandoMaterialId && (
         <div style={{ background: "#1a1d26", border: "1px solid var(--teal)", borderRadius: 10, padding: 14, marginBottom: 20 }}>
           <h3 className="sub-title" style={{ marginTop: 0 }}>Planear jumbo</h3>
-          {candidatosJumbo.length === 0 ? (
+          {tiposJumboDisponibles.length === 0 ? (
             <p className="empty">No hay jumbos disponibles en Inventario (categoría "Jumbo") sin planear todavía. Da uno de alta ahí primero.</p>
           ) : (
             <>
               <div className="field" style={{ marginBottom: 10 }}>
-                <label>¿Cuál jumbo?</label>
-                <select className="campo-listo" value={planeandoTarimaId === "elegir" ? "" : planeandoTarimaId} onChange={e => abrirPlaneacion(e.target.value)}>
-                  <option value="" disabled>Elige un jumbo…</option>
-                  {candidatosJumbo.map(x => {
-                    const mat = materiales.find(m => m.id === x.tarima.material_id);
-                    return <option key={x.tarima.id} value={x.tarima.id}>Tarima #{x.tarima.numero ?? "?"} — {mat?.nombre || "Jumbo"} ({x.disponibles} disponible{x.disponibles === 1 ? "" : "s"})</option>;
-                  })}
+                <label>¿Qué tipo de jumbo?</label>
+                <select className="campo-listo" value={planeandoMaterialId === "elegir" ? "" : planeandoMaterialId} onChange={e => abrirPlaneacion(e.target.value)}>
+                  <option value="" disabled>Elige un tipo…</option>
+                  {tiposJumboDisponibles.map(g => (
+                    <option key={g.material_id} value={g.material_id}>{g.material?.nombre || "Jumbo"} ({g.disponibles} disponible{g.disponibles === 1 ? "" : "s"})</option>
+                  ))}
                 </select>
               </div>
-              {planeandoTarimaId !== "elegir" && (
+              {planeandoMaterialId !== "elegir" && (
                 <>
                   <div className="form-grid" style={{ marginBottom: 10 }}>
                     <div className="field"><label>Rollo (material)</label><select value={planMaterial} onChange={e => setPlanMaterial(e.target.value)}>{REBOB_MATERIALES.map(m => <option key={m}>{m}</option>)}</select></div>
