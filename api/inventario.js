@@ -248,9 +248,18 @@ async function descontarFIFO(material_id, cantidadTotal, { motivo, origen, pedid
   // puede reordenar a mano en Inventario) en vez de solo la fecha de
   // recepcion -- asi si alguien renumera para marcar cual esta abierta/en
   // uso, el descuento automatico de verdad le hace caso a eso.
-  const { data: tarimas, error: errTar } = await supabase.from('tarimas')
-    .select('*').eq('material_id', material_id).eq('activa', true).gt('cantidad_actual', 0)
-    .order('numero', { ascending: true }).order('fecha_recepcion', { ascending: true }).order('created', { ascending: true });
+  //
+  // Tinta es la excepcion: ahi no hay tarima que el operador elija a mano
+  // (ver ModoOperador.js, el paso de elegir tarima solo existe para Rollo
+  // MP), asi que en vez de FIFO por antiguedad se agota primero la cubeta
+  // con MENOS cantidad restante -- evita dejar varias cubetas abiertas a
+  // medias por toda la planta.
+  let queryTarimas = supabase.from('tarimas')
+    .select('*').eq('material_id', material_id).eq('activa', true).gt('cantidad_actual', 0);
+  queryTarimas = material.categoria === 'tinta'
+    ? queryTarimas.order('cantidad_actual', { ascending: true }).order('numero', { ascending: true })
+    : queryTarimas.order('numero', { ascending: true }).order('fecha_recepcion', { ascending: true }).order('created', { ascending: true });
+  const { data: tarimas, error: errTar } = await queryTarimas;
   if (errTar) throw Object.assign(new Error(errTar.message), { status: 500 });
 
   let restante = cantidadTotal;
@@ -288,33 +297,49 @@ async function descontarFIFO(material_id, cantidadTotal, { motivo, origen, pedid
   return { material, stock: nuevoStock, stockAntes, cruzoMinimo, splits };
 }
 
-// Descuenta de UNA tarima especifica que el operador ya eligio a mano en
-// Modo Operador (ver vista "tarima" en ModoOperador.js) -- no busca FIFO,
-// asume que esa es la que de verdad se uso. Si la corrida gasto mas de lo
-// que esa tarima tenia registrado, se deja en 0/agotada y el sobrante se
-// resta igual del stock agregado del material (puede quedar negativo) en
-// vez de bloquear el pedido -- avisa que el catalogo esta desactualizado.
-async function descontarTarimaEspecifica(tarimaId, cantidad, { motivo, origen, pedido_num, usuario_email }) {
-  const { data: tarima, error: errTar } = await supabase.from('tarimas').select('*').eq('id', tarimaId).single();
-  if (errTar || !tarima) throw Object.assign(new Error('Tarima no encontrada'), { status: 404 });
-  const { data: material, error: errMat } = await supabase.from('materiales').select('*').eq('id', tarima.material_id).single();
+// Descuenta de una LISTA de tarimas especificas que el operador ya eligio a
+// mano en Modo Operador (la principal en el paso obligatorio "tarima", mas
+// las que haya agregado si esa no alcanzo -- ver vista "tarima-extra" en
+// ModoOperador.js) -- no busca FIFO, respeta el orden y las cantidades
+// exactas que ya vienen decididas. Si la suma de las tarimas no cubre lo que
+// la corrida necesito, el faltante se resta igual del stock agregado del
+// material (puede quedar negativo) en vez de bloquear el pedido -- avisa que
+// el catalogo esta desactualizado.
+async function descontarTarimasEspecificas(allocations, cantidadTotal, { motivo, origen, pedido_num, usuario_email }) {
+  if (!allocations?.length) throw Object.assign(new Error('Sin tarimas seleccionadas'), { status: 400 });
+  const { data: primeraTarima, error: errTar0 } = await supabase.from('tarimas').select('material_id').eq('id', allocations[0].id).single();
+  if (errTar0 || !primeraTarima) throw Object.assign(new Error('Tarima no encontrada'), { status: 404 });
+  const { data: material, error: errMat } = await supabase.from('materiales').select('*').eq('id', primeraTarima.material_id).single();
   if (errMat || !material) throw Object.assign(new Error('Material no encontrado'), { status: 404 });
 
-  const cant = Number(cantidad);
-  const nuevaCantidadTarima = Math.max(0, Number(tarima.cantidad_actual) - cant);
-  const { error: errUpdTar } = await supabase.from('tarimas').update({ cantidad_actual: nuevaCantidadTarima, activa: nuevaCantidadTarima > 0 }).eq('id', tarimaId);
-  if (errUpdTar) throw Object.assign(new Error(errUpdTar.message), { status: 500 });
+  let cubierto = 0;
+  const movimientos = [];
+  for (const a of allocations) {
+    const { data: tarima, error: errTar } = await supabase.from('tarimas').select('*').eq('id', a.id).single();
+    if (errTar || !tarima) continue;
+    const cant = Math.min(Number(a.cantidad) || 0, Number(tarima.cantidad_actual));
+    if (!(cant > 0)) continue;
+    const nuevaCant = Number(tarima.cantidad_actual) - cant;
+    const { error: errUpdTar } = await supabase.from('tarimas').update({ cantidad_actual: nuevaCant, activa: nuevaCant > 0 }).eq('id', tarima.id);
+    if (errUpdTar) throw Object.assign(new Error(errUpdTar.message), { status: 500 });
+    movimientos.push({ material_id: material.id, material_nombre: material.nombre, tipo: 'salida', cantidad: cant, motivo, origen: origen || 'manual', pedido_num: pedido_num || null, tarima_id: tarima.id, usuario_email: usuario_email || '' });
+    cubierto += cant;
+  }
+
+  const faltante = Math.max(0, Number(cantidadTotal) - cubierto);
+  if (faltante > 0) {
+    movimientos.push({ material_id: material.id, material_nombre: material.nombre, tipo: 'salida', cantidad: faltante, motivo: `${motivo} ⚠ excede lo registrado en tarimas`, origen: origen || 'manual', pedido_num: pedido_num || null, tarima_id: null, usuario_email: usuario_email || '' });
+  }
 
   const stockAntes = Number(material.stock);
-  const nuevoStock = stockAntes - cant;
+  const nuevoStock = stockAntes - Number(cantidadTotal);
   const { error: errUpdMat } = await supabase.from('materiales').update({ stock: nuevoStock }).eq('id', material.id);
   if (errUpdMat) throw Object.assign(new Error(errUpdMat.message), { status: 500 });
 
-  const { error: errMov } = await supabase.from('movimientos_inventario_mp').insert([{
-    material_id: material.id, material_nombre: material.nombre, tipo: 'salida', cantidad: cant,
-    motivo, origen: origen || 'manual', pedido_num: pedido_num || null, tarima_id: tarimaId, usuario_email: usuario_email || '',
-  }]);
-  if (errMov) throw Object.assign(new Error(errMov.message), { status: 500 });
+  if (movimientos.length) {
+    const { error: errMov } = await supabase.from('movimientos_inventario_mp').insert(movimientos);
+    if (errMov) throw Object.assign(new Error(errMov.message), { status: 500 });
+  }
 
   const min = Number(material.stock_min || 0);
   const cruzoMinimo = min > 0 && stockAntes > min && nuevoStock <= min;
@@ -370,7 +395,7 @@ async function resolverOCrearMaterial(categoria, matchValor, nombreSugerido, uni
 // guardar el pedido, sin bloquear ese flujo si algo aqui falla. El descuento
 // real de cada material sale de sus tarimas por FIFO (ver descontarFIFO).
 async function consumoAutomatico(req, res, usuario) {
-  const { pedido_num, cliente, tipo_cinta, color, color2, rollos, tinta_kg, tinta_kg2, solvente_kg, ancho, piezas, tarima_mp_id } = req.body || {};
+  const { pedido_num, cliente, tipo_cinta, color, color2, rollos, tinta_kg, tinta_kg2, solvente_kg, ancho, piezas, tarima_mp_id, tarimas_mp } = req.body || {};
   const motivo = `Pedido #${pedido_num || '?'}${cliente ? ` — ${cliente}` : ''}`;
   const resultados = [];
 
@@ -388,13 +413,19 @@ async function consumoAutomatico(req, res, usuario) {
   };
 
   try {
-    // Rollo MP: si Modo Operador ya mando la tarima especifica elegida a
-    // mano (obligatorio ahi, ver ModoOperador.js vista "tarima"), se
-    // descuenta de esa; si no vino (no habia ninguna tarima activa de ese
-    // tipo cuando el operador finalizo), cae al FIFO automatico de siempre.
+    // Rollo MP: si Modo Operador ya mando la(s) tarima(s) especifica(s)
+    // elegida(s) a mano (obligatorio ahi, ver ModoOperador.js vista "tarima"
+    // y, si esa sola no alcanzaba, "tarima-extra"), se descuenta de esas en
+    // el orden en que se eligieron; si no vino nada (no habia ninguna tarima
+    // activa de ese tipo cuando el operador finalizo), cae al FIFO
+    // automatico de siempre. tarima_mp_id (una sola) se mantiene por
+    // compatibilidad con llamadas viejas.
     const rollosNum = Number(rollos);
-    if (tarima_mp_id && rollosNum > 0) {
-      const r = await descontarTarimaEspecifica(tarima_mp_id, rollosNum, { motivo, origen: 'corrida_automatica', pedido_num, usuario_email: usuario.email });
+    const asignacionesTarima = Array.isArray(tarimas_mp) && tarimas_mp.length
+      ? tarimas_mp
+      : (tarima_mp_id ? [{ id: tarima_mp_id, cantidad: rollosNum }] : null);
+    if (asignacionesTarima && rollosNum > 0) {
+      const r = await descontarTarimasEspecificas(asignacionesTarima, rollosNum, { motivo, origen: 'corrida_automatica', pedido_num, usuario_email: usuario.email });
       resultados.push({ id: r.material.id, nombre: r.material.nombre, unidad: r.material.unidad, stock: r.stock, stock_min: Number(r.material.stock_min || 0), creado: false, cruzoMinimo: r.cruzoMinimo });
     } else if (tipo_cinta) {
       await consumir('rollo_mp', tipo_cinta, rollos, `Rollo MP ${tipo_cinta}`, 'Rollo');

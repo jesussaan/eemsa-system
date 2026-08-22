@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart as ReBarChart, Bar, XAxis, YAxis } from 'recharts';
 import BarChart from './BarChart';
+import { authHeaders } from '../lib/auth';
 import { today, fmt, diasHabilesRestantes, estadoPlazo } from '../lib/utils';
 import { META_CAJAS, META_MERMA_PCT, REBOB_CLIENTE, REBOB_COLOR, SEV } from '../lib/constants';
 import { notificar } from '../lib/notificaciones';
@@ -74,6 +75,23 @@ const delta = (curr, prev) => {
 
 export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, materiales = [], tarimas = [], proveedores, prodDiaria, cliches = [] }) {
   const [seccion, setSeccion] = useState('resumen');
+
+  // Salidas manuales de tarima (mala calidad, mermas, etc. -- ver "− Salida"
+  // en Inventario.js) para el resumen de bajas de la seccion Inventario. Se
+  // carga solo la primera vez que se entra a esa seccion, igual que el
+  // historial de movimientos en Inventario.js, para no bajar 200 renglones
+  // en cada visita al Dashboard.
+  const [movimientos, setMovimientos] = useState([]);
+  const [movimientosCargados, setMovimientosCargados] = useState(false);
+  useEffect(() => {
+    if (seccion === 'inventario' && !movimientosCargados) {
+      fetch('/api/inventario?accion=movimientos', { headers: authHeaders() })
+        .then(r => r.json())
+        .then(data => { if (Array.isArray(data)) setMovimientos(data); })
+        .catch(() => {})
+        .finally(() => setMovimientosCargados(true));
+    }
+  }, [seccion, movimientosCargados]);
 
   // Busca el material de Inventario ligado a una categoria+valor (ver
   // api/inventario.js accion=consumo-automatico) para mostrar el stock que
@@ -1020,6 +1038,27 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, m
           .sort((a, b) => b.valor - a.valor)
           .slice(0, 15);
 
+        // Bajas manuales (mala calidad, mermas, etc.) -- salidas registradas
+        // a mano desde una tarima especifica (boton "− Salida" en
+        // Inventario.js), NO lo que se descuenta solo al finalizar un
+        // pedido (origen 'corrida_automatica') ni las correcciones de
+        // conteo fisico (motivo fijo 'Ajuste por conteo físico', que es una
+        // recuenta, no necesariamente una baja por calidad). Se agrupa por
+        // tarima para responder "cuantos rollos malos hay en cada tarima".
+        const bajasManuales = movimientos.filter(mv => mv.tipo === 'salida' && mv.origen === 'manual' && mv.motivo !== 'Ajuste por conteo físico');
+        const bajasPorTarima = Object.values(bajasManuales.reduce((acc, mv) => {
+          const key = mv.tarima_id || `sin-tarima-${mv.material_id}`;
+          if (!acc[key]) {
+            const tarima = tarimas.find(t => t.id === mv.tarima_id) || null;
+            acc[key] = { key, tarima, material_nombre: mv.material_nombre, total: 0, motivos: new Set(), ultima: mv.created };
+          }
+          acc[key].total += Number(mv.cantidad) || 0;
+          if (mv.motivo) acc[key].motivos.add(mv.motivo);
+          if (mv.created > acc[key].ultima) acc[key].ultima = mv.created;
+          return acc;
+        }, {})).sort((a, b) => b.total - a.total);
+        const materialUnidad = (nombre) => materiales.find(m => m.nombre === nombre)?.unidad || '';
+
         return (
           <>
             <div className="stat-grid" style={{ marginBottom: 20 }}>
@@ -1086,6 +1125,38 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, m
                           </tr>
                         );
                       })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <SubTitle icon={IcoFal}>Bajas manuales por tarima (mala calidad, mermas, etc.)</SubTitle>
+            <div style={chartCard}>
+              {!movimientosCargados ? (
+                <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: '12px 0' }}>Cargando…</div>
+              ) : bajasPorTarima.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: '12px 0' }}>Sin bajas manuales registradas — cuando registres una "− Salida" en Inventario (ej. rollos de mala calidad) aparece aquí.</div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                        {['Material', 'Tarima', 'Total', 'Motivo', 'Última'].map(h => (
+                          <th key={h} style={{ padding: '6px 10px', color: 'var(--muted)', fontWeight: 600, textAlign: h === 'Material' || h === 'Tarima' || h === 'Motivo' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bajasPorTarima.map((b, i) => (
+                        <tr key={b.key} style={{ borderBottom: '1px solid var(--surface)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                          <td style={{ padding: '8px 10px', color: 'var(--text)', fontWeight: 600, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.material_nombre}</td>
+                          <td style={{ padding: '8px 10px', color: 'var(--text-2)' }}>{b.tarima ? `#${b.tarima.numero ?? '?'}${b.tarima.lote ? ` · ${b.tarima.lote}` : ''}` : 'Sin tarima'}</td>
+                          <td style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--red)', fontWeight: 700 }}>{fmt(b.total)} {materialUnidad(b.material_nombre)}</td>
+                          <td style={{ padding: '8px 10px', color: 'var(--muted)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[...b.motivos].join(' · ') || '—'}</td>
+                          <td style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{new Date(b.ultima).toLocaleDateString('es-MX')}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>

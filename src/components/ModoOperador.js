@@ -10,8 +10,9 @@ import { sendPush } from '../lib/push';
 import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV, UMBRAL_MERMA } from '../lib/constants';
 import { sendWhatsApp } from '../utils/whatsapp';
-import { IcoOperador, IcoPalette, IcoRoll, IcoClipboard, IcoCamera, IcoCheck, IcoFal } from './Icons';
+import { IcoOperador, IcoPalette, IcoRoll, IcoClipboard, IcoCamera, IcoCheck, IcoFal, IcoScan } from './Icons';
 import NotifBell from './NotifBell';
+import EscanerTarima from './EscanerTarima';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
@@ -46,7 +47,15 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
   // de poder finalizar (ver vista === "tarima" mas abajo). Se resetea cada
   // vez que se cambia de pedido para no arrastrar la seleccion de otro.
   const [tarimaMP, setTarimaMP] = useState(null);
-  useEffect(() => { setTarimaMP(null); }, [pedidoSelId]);
+  // Tarima(s) adicionales elegidas cuando tarimaMP sola no alcanzo para lo
+  // que la corrida necesito de verdad (ver vista "tarima-extra" mas abajo).
+  const [tarimasExtra, setTarimasExtra] = useState([]);
+  // Guarda el payload de finalizarPedido mientras se resuelve el faltante de
+  // tarima -- se dispara desde procesarFinalizacion() en vez de guardar de
+  // una vez, para poder pausar y pedir otra tarima antes de mandar el
+  // consumo a /api/inventario.
+  const [finPendiente, setFinPendiente] = useState(null);
+  useEffect(() => { setTarimaMP(null); setTarimasExtra([]); setFinPendiente(null); }, [pedidoSelId]);
   // Candidatas: tarimas activas de categoria rollo_mp cuyo match_valor es el
   // tipo de cinta de este pedido, numero mas chico primero (mismo orden que
   // usa el consumo automatico de tinta/centro/solvente, ver descontarFIFO).
@@ -65,6 +74,60 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
     if (!tarimaMP && candidatosTarimaMP.length === 1) setTarimaMP(candidatosTarimaMP[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidatosTarimaMP.length, pedidoSelId]);
+  // Candidatas para tarima EXTRA: las mismas de arriba, quitando la
+  // principal y las que ya se hayan agregado -- para no ofrecer elegir dos
+  // veces la misma tarima.
+  const idsTarimaUsados = new Set([tarimaMP?.id, ...tarimasExtra.map(x => x.tarima.id)].filter(Boolean));
+  const candidatosTarimaExtra = candidatosTarimaMP.filter(t => !idsTarimaUsados.has(t.id));
+  // Reparte `necesarios` entre tarimaMP + tarimasExtra en el orden en que se
+  // fueron eligiendo, tomando de cada una lo que tenga hasta cubrir el
+  // total -- mismo criterio que descontarFIFO/descontarTarimasEspecificas en
+  // el backend, para que lo que se ve aqui coincida con lo que de verdad se
+  // va a descontar.
+  const construirAsignacionesTarima = (necesarios) => {
+    let restante = necesarios;
+    const asignaciones = [];
+    if (tarimaMP) {
+      const t = Math.min(restante, Number(tarimaMP.cantidad_actual));
+      asignaciones.push({ id: tarimaMP.id, cantidad: t });
+      restante -= t;
+    }
+    for (const extra of tarimasExtra) {
+      if (restante <= 0) break;
+      const t = Math.min(restante, Number(extra.tarima.cantidad_actual));
+      asignaciones.push({ id: extra.tarima.id, cantidad: t });
+      restante -= t;
+    }
+    return { asignaciones, faltante: Math.max(0, restante) };
+  };
+
+  // Escanear el QR de la tarima (el que ya se imprime desde Inventario, ver
+  // urlTarima en Inventario.js) en vez de buscarla a mano en la lista --
+  // mismo mecanismo de camara/pistola que ya usa Inventario para contar y
+  // dar salida (ver EscanerTarima.js). Valida que la tarima escaneada sea
+  // de verdad de la cinta de este pedido antes de aceptarla, para no dejar
+  // que un QR equivocado (u otro material) se cuele como si fuera la
+  // correcta.
+  const [scannerTarimaAbierto, setScannerTarimaAbierto] = useState(false);
+  const manejarEscaneoTarima = (id) => {
+    const t = tarimas.find(x => x.id === id);
+    if (!t) { showToast("⚠ QR no reconocido"); return; }
+    const m = materiales.find(x => x.id === t.material_id);
+    const esDeEstaCinta = m?.categoria === 'rollo_mp' && (m.match_valor || '').trim().toLowerCase() === (pedidoSel?.tipo || '').trim().toLowerCase();
+    if (!esDeEstaCinta) { showToast(`⚠ Esa tarima no es de la cinta "${pedidoSel?.tipo}" de este pedido`); return; }
+    if (!t.activa || Number(t.cantidad_actual) <= 0) { showToast("⚠ Esa tarima ya está agotada"); return; }
+    if (vista === "tarima") {
+      setTarimaMP(t);
+      setScannerTarimaAbierto(false);
+      showToast(`✓ Tarima #${t.numero ?? "?"} seleccionada`);
+    } else if (vista === "tarima-extra") {
+      if (t.id === tarimaMP?.id || tarimasExtra.some(x => x.tarima.id === t.id)) { showToast("↺ Esa tarima ya está agregada"); return; }
+      setTarimasExtra(xs => [...xs, { tarima: t }]);
+      showToast(`✓ Tarima #${t.numero ?? "?"} agregada`);
+      // Aqui se deja el scanner abierto (a diferencia de "tarima") por si
+      // hace falta agregar mas de una para cubrir el faltante.
+    }
+  };
 
   useEffect(() => guardarBorrador("eemsa_op_pedido_id", pedidoSelId), [pedidoSelId]);
   useEffect(() => guardarBorrador("eemsa_op_vista", vista), [vista]);
@@ -140,7 +203,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
     setLoading(false);
   };
 
-  const finalizarPedido = async (fin) => {
+  const finalizarPedido = async (fin, asignacionesTarima) => {
     setLoading(true);
     const piezas = fin.piezas_prod != null && fin.piezas_prod !== "" ? Number(fin.piezas_prod) : null;
     const mermaNum = fin.merma != null && fin.merma !== "" ? Number(fin.merma) : null;
@@ -267,11 +330,16 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
           // Mismo criterio que tipoCentro en /api/costos: ancho de 3" cuenta
           // aparte, cualquier otro ancho cae en la caja de centros de 2".
           ancho: anchoDePedido(pedidoSel) === 3 ? '3' : '2', piezas,
-          // Tarima de Rollo MP elegida a mano en la pantalla previa (ver
-          // vista === "tarima") -- si viene, el servidor descuenta de esa
-          // tarima especifica en vez de FIFO. Si no hay ninguna activa
-          // registrada, se queda null y cae en el flujo automatico de siempre.
-          tarima_mp_id: tarimaMP?.id || null,
+          // Tarima(s) de Rollo MP elegidas a mano en las pantallas previas
+          // (ver vista === "tarima" y, si esa sola no alcanzaba,
+          // "tarima-extra") -- si vienen, el servidor descuenta de esas
+          // tarimas especificas en vez de FIFO. Si no se eligio ninguna
+          // (no habia ninguna activa registrada), se queda null y cae en el
+          // flujo automatico de siempre. Si procesarFinalizacion() no tuvo
+          // que pausar a pedir mas tarima, asignacionesTarima no llega y se
+          // arma aqui con la unica tarima elegida (mismo comportamiento de
+          // siempre para el caso normal donde si alcanzaba).
+          tarimas_mp: asignacionesTarima || (tarimaMP ? [{ id: tarimaMP.id, cantidad: rollosNum }] : null),
         }),
       });
       if (consumoRes.ok) {
@@ -287,6 +355,24 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
     setVista(null);
     showToast("✓ Pedido finalizado");
     setLoading(false);
+  };
+
+  // Se llama en vez de finalizarPedido directamente al confirmar la
+  // calculadora -- si la tarima de Rollo MP elegida no alcanza para lo que
+  // la corrida de verdad necesito, pausa y manda a la pantalla
+  // "tarima-extra" a elegir otra en vez de dejar que el faltante se pierda
+  // en silencio (ver descontarTarimasEspecificas en api/inventario.js).
+  const procesarFinalizacion = (fin) => {
+    const necesarios = fin.rollos_usados ? Number(fin.rollos_usados) : 0;
+    if (tarimaMP && necesarios > 0) {
+      const { faltante } = construirAsignacionesTarima(necesarios);
+      if (faltante > 0) {
+        setFinPendiente(fin);
+        setVista("tarima-extra");
+        return;
+      }
+    }
+    finalizarPedido(fin);
   };
 
   const guardarFalla = async () => {
@@ -638,6 +724,10 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
               <h3 className="sec-title" style={{ fontSize: 18 }}>🧱 ¿Qué tarima de Rollo MP vas a usar?</h3>
               <div className="muted" style={{ marginBottom: 14 }}>Cinta {pedidoSel.tipo || "—"}</div>
 
+              <button className="btn btn-ghost btn-block" style={{ marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={() => setScannerTarimaAbierto(true)}>
+                <Ico icon={IcoScan} /> Escanear QR de la tarima
+              </button>
+
               {candidatosTarimaMP.length === 0 ? (
                 <div style={{ background: "var(--orange-dim)", border: "1px solid var(--orange)", borderRadius: 10, padding: 14, fontSize: 13, color: "var(--orange)", marginBottom: 16 }}>
                   ⚠ No hay ninguna tarima activa registrada de "{pedidoSel.tipo}" en Inventario. Puedes continuar — se avisará que hace falta capturarla.
@@ -669,6 +759,81 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
           );
         })()}
 
+        {/* La tarima elegida no alcanzo para lo que la corrida de verdad
+            necesito (piezas reales, no la estimacion de antes de arrancar)
+            -- en vez de dejar que el faltante se pierda en silencio, se
+            pausa aqui y se pide elegir otra tarima activa para completarlo. */}
+        {pedidoSel && vista === "tarima-extra" && finPendiente && (() => {
+          const necesarios = Number(finPendiente.rollos_usados) || 0;
+          const { faltante } = construirAsignacionesTarima(necesarios);
+          const cubierto = necesarios - faltante;
+          const puedeContinuar = faltante <= 0 || candidatosTarimaExtra.length === 0;
+          return (
+            <>
+              <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => { setVista("calc"); setFinPendiente(null); }}>← Volver a corregir datos</button>
+              <h3 className="sec-title" style={{ fontSize: 18 }}>🧱 La tarima elegida no alcanza</h3>
+              <div className="muted" style={{ marginBottom: 14 }}>Cinta {pedidoSel.tipo || "—"}</div>
+
+              <div style={{ background: "var(--orange-dim)", border: "1px solid var(--orange)", borderRadius: 10, padding: 14, fontSize: 13, color: "var(--orange)", marginBottom: 16 }}>
+                Se necesitan {necesarios.toFixed(2)} rollos y con la(s) tarima(s) elegida(s) cubres {cubierto.toFixed(2)}.
+                {faltante > 0 ? ` Te faltan ${faltante.toFixed(2)} — elige otra tarima para completar.` : " ✓ Ya quedó cubierto, puedes continuar."}
+              </div>
+
+              {tarimaMP && (
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: "var(--surface)", borderRadius: 10, marginBottom: 8, fontSize: 13 }}>
+                  <span>Tarima #{tarimaMP.numero ?? "?"} (principal)</span>
+                  <span style={{ fontWeight: 700, color: "var(--blue)" }}>{fmt(tarimaMP.cantidad_actual)} rollos</span>
+                </div>
+              )}
+              {tarimasExtra.map(x => (
+                <div key={x.tarima.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "var(--surface)", borderRadius: 10, marginBottom: 8, fontSize: 13 }}>
+                  <span>Tarima #{x.tarima.numero ?? "?"}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontWeight: 700, color: "var(--blue)" }}>{fmt(x.tarima.cantidad_actual)} rollos</span>
+                    <button type="button" onClick={() => setTarimasExtra(xs => xs.filter(y => y.tarima.id !== x.tarima.id))} style={{ background: "transparent", border: "none", color: "var(--red)", cursor: "pointer", fontSize: 12 }}>Quitar</button>
+                  </span>
+                </div>
+              ))}
+
+              {faltante > 0 && (
+                <button className="btn btn-ghost btn-block" style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={() => setScannerTarimaAbierto(true)}>
+                  <Ico icon={IcoScan} /> Escanear QR de otra tarima
+                </button>
+              )}
+
+              {faltante > 0 && (
+                candidatosTarimaExtra.length === 0 ? (
+                  <div style={{ background: "var(--orange-dim)", border: "1px solid var(--orange)", borderRadius: 10, padding: 14, fontSize: 13, color: "var(--orange)", marginTop: 8, marginBottom: 16 }}>
+                    ⚠ No hay más tarimas activas registradas de "{pedidoSel.tipo}" en Inventario. Puedes continuar — se avisará el faltante.
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gap: 8, marginTop: 8, marginBottom: 16 }}>
+                    {candidatosTarimaExtra.map(t => (
+                      <button key={t.id} type="button" onClick={() => setTarimasExtra(xs => [...xs, { tarima: t }])}
+                        style={{ textAlign: "left", padding: "12px 14px", borderRadius: 10, cursor: "pointer", border: "1px solid var(--border-light)", background: "var(--surface)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <strong style={{ fontSize: 15 }}>Tarima #{t.numero ?? "?"}</strong>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--blue)" }}>{fmt(t.cantidad_actual)} rollos</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{t.lote ? `Lote: ${t.lote} · ` : ""}Recibida: {t.fecha_recepcion}</div>
+                      </button>
+                    ))}
+                  </div>
+                )
+              )}
+
+              <button className="btn btn-primary btn-block" style={{ padding: 14, fontSize: 15 }} disabled={!puedeContinuar} onClick={() => {
+                const fin = finPendiente;
+                const { asignaciones } = construirAsignacionesTarima(necesarios);
+                setFinPendiente(null);
+                finalizarPedido(fin, asignaciones);
+              }}>
+                {faltante > 0 ? "Continuar de todos modos (quedará faltante) →" : "Completar y guardar →"}
+              </button>
+            </>
+          );
+        })()}
+
         {/* Calculadora de producción — flujo finalizar */}
         {pedidoSel && vista === "calc" && (
           <>
@@ -680,7 +845,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
                   inline
                   sugerido={sugeridoCliche(pedidoSel)}
                   clicheActivoInfo={clicheActivo(pedidoSel)}
-                  onConfirmar={(res) => finalizarPedido({
+                  onConfirmar={(res) => procesarFinalizacion({
                     piezas_prod:    res.piezasProd  != null ? String(res.piezasProd)  : "",
                     rollos_caja:    res.rollosCaja   || "",
                     merma:          res.mermaReal   != null ? String(res.mermaReal)   : "",
@@ -738,6 +903,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
         )}
       </div>
       {toast && <div className="toast">{toast}</div>}
+      {scannerTarimaAbierto && <EscanerTarima onId={manejarEscaneoTarima} onCerrar={() => setScannerTarimaAbierto(false)} />}
     </div>
   );
 }

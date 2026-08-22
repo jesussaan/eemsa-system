@@ -20,9 +20,16 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const [diseno,     setDiseno]     = useState(sugerido?.diseno || 'normal');
   const [clicheNA,   setClicheNA]   = useState(false);
   // Nuevo/Usado: para trackear cuantas cajas/pedidos aguanta un mismo
-  // cliche fisico (ver api/cliches.js) -- null hasta que el operador lo
-  // toca a proposito, igual que portaliche/diseno (naranja -> verde).
-  const [clicheEstado, setClicheEstado] = useState(null); // null | 'nuevo' | 'usado'
+  // cliche fisico (ver api/cliches.js). Se preselecciona solo con la misma
+  // deteccion que ya se le muestra al operador como aviso (clicheActivoInfo):
+  // si hay un cliche activo para este cliente+medida+color, lo mas probable
+  // es que sea el mismo (Usado); si no hay ninguno, lo mas probable es que
+  // sea nuevo. clicheEstadoTocado obliga a que el operador de verdad lo
+  // confirme con un tap (naranja -> verde) antes de poder continuar, para
+  // que la adivinada no se cuele sin que la revise -- el aviso en pantalla
+  // le da el contexto para corregirla si el sistema se equivoco.
+  const [clicheEstado, setClicheEstado] = useState(() => clicheActivoInfo ? 'usado' : 'nuevo'); // 'nuevo' | 'usado'
+  const [clicheEstadoTocado, setClicheEstadoTocado] = useState(false);
   // Portacliche/diseno siempre traen un valor (sugerido o default) -- para
   // que la marca de color sirva de algo, se cuenta como "pendiente" hasta
   // que el operador de verdad los toca (los revisa/confirma), no solo
@@ -185,12 +192,12 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
         {!clicheNA && (
           <div className="field full">
             <label>Cliché</label>
-            <div className={clicheEstado ? 'campo-listo' : 'campo-pendiente'} style={{ display: 'flex', gap: 8, borderRadius: 8, padding: 4 }}>
-              <button type="button" onClick={() => setClicheEstado('nuevo')}
+            <div className={clicheEstadoTocado ? 'campo-listo' : 'campo-pendiente'} style={{ display: 'flex', gap: 8, borderRadius: 8, padding: 4 }}>
+              <button type="button" onClick={() => { setClicheEstado('nuevo'); setClicheEstadoTocado(true); }}
                 style={{ flex: 1, padding: '8px 0', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: 12, background: clicheEstado === 'nuevo' ? 'var(--green)' : 'transparent', color: clicheEstado === 'nuevo' ? '#0b0d11' : 'var(--text-2, #9aa0bc)' }}>
                 Nuevo
               </button>
-              <button type="button" onClick={() => setClicheEstado('usado')}
+              <button type="button" onClick={() => { setClicheEstado('usado'); setClicheEstadoTocado(true); }}
                 style={{ flex: 1, padding: '8px 0', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: 12, background: clicheEstado === 'usado' ? 'var(--green)' : 'transparent', color: clicheEstado === 'usado' ? '#0b0d11' : 'var(--text-2, #9aa0bc)' }}>
                 Usado
               </button>
@@ -344,11 +351,12 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
       {/* Botón confirmar -- abre la pantalla de revision, todavia no guarda nada */}
       {onConfirmar && (() => {
         const faltaPiezas = !piezasProd || Number(piezasProd) <= 0;
+        const faltaCliche = !clicheNA && !clicheEstadoTocado;
         return (
           <button
             className="btn btn-primary btn-block"
-            disabled={!listo || faltaPiezas}
-            style={{ padding: '14px 0', fontSize: 15, marginTop: 16, opacity: (listo && !faltaPiezas) ? 1 : 0.4 }}
+            disabled={!listo || faltaPiezas || faltaCliche}
+            style={{ padding: '14px 0', fontSize: 15, marginTop: 16, opacity: (listo && !faltaPiezas && !faltaCliche) ? 1 : 0.4 }}
             onClick={handleAbrirRevision}
           >
             Revisar y confirmar
@@ -358,6 +366,11 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
       {onConfirmar && !piezasProd && listo && (
         <div style={{ textAlign: 'center', color: '#ff9900', fontSize: 12, marginTop: 8 }}>
           Falta "Piezas producidas" para poder enviar a Emilio
+        </div>
+      )}
+      {onConfirmar && piezasProd && listo && !clicheNA && !clicheEstadoTocado && (
+        <div style={{ textAlign: 'center', color: '#ff9900', fontSize: 12, marginTop: 8 }}>
+          Confirma si el cliché es Nuevo o Usado para poder enviar a Emilio
         </div>
       )}
       </>}
