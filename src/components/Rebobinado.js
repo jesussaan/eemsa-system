@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { QRCodeSVG } from 'qrcode.react';
 import { authHeaders } from '../lib/auth';
-import { uid, today } from '../lib/utils';
+import { uid, today, fmt } from '../lib/utils';
 import { REBOB_CLIENTE, REBOB_COLOR, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, REBOB_PIEZAS_POR_VUELTA, REBOB_CAJAS_POR_CAMA, calcularPiezasTeoricas } from '../lib/constants';
 import { confirmar } from '../lib/confirm';
 import { IcoCheck } from './Icons';
@@ -121,6 +121,14 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
     const piezas = vueltas * piezasPorVuelta; // piezas reales que da ese num. de vueltas (>= lo pedido, por el redondeo)
     return { vueltas, piezas, cajas: cajasDeseadasN, metros: vueltas * largo };
   };
+  // Vueltas de un pedido ya planeado/cortado -- se recalculan de piezas_prod
+  // (guardado como meta al planear, ver guardarPlan) en vez de guardarse
+  // aparte, para no duplicar el dato.
+  const vueltasDe = (p) => {
+    const { ancho } = parseMedidaRebob(p.medida);
+    const ppv = REBOB_PIEZAS_POR_VUELTA[ancho] || 0;
+    return ppv > 0 ? Math.round((Number(p.piezas_prod) || 0) / ppv) : 0;
+  };
   const [planMaterial, setPlanMaterial] = useState(REBOB_MATERIALES[0]);
   const [planAdhesivo, setPlanAdhesivo] = useState(REBOB_TIPOS[0]);
   const [guardandoPlan, setGuardandoPlan] = useState(false);
@@ -199,10 +207,13 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
     if (!planeandoMaterialId || planCortes.length === 0) { showToast("⚠ Elige un tipo de jumbo y al menos una medida"); return; }
     const tarimaElegida = resolverTarimaParaTipo(planeandoMaterialId);
     if (!tarimaElegida) { showToast("⚠ Ya no hay tarima disponible de ese tipo"); return; }
+    const mixto = planCortes.length > 1;
+    if (mixto && planCortes.some(c => !(Number(c.cajasDeseadas) > 0))) {
+      showToast("⚠ Falta poner cuántas cajas quieres de cada medida"); return;
+    }
     setGuardandoPlan(true);
     const folioNum = Math.max(0, ...pedidos.filter(p => p.cliente === REBOB_CLIENTE).map(p => Number(p.folio_rebobinado) || 0)) + 1;
     const ordenNuevo = Math.max(0, ...gruposPlaneados.map(g => g[0].orden ?? 0)) + 1;
-    const mixto = planCortes.length > 1;
     const nuevos = [];
     for (let i = 0; i < planCortes.length; i++) {
       const c = planCortes[i];
@@ -212,7 +223,12 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
         id: uid(), created: today(),
         cliente: REBOB_CLIENTE, num, folio_rebobinado: folioNum, orden: ordenNuevo,
         tipo: planMaterial, color: planAdhesivo, medida: `${c.ancho} x ${c.largoPieza}m`,
-        cajas: 1, // placeholder -- se reemplaza con lo real al registrar el corte (POST exige cajas > 0)
+        // Meta planeada (vueltas/piezas/cajas que se calcularon arriba) --
+        // se muestra en la cola y en la pizarra mientras el jumbo sigue sin
+        // cortar; al registrar el corte real (grupoActivo en save()) se
+        // sobreescribe con lo que de verdad salio.
+        cajas: mixto ? Number(c.cajasDeseadas) : calcPlan.cajas,
+        piezas_prod: calcPlan.piezas,
         fecha_solicitud: today(), status: "anotado",
         tarima_jumbo_id: tarimaElegida.id,
         notas: mixto
@@ -529,8 +545,14 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
                   <strong style={{ fontSize: 14 }}>Folio #{g[0].folio_rebobinado} · {g[0].tipo} · {g[0].color}</strong>
                   {(() => { const t = tarimas.find(x => x.id === g[0].tarima_jumbo_id); return t ? <span style={{ fontSize: 11, color: "#888" }}>Tarima #{t.numero ?? "?"}{t.lote ? ` · ${t.lote}` : ""}</span> : null; })()}
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                  {g.map(p => <span key={p.id} className="badge b-accent" style={{ fontSize: 12 }}>{p.medida}</span>)}
+                <div style={{ display: "grid", gap: 4, marginBottom: 8 }}>
+                  {g.map(p => (
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", background: "#0d0f14", borderRadius: 8, padding: "5px 10px" }}>
+                      <span className="badge b-accent" style={{ fontSize: 12 }}>{p.medida}</span>
+                      <span style={{ fontSize: 12, color: "var(--teal)", fontWeight: 700 }}>{vueltasDe(p)} vueltas</span>
+                      <span style={{ fontSize: 12, color: "#9aa0bc" }}>{fmt(p.cajas)} cajas · {fmt(p.piezas_prod)} pzas</span>
+                    </div>
+                  ))}
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button className="btn btn-primary btn-sm" onClick={() => cargarPlanParaCortar(g)}>✂️ Cortar este jumbo</button>

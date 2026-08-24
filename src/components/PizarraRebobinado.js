@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { REBOB_CLIENTE } from "../lib/constants";
+import { REBOB_CLIENTE, REBOB_PIEZAS_POR_VUELTA } from "../lib/constants";
+import { fmt } from "../lib/utils";
+
+// Un color fijo por tipo de jumbo (material+adhesivo) para distinguirlos de
+// un vistazo -- se reparte por orden de aparicion entre los tipos que de
+// verdad estan planeados ahorita, no por un catalogo fijo (pueden ser mas
+// o menos de 3 con el tiempo).
+const PALETA_TIPO = ["#3ecfc0", "#e8894b", "#9b6fe8", "#4b8fe8", "#e8b84b", "#e84b4b"];
 
 // Publica (sin login): pedidos ya tiene lectura abierta a la anon key (ver
 // supabase_pedidos_fallas_security.sql) y tarimas tambien (ver
@@ -52,6 +59,24 @@ export default function PizarraRebobinado() {
   ).map(g => [...g].sort((a, b) => String(a.num).localeCompare(String(b.num))))
    .sort((a, b) => (a[0].orden ?? 9999) - (b[0].orden ?? 9999));
 
+  // Vueltas de cada medida -- se recalculan de piezas_prod (guardado como
+  // meta al planear, ver guardarPlan en Rebobinado.js) en vez de traer un
+  // campo aparte.
+  const vueltasDe = (p) => {
+    const ancho = String(p.medida || "").split(" x ")[0];
+    const ppv = REBOB_PIEZAS_POR_VUELTA[ancho] || 0;
+    return ppv > 0 ? Math.round((Number(p.piezas_prod) || 0) / ppv) : 0;
+  };
+
+  // Un color por tipo de jumbo (material_id de la tarima), repartido en el
+  // orden en que aparecen los grupos en la cola.
+  const tiposEnCola = [...new Set(grupos.map(g => tarimas.find(t => t.id === g[0].tarima_jumbo_id)?.material_id).filter(Boolean))];
+  const colorDeGrupo = (g) => {
+    const matId = tarimas.find(t => t.id === g[0].tarima_jumbo_id)?.material_id;
+    const idx = tiposEnCola.indexOf(matId);
+    return PALETA_TIPO[idx >= 0 ? idx % PALETA_TIPO.length : 0];
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: "#0b0d11", color: "#e0e0e0" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 20px", borderBottom: "2px solid #3ecfc0", position: "sticky", top: 0, background: "#0b0d11", zIndex: 5 }}>
@@ -74,18 +99,26 @@ export default function PizarraRebobinado() {
           grupos.map((g, i) => {
             const p0 = g[0];
             const t = tarimas.find(x => x.id === p0.tarima_jumbo_id);
+            const color = colorDeGrupo(g);
             return (
-              <div key={p0.folio_rebobinado ?? p0.id} style={{ background: "#181b24", borderRadius: 14, padding: 18, marginBottom: 14, borderLeft: `4px solid ${p0.status === "proceso" ? "#3ecfc0" : "#ff9900"}` }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+              <div key={p0.folio_rebobinado ?? p0.id} style={{ background: "#181b24", borderRadius: 14, padding: 18, marginBottom: 14, borderLeft: `4px solid ${color}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                   <div>
-                    <div style={{ fontSize: 12, color: "#666", fontWeight: 700, letterSpacing: ".05em" }}>#{i + 1} · JUMBO {t ? `#${t.numero ?? "?"}${t.lote ? ` · ${t.lote}` : ""}` : ""}</div>
-                    <div style={{ fontSize: 19, fontWeight: 700 }}>{p0.tipo} · {p0.color}</div>
+                    <div style={{ fontSize: 12, color: "#666", fontWeight: 700, letterSpacing: ".05em", marginBottom: 6 }}>#{i + 1} · JUMBO {t ? `#${t.numero ?? "?"}${t.lote ? ` · ${t.lote}` : ""}` : ""}</div>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: `${color}22`, border: `1px solid ${color}66`, borderRadius: 20, padding: "5px 16px 5px 10px" }}>
+                      <span style={{ width: 12, height: 12, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 20, fontWeight: 800, color, letterSpacing: ".01em" }}>{p0.tipo} · {p0.color}</span>
+                    </div>
                   </div>
-                  {p0.status === "proceso" && <span style={{ fontSize: 11, fontWeight: 700, color: "#3ecfc0", background: "rgba(62,207,192,0.12)", borderRadius: 20, padding: "3px 10px" }}>EN PROCESO</span>}
+                  {p0.status === "proceso" && <span style={{ fontSize: 11, fontWeight: 700, color: "#3ecfc0", background: "rgba(62,207,192,0.12)", borderRadius: 20, padding: "3px 10px", whiteSpace: "nowrap" }}>EN PROCESO</span>}
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <div style={{ display: "grid", gap: 6 }}>
                   {g.map(p => (
-                    <span key={p.id} style={{ fontSize: 16, fontWeight: 800, color: "#c9922a", background: "#0d0f14", borderRadius: 10, padding: "6px 12px" }}>{p.medida}</span>
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "#0d0f14", borderRadius: 10, padding: "8px 12px" }}>
+                      <span style={{ fontSize: 16, fontWeight: 800, color: "#c9922a" }}>{p.medida}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color }}>{vueltasDe(p)} vueltas</span>
+                      <span style={{ fontSize: 13, color: "#9aa0bc" }}>{fmt(p.cajas)} cajas · {fmt(p.piezas_prod)} pzas</span>
+                    </div>
                   ))}
                 </div>
               </div>
