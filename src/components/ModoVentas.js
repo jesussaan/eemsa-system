@@ -75,7 +75,10 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
   const mesStr  = `${mes.y}-${String(mes.m+1).padStart(2,"0")}`;
 
   const pedActivos = pedidos.filter(p => p.status !== "terminado" && p.cliente !== REBOB_CLIENTE);
-  const clientesSugeridos = [...new Set(pedidos.map(p => p.cliente).filter(Boolean))].sort();
+  // Ademas del nombre fijo actual, hay pedidos viejos de antes de Modo
+  // Rebobinado con nombres sueltos ("REBOBINADO ACRILICO", etc.) -- se
+  // excluyen tambien para que no salgan sugeridos como si fueran clientes.
+  const clientesSugeridos = [...new Set(pedidos.map(p => p.cliente).filter(Boolean).filter(c => !c.toLowerCase().includes("rebobinado")))].sort();
   // Dashboard > Consumibles suma tinta_tipo, color y color2 como si fueran
   // el mismo campo -- se unifican entre si para que "Negro"/"NEGRO" no
   // aparezcan como colores distintos en esa grafica.

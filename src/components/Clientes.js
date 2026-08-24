@@ -1,13 +1,18 @@
 import { useState } from "react";
 import { today } from '../lib/utils';
-import { STATUS_PED, META_MERMA_PCT, REBOB_CLIENTE } from '../lib/constants';
+import { STATUS_PED, META_MERMA_PCT } from '../lib/constants';
 import { supabase } from '../lib/supabase';
 
 const PORTAL_BASE_URL = "https://eemsa-system.vercel.app";
 
 export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
-  // Rebobinado es stock, no un cliente.
-  const pedidos = pedidosProp.filter(p => p.cliente !== REBOB_CLIENTE);
+  // Rebobinado es stock, no un cliente -- ademas del nombre fijo actual
+  // (REBOB_CLIENTE), hay pedidos viejos de antes de que existiera Modo
+  // Rebobinado guardados con nombres sueltos distintos (ej. "REBOBINADO
+  // ACRILICO", "Rebobinado transparente navitek") que el filtro exacto no
+  // agarraba -- se cuelan como si fueran clientes reales.
+  const esRebobinado = (cliente) => (cliente || "").toLowerCase().includes("rebobinado");
+  const pedidos = pedidosProp.filter(p => !esRebobinado(p.cliente));
   const [clienteSel, setClienteSel] = useState(null);
   const [busqueda, setBusqueda] = useState("");
   const [filtroTab, setFiltroTab] = useState("todos");
