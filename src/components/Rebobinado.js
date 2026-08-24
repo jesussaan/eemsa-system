@@ -93,8 +93,34 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
   // de mas abajo, cuando carga un plan, actualiza esos mismos registros en
   // vez de crear otros nuevos, y descuenta 1 jumbo de la tarima.
   const [planeandoMaterialId, setPlaneandoMaterialId] = useState(null);
-  const planCorteInicial = () => ({ id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0], anchoTocado: false, largoPiezaTocado: false });
+  const planCorteInicial = () => ({ id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0], anchoTocado: false, largoPiezaTocado: false, cajasDeseadas: "" });
   const [planCortes, setPlanCortes] = useState([planCorteInicial()]);
+
+  // Calculo de vueltas/piezas para la planeacion -- distinto segun si es
+  // una sola medida o un rollo mixto:
+  //  - Una sola medida: se asume que se usa el jumbo COMPLETO (8000m) a esa
+  //    medida, igual que ya hace calcularPiezasTeoricas.
+  //  - Mixto: aqui no tiene sentido asumir el jumbo completo por medida (se
+  //    reparte entre varias) -- en vez de eso, tu metes cuantas CAJAS
+  //    quieres de cada una y se calculan las vueltas que hacen falta para
+  //    esa meta (piezas deseadas / piezas por vuelta), redondeando hacia
+  //    arriba (no se puede dar "media vuelta" de menos y quedar corto).
+  const calcPlanCorte = (c, mixto) => {
+    const piezasPorVuelta = REBOB_PIEZAS_POR_VUELTA[c.ancho] || 0;
+    const piezasPorCaja = REBOB_PIEZAS_POR_CAJA[c.ancho] || 0;
+    const largo = Number(c.largoPieza) || 0;
+    if (!mixto) {
+      const vueltas = largo > 0 ? Math.floor(REBOB_LARGO_JUMBO_M / largo) : 0;
+      const piezas = vueltas * piezasPorVuelta;
+      const cajas = piezasPorCaja > 0 ? Math.floor(piezas / piezasPorCaja) : 0;
+      return { vueltas, piezas, cajas, metros: vueltas * largo };
+    }
+    const cajasDeseadasN = Number(c.cajasDeseadas) || 0;
+    const piezasNecesarias = cajasDeseadasN * piezasPorCaja;
+    const vueltas = piezasPorVuelta > 0 ? Math.ceil(piezasNecesarias / piezasPorVuelta) : 0;
+    const piezas = vueltas * piezasPorVuelta; // piezas reales que da ese num. de vueltas (>= lo pedido, por el redondeo)
+    return { vueltas, piezas, cajas: cajasDeseadasN, metros: vueltas * largo };
+  };
   const [planMaterial, setPlanMaterial] = useState(REBOB_MATERIALES[0]);
   const [planAdhesivo, setPlanAdhesivo] = useState(REBOB_TIPOS[0]);
   const [guardandoPlan, setGuardandoPlan] = useState(false);
@@ -181,6 +207,7 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
     for (let i = 0; i < planCortes.length; i++) {
       const c = planCortes[i];
       const num = mixto ? `${folioNum}${String.fromCharCode(65 + i)}` : String(folioNum);
+      const calcPlan = calcPlanCorte(c, mixto);
       const nuevo = {
         id: uid(), created: today(),
         cliente: REBOB_CLIENTE, num, folio_rebobinado: folioNum, orden: ordenNuevo,
@@ -188,7 +215,9 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
         cajas: 1, // placeholder -- se reemplaza con lo real al registrar el corte (POST exige cajas > 0)
         fecha_solicitud: today(), status: "anotado",
         tarima_jumbo_id: tarimaElegida.id,
-        notas: `Planeado: ${calcularPiezasTeoricas(c.ancho, c.largoPieza)} pzas teóricas${mixto ? " — rollo mixto" : ""}`,
+        notas: mixto
+          ? `Planeado: ${calcPlan.vueltas} vueltas → ${calcPlan.piezas} pzas (pediste ${Number(c.cajasDeseadas) || 0} cajas) — rollo mixto`
+          : `Planeado: jumbo completo — ${calcPlan.vueltas} vueltas → ${calcPlan.piezas} pzas teóricas`,
       };
       const res = await fetch('/api/pedidos', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
       const data = await res.json();
@@ -541,18 +570,50 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
                   </div>
                   <div style={{ fontSize: 11, color: "#666", marginTop: -6, marginBottom: 10 }}>Automático, según el tipo de jumbo elegido — para corregirlo, ajusta el material/adhesivo de este jumbo en Inventario.</div>
                   <label style={{ fontSize: 12, color: "#888" }}>¿A qué medida(s) lo vas a cortar?</label>
-                  {planCortes.map((c, i) => (
-                    <div key={c.id} style={{ display: "flex", gap: 8, alignItems: "flex-end", marginTop: 8 }}>
-                      <div className="field" style={{ flex: 1 }}><label>Ancho</label>
-                        <select className={c.anchoTocado ? 'campo-listo' : 'campo-pendiente'} value={c.ancho} onChange={e => { updPlanCorte(c.id, "ancho", e.target.value); updPlanCorte(c.id, "anchoTocado", true); }} onClick={() => updPlanCorte(c.id, "anchoTocado", true)}>{REBOB_ANCHOS.map(a => <option key={a} value={a}>{a}</option>)}</select>
-                      </div>
-                      <div className="field" style={{ flex: 1 }}><label>Largo pieza (m)</label>
-                        <select className={c.largoPiezaTocado ? 'campo-listo' : 'campo-pendiente'} value={c.largoPieza} onChange={e => { updPlanCorte(c.id, "largoPieza", e.target.value); updPlanCorte(c.id, "largoPiezaTocado", true); }} onClick={() => updPlanCorte(c.id, "largoPiezaTocado", true)}>{REBOB_LARGOS_PIEZA.map(l => <option key={l} value={l}>{l}m</option>)}</select>
-                      </div>
-                      <div style={{ fontSize: 11, color: "#666", paddingBottom: 8, whiteSpace: "nowrap" }}>{calcularPiezasTeoricas(c.ancho, c.largoPieza)} pzas teóricas</div>
-                      {planCortes.length > 1 && <button onClick={() => quitarPlanCorte(c.id)} style={{ background: "transparent", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: 12, paddingBottom: 8 }}>✕</button>}
-                    </div>
-                  ))}
+                  {(() => {
+                    const mixtoPlan = planCortes.length > 1;
+                    return (
+                      <>
+                        {planCortes.map((c, i) => {
+                          const calc = calcPlanCorte(c, mixtoPlan);
+                          return (
+                            <div key={c.id} style={{ background: "#0d0f14", borderRadius: 8, padding: 10, marginTop: 8 }}>
+                              <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                                <div className="field" style={{ flex: 1 }}><label>Ancho</label>
+                                  <select className={c.anchoTocado ? 'campo-listo' : 'campo-pendiente'} value={c.ancho} onChange={e => { updPlanCorte(c.id, "ancho", e.target.value); updPlanCorte(c.id, "anchoTocado", true); }} onClick={() => updPlanCorte(c.id, "anchoTocado", true)}>{REBOB_ANCHOS.map(a => <option key={a} value={a}>{a}</option>)}</select>
+                                </div>
+                                <div className="field" style={{ flex: 1 }}><label>Largo pieza (m)</label>
+                                  <select className={c.largoPiezaTocado ? 'campo-listo' : 'campo-pendiente'} value={c.largoPieza} onChange={e => { updPlanCorte(c.id, "largoPieza", e.target.value); updPlanCorte(c.id, "largoPiezaTocado", true); }} onClick={() => updPlanCorte(c.id, "largoPiezaTocado", true)}>{REBOB_LARGOS_PIEZA.map(l => <option key={l} value={l}>{l}m</option>)}</select>
+                                </div>
+                                {mixtoPlan && (
+                                  <div className="field" style={{ flex: 1 }}><label>Cajas que quiero</label>
+                                    <input className={c.cajasDeseadas !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" min="0" value={c.cajasDeseadas} onChange={e => updPlanCorte(c.id, "cajasDeseadas", e.target.value)} placeholder="Ej: 50" />
+                                  </div>
+                                )}
+                                {planCortes.length > 1 && <button onClick={() => quitarPlanCorte(c.id)} style={{ background: "transparent", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: 12, paddingBottom: 8 }}>✕</button>}
+                              </div>
+                              <div style={{ fontSize: 11, color: "#9aa0bc", marginTop: 6 }}>
+                                {mixtoPlan
+                                  ? (c.cajasDeseadas !== '' && c.cajasDeseadas !== '0'
+                                      ? <>Vueltas necesarias: <strong style={{ color: "var(--teal)" }}>{calc.vueltas}</strong> · {calc.piezas} pzas ({calc.metros}m del jumbo)</>
+                                      : "Pon cuántas cajas quieres de esta medida para calcular las vueltas")
+                                  : <>Jumbo completo a esta medida: <strong style={{ color: "var(--teal)" }}>{calc.vueltas} vueltas</strong> · {calc.piezas} pzas teóricas · {calc.cajas} cajas teóricas</>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {mixtoPlan && (() => {
+                          const metrosTotales = planCortes.reduce((s, c) => s + calcPlanCorte(c, true).metros, 0);
+                          const sobra = metrosTotales > REBOB_LARGO_JUMBO_M;
+                          return (
+                            <div style={{ fontSize: 12, marginTop: 10, textAlign: "right", color: sobra ? "var(--red)" : "#9aa0bc" }}>
+                              Metros del jumbo usados: <strong>{metrosTotales}</strong> / {REBOB_LARGO_JUMBO_M}m{sobra ? " ⚠ te pasas del jumbo" : ""}
+                            </div>
+                          );
+                        })()}
+                      </>
+                    );
+                  })()}
                   <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={agregarPlanCorte}>+ Agregar otra medida (rollo mixto)</button>
                   <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
                     <button className="btn btn-primary" onClick={guardarPlan} disabled={guardandoPlan}>{guardandoPlan ? "Guardando…" : "✓ Guardar plan"}</button>
