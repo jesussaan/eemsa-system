@@ -59,7 +59,10 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const [cajasProd,  setCajasProd]  = useState('');
   const [piezasProd, setPiezasProd] = useState('');
   const [mermaReal,  setMermaReal]  = useState('');
-  const [stickyback, setStickyback] = useState(null);
+  // Stickybacks: 1 si el pedido lleva una tinta, 2 si lleva dos -- se
+  // preselecciona solo (tieneColor2 ya dice cuantas tintas trae el pedido),
+  // pero se deja tocar por si la realidad de la corrida es distinta.
+  const [stickyback, setStickyback] = useState(() => tieneColor2 ? 2 : 1);
   const [verDesglose, setVerDesglose] = useState(false);
 
   // Pantalla de revision antes de guardar -- se llama al mismo endpoint de
