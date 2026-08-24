@@ -9,7 +9,7 @@ import { anchoDePedido } from '../lib/produccion';
 import { horasEfectivas, JORNADA_HORAS } from '../lib/horario';
 import { sendPush } from '../lib/push';
 import { notificar } from '../lib/notificaciones';
-import { COMPS, SEV, UMBRAL_MERMA } from '../lib/constants';
+import { COMPS, SEV, UMBRAL_MERMA, REBOB_CLIENTE } from '../lib/constants';
 import { sendWhatsApp } from '../utils/whatsapp';
 import { IcoOperador, IcoPalette, IcoRoll, IcoClipboard, IcoCamera, IcoCheck, IcoFal, IcoScan } from './Icons';
 import NotifBell from './NotifBell';
@@ -24,9 +24,13 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
     return () => clearInterval(t);
   }, []);
 
-  const pedidosEnProceso = pedidos.filter(p => p.status === "proceso");
+  // Modo Operador es solo la SIAT L36 (cinta personalizada de cliente) --
+  // los jumbos que se planean en Modo Rebobinado tambien usan status
+  // "anotado"/"proceso" (ver Rebobinado.js), asi que sin este filtro por
+  // cliente se colaban aqui mezclados con los pedidos reales.
+  const pedidosEnProceso = pedidos.filter(p => p.status === "proceso" && p.cliente !== REBOB_CLIENTE);
   const pedidosAnotados = pedidos
-    .filter(p => p.status === "anotado")
+    .filter(p => p.status === "anotado" && p.cliente !== REBOB_CLIENTE)
     .sort((a, b) => (a.orden ?? 9999) - (b.orden ?? 9999) || (a.fecha_solicitud || "").localeCompare(b.fecha_solicitud || ""));
   // El pedido abierto, la vista (finalizar/falla) y el borrador de la falla
   // se recuerdan en localStorage -- si sales a revisar algo y regresas (o

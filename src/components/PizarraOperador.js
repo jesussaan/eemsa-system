@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { alertaEntrega } from "../lib/utils";
+import { REBOB_CLIENTE } from "../lib/constants";
 
 // Publica (sin login): pedidos ya tiene lectura abierta a la anon key (ver
 // supabase_pedidos_fallas_security.sql, policy "anon_select"), la misma key
@@ -59,7 +60,11 @@ export default function PizarraOperador() {
   }, []);
 
   const cargar = async () => {
-    const { data } = await supabase.from("pedidos").select("*").in("status", ["anotado", "proceso"]);
+    // Esta pizarra es solo de la SIAT L36 (cinta personalizada de cliente)
+    // -- los jumbos que se planean en Modo Rebobinado tambien usan status
+    // "anotado"/"proceso" (ver Rebobinado.js), asi que se excluyen aqui
+    // para que no se mezclen con los pedidos reales.
+    const { data } = await supabase.from("pedidos").select("*").in("status", ["anotado", "proceso"]).neq("cliente", REBOB_CLIENTE);
     setPedidos(data || []);
     setCargado(true);
   };
