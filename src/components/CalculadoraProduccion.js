@@ -305,8 +305,22 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             </div>
             <div style={{ background: clicheNA ? 'rgba(42,45,58,0.4)' : 'rgba(201,146,42,0.1)', border: `1px solid ${clicheNA ? '#2a2d3a' : 'rgba(201,146,42,0.25)'}`, borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
               <div style={{ fontSize: 10, color: clicheNA ? '#3a3f5a' : '#c9922a', fontWeight: 700, letterSpacing: '.05em', marginBottom: 4 }}>TINTA{tieneColor2 ? ' (2)' : ''}</div>
-              <div style={{ fontSize: 28, fontWeight: 900, color: clicheNA ? '#3a3f5a' : '#c9922a', lineHeight: 1 }}>{clicheNA ? '0' : tintaKgTotal.toFixed(2)}</div>
-              <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 3 }}>kg{clicheNA ? ' · N/A' : ''}</div>
+              {tieneColor2 ? (
+                // Dos colores distintos -- se muestra cada kg por separado,
+                // no la suma (sumar tintas de colores distintos no le sirve
+                // a nadie para saber cuanto pedir de cada una).
+                <>
+                  <div style={{ fontSize: 17, fontWeight: 900, color: clicheNA ? '#3a3f5a' : '#c9922a', lineHeight: 1.25 }}>{clicheNA ? '0' : tintaKg.toFixed(2)} kg</div>
+                  <div style={{ fontSize: 9, color: '#3a3f5a' }}>{pedidoInicial?.color || pedidoInicial?.tinta_tipo || 'Color 1'}</div>
+                  <div style={{ fontSize: 17, fontWeight: 900, color: clicheNA ? '#3a3f5a' : '#c9922a', lineHeight: 1.25, marginTop: 4 }}>{clicheNA ? '0' : tintaKg2.toFixed(2)} kg</div>
+                  <div style={{ fontSize: 9, color: '#3a3f5a' }}>{pedidoInicial?.color2 || 'Color 2'}</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: clicheNA ? '#3a3f5a' : '#c9922a', lineHeight: 1 }}>{clicheNA ? '0' : tintaKgTotal.toFixed(2)}</div>
+                  <div style={{ fontSize: 10, color: '#3a3f5a', marginTop: 3 }}>kg{clicheNA ? ' · N/A' : ''}</div>
+                </>
+              )}
             </div>
             <div style={{ background: clicheNA ? 'rgba(42,45,58,0.4)' : 'rgba(75,143,232,0.07)', border: `1px solid ${clicheNA ? '#2a2d3a' : 'rgba(75,143,232,0.18)'}`, borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
               <div style={{ fontSize: 10, color: clicheNA ? '#3a3f5a' : '#4b8fe8', fontWeight: 700, letterSpacing: '.05em', marginBottom: 4 }}>SOLVENTE</div>
@@ -385,7 +399,15 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
           ['Piezas producidas', piezasProd || '—'],
           ['Merma real', mermaReal !== '' ? `${mermaReal} pzas${mermaPct != null ? ` (${mermaPct}%)` : ''}` : '—'],
           ['Rollos MP', `${rollosExacto.toFixed(2)} (enteros: ${rollosMP})`],
-          ['Tinta', clicheNA ? 'N/A' : `${tintaKgTotal.toFixed(2)} kg`],
+          // Con 2do color se desglosa cada tinta por separado (no la suma) --
+          // son colores distintos, sumarlos no le sirve a nadie para saber
+          // cuanto pedir de cada uno.
+          ...(tieneColor2
+            ? [
+                [`Tinta ${pedidoInicial?.color || pedidoInicial?.tinta_tipo || '1'}`, clicheNA ? 'N/A' : `${tintaKg.toFixed(2)} kg`],
+                [`Tinta ${pedidoInicial?.color2 || '2'}`, clicheNA ? 'N/A' : `${tintaKg2.toFixed(2)} kg`],
+              ]
+            : [['Tinta', clicheNA ? 'N/A' : `${tintaKgTotal.toFixed(2)} kg`]]),
           ['Solvente', clicheNA ? 'N/A' : `${solventeKg.toFixed(2)} kg`],
           ['Stickybacks', stickyback ?? '—'],
         ];
