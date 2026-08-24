@@ -979,31 +979,55 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
 
       {subTab === "proyeccion" && (() => {
         const { porTipo, porColor, porCentro, solventeTotal } = proyectarConsumoPendientes(pedidos);
-        const materialPara = (categoria, valor) => {
+        // OJO: puede haber mas de UN material para el mismo tipo de cinta/
+        // color (ej. "Blanca" comprada a dos proveedores distintos, cada
+        // quien con su propio renglon en Inventario pero el mismo
+        // match_valor "Blanca" para el auto-consumo) -- antes esto usaba
+        // .find() y se quedaba solo con el primero, perdiendo por completo
+        // el stock/tarimas del resto. Ahora junta TODOS los que compartan
+        // esa categoria+match_valor.
+        // Sin match exacto, cae a codigo normalizado (sin espacios/guiones,
+        // solo letras/numeros) y tolera que uno sea prefijo del otro --
+        // cubre sufijos Pantone que a veces se omiten al capturar el pedido
+        // (ej. pedido dice "ROJO 032", el material esta dado de alta como
+        // "ROJO 032-C"). Mismo criterio que resolverOCrearMaterial en
+        // api/inventario.js, para que la proyeccion encuentre lo mismo que
+        // de verdad se va a descontar al finalizar el pedido.
+        const normalizarCodigo = (s) => (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+        const materialesPara = (categoria, valor) => {
           const v = (valor || "").trim().toLowerCase();
-          if (!v) return null;
-          return materiales.find(m => m.categoria === categoria && (m.match_valor || "").trim().toLowerCase() === v) || null;
+          if (!v) return [];
+          const candidatosCategoria = materiales.filter(m => m.categoria === categoria);
+          const exactos = candidatosCategoria.filter(m => (m.match_valor || "").trim().toLowerCase() === v);
+          if (exactos.length > 0) return exactos;
+          const vNorm = normalizarCodigo(valor);
+          if (!vNorm) return [];
+          return candidatosCategoria.filter(m => {
+            const mvNorm = normalizarCodigo(m.match_valor);
+            return mvNorm && (mvNorm.startsWith(vNorm) || vNorm.startsWith(mvNorm));
+          });
         };
-        const materialSolvente = materiales.find(m => m.categoria === "solvente") || null;
-        // Stock actual sumado de TODAS las tarimas activas del material, en
-        // vez de confiar en el numero cacheado en materiales.stock -- ese
-        // cache se actualiza junto con cada entrada/salida, pero sumar las
-        // tarimas de verdad aqui evita que la proyeccion se desfase si algo
-        // dejo el cache desincronizado (ajuste manual, bug, etc.).
-        const stockRealDe = (mat) => mat ? tarimas.filter(t => t.material_id === mat.id && t.activa).reduce((s, t) => s + Number(t.cantidad_actual || 0), 0) : 0;
-        const Fila = ({ etiqueta, pedidosN, proyectado, unidad, mat, estimado }) => {
-          const stockReal = stockRealDe(mat);
-          const remanente = mat ? stockReal - proyectado : null;
-          const min = mat ? Number(mat.stock_min || 0) : 0;
-          const critico = mat && (remanente < 0 || (min > 0 && remanente <= min));
+        const materialesSolvente = materiales.filter(m => m.categoria === "solvente");
+        // Stock actual sumado de TODAS las tarimas activas de TODOS los
+        // materiales que apliquen, en vez de confiar en el numero cacheado
+        // en materiales.stock -- ese cache se actualiza junto con cada
+        // entrada/salida, pero sumar las tarimas de verdad aqui evita que
+        // la proyeccion se desfase si algo dejo el cache desincronizado.
+        const stockRealDe = (mats) => mats.reduce((total, mat) => total + tarimas.filter(t => t.material_id === mat.id && t.activa).reduce((s, t) => s + Number(t.cantidad_actual || 0), 0), 0);
+        const Fila = ({ etiqueta, pedidosN, proyectado, unidad, mats, estimado }) => {
+          const hayMat = mats.length > 0;
+          const stockReal = stockRealDe(mats);
+          const remanente = hayMat ? stockReal - proyectado : null;
+          const min = mats.reduce((s, m) => s + Number(m.stock_min || 0), 0);
+          const critico = hayMat && (remanente < 0 || (min > 0 && remanente <= min));
           return (
             <tr style={{ borderBottom: "1px solid #1a1d26" }}>
-              <td style={{ padding: "8px 10px", color: "#e0e0e0", fontWeight: 600 }}>{etiqueta}</td>
+              <td style={{ padding: "8px 10px", color: "#e0e0e0", fontWeight: 600 }}>{etiqueta}{mats.length > 1 && <span style={{ fontSize: 10, color: "#666", fontWeight: 400 }}> ({mats.length} materiales)</span>}</td>
               <td style={{ padding: "8px 10px", color: "#888", textAlign: "right" }}>{pedidosN}</td>
               <td style={{ padding: "8px 10px", color: "#4b8fe8", textAlign: "right", fontWeight: 700 }}>{proyectado.toFixed(2)} {unidad}{estimado ? " ≈" : ""}</td>
-              <td style={{ padding: "8px 10px", textAlign: "right", color: mat ? "#e0e0e0" : "#555" }}>{mat ? `${fmt(stockReal)} ${unidad}` : "— sin vincular"}</td>
-              <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: !mat ? "#555" : critico ? "#ff4d4d" : "#4be87a" }}>
-                {mat ? `${remanente.toFixed(2)} ${unidad}${critico ? " ⚠" : ""}` : "—"}
+              <td style={{ padding: "8px 10px", textAlign: "right", color: hayMat ? "#e0e0e0" : "#555" }}>{hayMat ? `${fmt(stockReal)} ${unidad}` : "— sin vincular"}</td>
+              <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: !hayMat ? "#555" : critico ? "#ff4d4d" : "#4be87a" }}>
+                {hayMat ? `${remanente.toFixed(2)} ${unidad}${critico ? " ⚠" : ""}` : "—"}
               </td>
             </tr>
           );
@@ -1025,16 +1049,16 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
                   </thead>
                   <tbody>
                     {porTipo.map(r => (
-                      <Fila key={`tipo-${r.tipo}`} etiqueta={`🧵 ${r.tipo}`} pedidosN={r.pedidos} proyectado={r.rollos} unidad="rollos" mat={materialPara("rollo_mp", r.tipo)} estimado={false} />
+                      <Fila key={`tipo-${r.tipo}`} etiqueta={`🧵 ${r.tipo}`} pedidosN={r.pedidos} proyectado={r.rollos} unidad="rollos" mats={materialesPara("rollo_mp", r.tipo)} estimado={false} />
                     ))}
                     {porColor.map(r => (
-                      <Fila key={`color-${r.color}`} etiqueta={`🎨 ${r.color}`} pedidosN={r.pedidos} proyectado={r.kg} unidad="kg" mat={materialPara("tinta", r.color)} estimado={r.estimado} />
+                      <Fila key={`color-${r.color}`} etiqueta={`🎨 ${r.color}`} pedidosN={r.pedidos} proyectado={r.kg} unidad="kg" mats={materialesPara("tinta", r.color)} estimado={r.estimado} />
                     ))}
                     {porCentro.map(r => (
-                      <Fila key={`centro-${r.ancho}`} etiqueta={`📦 Centros ${r.ancho}"`} pedidosN={r.pedidos} proyectado={r.piezas} unidad="pzas" mat={materialPara("centro", r.ancho)} estimado={false} />
+                      <Fila key={`centro-${r.ancho}`} etiqueta={`📦 Centros ${r.ancho}"`} pedidosN={r.pedidos} proyectado={r.piezas} unidad="pzas" mats={materialesPara("centro", r.ancho)} estimado={false} />
                     ))}
                     {solventeTotal > 0 && (
-                      <Fila etiqueta="💧 Solvente/Alcohol" pedidosN="—" proyectado={solventeTotal} unidad="kg" mat={materialSolvente} estimado={false} />
+                      <Fila etiqueta="💧 Solvente/Alcohol" pedidosN="—" proyectado={solventeTotal} unidad="kg" mats={materialesSolvente} estimado={false} />
                     )}
                   </tbody>
                 </table>
