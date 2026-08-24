@@ -985,8 +985,15 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
           return materiales.find(m => m.categoria === categoria && (m.match_valor || "").trim().toLowerCase() === v) || null;
         };
         const materialSolvente = materiales.find(m => m.categoria === "solvente") || null;
+        // Stock actual sumado de TODAS las tarimas activas del material, en
+        // vez de confiar en el numero cacheado en materiales.stock -- ese
+        // cache se actualiza junto con cada entrada/salida, pero sumar las
+        // tarimas de verdad aqui evita que la proyeccion se desfase si algo
+        // dejo el cache desincronizado (ajuste manual, bug, etc.).
+        const stockRealDe = (mat) => mat ? tarimas.filter(t => t.material_id === mat.id && t.activa).reduce((s, t) => s + Number(t.cantidad_actual || 0), 0) : 0;
         const Fila = ({ etiqueta, pedidosN, proyectado, unidad, mat, estimado }) => {
-          const remanente = mat ? Number(mat.stock) - proyectado : null;
+          const stockReal = stockRealDe(mat);
+          const remanente = mat ? stockReal - proyectado : null;
           const min = mat ? Number(mat.stock_min || 0) : 0;
           const critico = mat && (remanente < 0 || (min > 0 && remanente <= min));
           return (
@@ -994,7 +1001,7 @@ export default function Inventario({ materiales, setMateriales, tarimas = [], se
               <td style={{ padding: "8px 10px", color: "#e0e0e0", fontWeight: 600 }}>{etiqueta}</td>
               <td style={{ padding: "8px 10px", color: "#888", textAlign: "right" }}>{pedidosN}</td>
               <td style={{ padding: "8px 10px", color: "#4b8fe8", textAlign: "right", fontWeight: 700 }}>{proyectado.toFixed(2)} {unidad}{estimado ? " ≈" : ""}</td>
-              <td style={{ padding: "8px 10px", textAlign: "right", color: mat ? "#e0e0e0" : "#555" }}>{mat ? `${fmt(mat.stock)} ${unidad}` : "— sin vincular"}</td>
+              <td style={{ padding: "8px 10px", textAlign: "right", color: mat ? "#e0e0e0" : "#555" }}>{mat ? `${fmt(stockReal)} ${unidad}` : "— sin vincular"}</td>
               <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: !mat ? "#555" : critico ? "#ff4d4d" : "#4be87a" }}>
                 {mat ? `${remanente.toFixed(2)} ${unidad}${critico ? " ⚠" : ""}` : "—"}
               </td>
