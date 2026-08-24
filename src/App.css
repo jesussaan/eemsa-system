@@ -1,6 +1,13 @@
 ﻿*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 :root {
+  /* Sin esto, el navegador de escritorio no sabe que la app es de tema
+     oscuro y dibuja los menus nativos (el desplegable de un <select>,
+     autofill, etc.) con apariencia clara del sistema -- fondo blanco con
+     el texto claro pensado para fondo oscuro, invisible hasta que
+     seleccionas algo. En celular no se nota porque el selector nativo de
+     iOS/Android no depende de esto de la misma manera. */
+  color-scheme: dark;
   --bg: #0b0d11;
   --surface: #111318;
   --card: #181b24;
@@ -36,6 +43,7 @@
    usan color fijo por escrito (no var(--...)) no cambian con esto -- se
    van convirtiendo poco a poco, pantalla por pantalla. */
 :root[data-theme="light"] {
+  color-scheme: light;
   --bg: #eef0f4;
   --surface: #ffffff;
   --card: #ffffff;
