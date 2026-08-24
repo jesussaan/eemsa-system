@@ -32,7 +32,7 @@ export const REBOB_MATERIALES = ["Transparente", "Canela"];
 export const REBOB_LARGO_JUMBO_M = 8000;
 export const REBOB_PIEZAS_POR_VUELTA = { '2"': 33, '3"': 22 };
 export const REBOB_ANCHOS = Object.keys(REBOB_PIEZAS_POR_VUELTA);
-export const REBOB_LARGOS_PIEZA = [96, 147];
+export const REBOB_LARGOS_PIEZA = [96, 147, 914];
 export const REBOB_PIEZAS_POR_CAJA = { '2"': 36, '3"': 24 };
 
 // Al apilar cajas del rebobinado se cuentan por "camas" (capas) en vez de
