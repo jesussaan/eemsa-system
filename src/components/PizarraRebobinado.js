@@ -68,6 +68,16 @@ export default function PizarraRebobinado() {
     return ppv > 0 ? Math.round((Number(p.piezas_prod) || 0) / ppv) : 0;
   };
 
+  // Solo para mostrar en la pizarra -- el largo real (96/147) es el que se
+  // usa para calcular vueltas/piezas en todos lados, esto nomas redondea
+  // como se le conoce de palabra en planta ("la 100", "la 150").
+  const REDONDEO_LARGO_PIZARRA = { "96": "100", "147": "150" };
+  const medidaBonita = (medida) => {
+    const [ancho, largoConM] = String(medida || "").split(" x ");
+    const largo = (largoConM || "").replace(/m$/i, "");
+    return `${ancho} x ${REDONDEO_LARGO_PIZARRA[largo] || largo}m`;
+  };
+
   // Un color por tipo de jumbo (material_id de la tarima), repartido en el
   // orden en que aparecen los grupos en la cola.
   const tiposEnCola = [...new Set(grupos.map(g => tarimas.find(t => t.id === g[0].tarima_jumbo_id)?.material_id).filter(Boolean))];
@@ -112,12 +122,24 @@ export default function PizarraRebobinado() {
                   </div>
                   {p0.status === "proceso" && <span style={{ fontSize: 11, fontWeight: 700, color: "#3ecfc0", background: "rgba(62,207,192,0.12)", borderRadius: 20, padding: "3px 10px", whiteSpace: "nowrap" }}>EN PROCESO</span>}
                 </div>
-                <div style={{ display: "grid", gap: 6 }}>
+                <div style={{ display: "grid", gap: 8 }}>
                   {g.map(p => (
-                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "#0d0f14", borderRadius: 10, padding: "8px 12px" }}>
-                      <span style={{ fontSize: 16, fontWeight: 800, color: "#c9922a" }}>{p.medida}</span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color }}>{vueltasDe(p)} vueltas</span>
-                      <span style={{ fontSize: 13, color: "#9aa0bc" }}>{fmt(p.cajas)} cajas · {fmt(p.piezas_prod)} pzas</span>
+                    <div key={p.id} style={{ background: "#0d0f14", borderRadius: 12, padding: "12px 14px" }}>
+                      <div style={{ fontSize: 24, fontWeight: 900, color: "#c9922a", marginBottom: 10, lineHeight: 1 }}>{medidaBonita(p.medida)}</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                        <div style={{ textAlign: "center" }}>
+                          <div style={{ fontSize: 34, fontWeight: 900, color, lineHeight: 1 }}>{vueltasDe(p)}</div>
+                          <div style={{ fontSize: 11, color: "#666", marginTop: 5, textTransform: "uppercase", letterSpacing: ".06em" }}>vueltas</div>
+                        </div>
+                        <div style={{ textAlign: "center" }}>
+                          <div style={{ fontSize: 34, fontWeight: 900, color: "#e0e0e0", lineHeight: 1 }}>{fmt(p.cajas)}</div>
+                          <div style={{ fontSize: 11, color: "#666", marginTop: 5, textTransform: "uppercase", letterSpacing: ".06em" }}>cajas</div>
+                        </div>
+                        <div style={{ textAlign: "center" }}>
+                          <div style={{ fontSize: 34, fontWeight: 900, color: "#e0e0e0", lineHeight: 1 }}>{fmt(p.piezas_prod)}</div>
+                          <div style={{ fontSize: 11, color: "#666", marginTop: 5, textTransform: "uppercase", letterSpacing: ".06em" }}>piezas</div>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
