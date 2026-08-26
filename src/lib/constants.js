@@ -34,6 +34,12 @@ export const REBOB_PIEZAS_POR_VUELTA = { '2"': 33, '3"': 22 };
 export const REBOB_ANCHOS = Object.keys(REBOB_PIEZAS_POR_VUELTA);
 export const REBOB_LARGOS_PIEZA = [96, 147, 914];
 export const REBOB_PIEZAS_POR_CAJA = { '2"': 36, '3"': 24 };
+// Excepciones por combinacion ancho+largo -- la pieza de 3" x 914m es mucho
+// mas grande/pesada que las de 96/147m, asi que en su caja fisica caben
+// menos piezas que el default de 24.
+const REBOB_PIEZAS_POR_CAJA_LARGO = { '3"_914': 5 };
+export const piezasPorCajaDe = (ancho, largoPieza) =>
+  REBOB_PIEZAS_POR_CAJA_LARGO[`${ancho}_${Number(largoPieza) || largoPieza}`] ?? REBOB_PIEZAS_POR_CAJA[ancho] ?? 0;
 
 // Al apilar cajas del rebobinado se cuentan por "camas" (capas) en vez de
 // caja por caja -- una cama completa siempre trae 12. Se usa en la

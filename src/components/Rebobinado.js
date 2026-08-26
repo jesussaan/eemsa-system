@@ -2,7 +2,7 @@ import { useState } from "react";
 import { QRCodeSVG } from 'qrcode.react';
 import { authHeaders } from '../lib/auth';
 import { uid, today, fmt } from '../lib/utils';
-import { REBOB_CLIENTE, REBOB_COLOR, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_CAJA, REBOB_PIEZAS_POR_VUELTA, REBOB_CAJAS_POR_CAMA, calcularPiezasTeoricas } from '../lib/constants';
+import { REBOB_CLIENTE, REBOB_COLOR, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_VUELTA, REBOB_CAJAS_POR_CAMA, calcularPiezasTeoricas, piezasPorCajaDe } from '../lib/constants';
 import { confirmar } from '../lib/confirm';
 import { IcoCheck } from './Icons';
 
@@ -22,7 +22,7 @@ const corteInicial = () => ({
 // Metros de MP que se llevo un corte: piezas reales / piezas-por-vuelta =
 // vueltas usadas; vueltas x largo de pieza = metros.
 const metrosDeCorte = (c) => {
-  const piezasPorCaja = REBOB_PIEZAS_POR_CAJA[c.ancho] || 1;
+  const piezasPorCaja = piezasPorCajaDe(c.ancho, c.largoPieza) || 1;
   const piezasPorVuelta = REBOB_PIEZAS_POR_VUELTA[c.ancho] || 0;
   const cajasN = Number(c.cajasCompletas) || 0;
   const sueltasN = Number(c.piezasSueltas) || 0;
@@ -107,7 +107,7 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
   //    arriba (no se puede dar "media vuelta" de menos y quedar corto).
   const calcPlanCorte = (c, mixto) => {
     const piezasPorVuelta = REBOB_PIEZAS_POR_VUELTA[c.ancho] || 0;
-    const piezasPorCaja = REBOB_PIEZAS_POR_CAJA[c.ancho] || 0;
+    const piezasPorCaja = piezasPorCajaDe(c.ancho, c.largoPieza) || 0;
     const largo = Number(c.largoPieza) || 0;
     if (!mixto) {
       const vueltas = largo > 0 ? Math.floor(REBOB_LARGO_JUMBO_M / largo) : 0;
@@ -310,7 +310,7 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
   const calcCorte = (c) => {
     const vueltas = Math.floor(REBOB_LARGO_JUMBO_M / (Number(c.largoPieza) || 1));
     const piezasTeoricas = calcularPiezasTeoricas(c.ancho, c.largoPieza);
-    const piezasPorCaja = REBOB_PIEZAS_POR_CAJA[c.ancho] || 1;
+    const piezasPorCaja = piezasPorCajaDe(c.ancho, c.largoPieza) || 1;
     // Cajas completas se escriben directo (2"=36, 3"=24 pzas/caja, mismo
     // criterio que rollosPorCaja en pedidos normales) -- las piezas sueltas
     // que no alcanzan a llenar una caja se capturan aparte, para no inflar
@@ -478,8 +478,8 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState({ cajasCompletas: "", piezasSueltas: "", merma: "" });
   const abrirEdicion = (p) => {
-    const { ancho } = parseMedidaRebob(p.medida);
-    const piezasPorCaja = REBOB_PIEZAS_POR_CAJA[ancho] || 1;
+    const { ancho, largoPieza } = parseMedidaRebob(p.medida);
+    const piezasPorCaja = piezasPorCajaDe(ancho, largoPieza) || 1;
     const cajasN = Number(p.cajas) || 0;
     const sueltasN = Math.max(0, (Number(p.piezas_prod) || 0) - cajasN * piezasPorCaja);
     setEditId(p.id);
@@ -491,7 +491,7 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
   };
   const guardarEdicion = async (p) => {
     const { ancho, largoPieza } = parseMedidaRebob(p.medida);
-    const piezasPorCaja = REBOB_PIEZAS_POR_CAJA[ancho] || 1;
+    const piezasPorCaja = piezasPorCajaDe(ancho, largoPieza) || 1;
     const piezasTeoricas = calcularPiezasTeoricas(ancho, largoPieza);
     const cajasN = Number(editForm.cajasCompletas) || 0;
     const sueltasN = Number(editForm.piezasSueltas) || 0;
