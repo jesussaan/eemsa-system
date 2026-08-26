@@ -424,36 +424,64 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
               </div>
             </div>
 
-            {/* ── INSUMOS (combinados, si aplica entre medidas) ── */}
-            <div style={S.section}>
-              <div style={{ ...S.secTitle, display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoRef} /> Insumos</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <div style={S.mini}>
-                  <div style={S.miniLbl}>Centros utilizados</div>
-                  <div style={{ color: "#e0e0e0", fontWeight: 800, fontSize: 20 }}>
-                    {grupo.reduce((s, p) => s + (Number(p.piezas_prod) || 0) + (Number(p.merma) || 0), 0).toLocaleString()}
-                  </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#e0e0e0", marginTop: 4 }}>
-                    {[...new Set(grupo.map(p => String(p.medida || '').split(' x ')[0]).filter(Boolean))].join(' · ')}
+            {/* ── INSUMOS (combinados solo si todas las medidas comparten
+                 ancho -- si cambia entre 2" y 3" se desglosan aparte, porque
+                 son piezas de tamaño distinto y sumarlas de corrido no dice
+                 nada util) ── */}
+            {(() => {
+              const anchoDe = (p) => String(p.medida || '').split(' x ')[0];
+              const anchosUnicos = [...new Set(grupo.map(anchoDe).filter(Boolean))];
+              const porAncho = anchosUnicos.length > 1 ? anchosUnicos.map(a => {
+                const sub = grupo.filter(p => anchoDe(p) === a);
+                return {
+                  ancho: a,
+                  centros: sub.reduce((s, p) => s + (Number(p.piezas_prod) || 0) + (Number(p.merma) || 0), 0),
+                  rollos: sub.reduce((s, p) => s + (Number(p.rollos_usados) || 0), 0),
+                };
+              }) : null;
+              return (
+                <div style={S.section}>
+                  <div style={{ ...S.secTitle, display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoRef} /> Insumos</div>
+                  {porAncho && (
+                    <div style={{ display: "grid", gap: 6, marginBottom: 8 }}>
+                      {porAncho.map(x => (
+                        <div key={x.ancho} style={{ display: "flex", justifyContent: "space-between", background: "#13161e", borderRadius: 8, padding: "6px 10px", fontSize: 13 }}>
+                          <span style={{ color: "#c9922a", fontWeight: 800 }}>{x.ancho}</span>
+                          <span style={{ color: "#e0e0e0" }}>{x.centros.toLocaleString()} centros</span>
+                          <span style={{ color: "#4b8fe8", fontWeight: 700 }}>{x.rollos.toFixed(2)} rollo</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <div style={S.mini}>
+                      <div style={S.miniLbl}>Centros utilizados{porAncho ? " (total)" : ""}</div>
+                      <div style={{ color: "#e0e0e0", fontWeight: 800, fontSize: 20 }}>
+                        {grupo.reduce((s, p) => s + (Number(p.piezas_prod) || 0) + (Number(p.merma) || 0), 0).toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "#e0e0e0", marginTop: 4 }}>
+                        {anchosUnicos.join(' · ')}
+                      </div>
+                    </div>
+                    <div style={S.mini}>
+                      <div style={S.miniLbl}>Cajas utilizadas</div>
+                      <div style={{ color: "#e0e0e0", fontWeight: 800, fontSize: 20 }}>
+                        {grupo.reduce((s, p) => s + (Number(p.cajas) || 0), 0).toLocaleString()}
+                      </div>
+                    </div>
+                    <div style={S.mini}>
+                      <div style={S.miniLbl}>Rollo MP usado{porAncho ? " (total)" : ""}</div>
+                      <div style={{ color: "#4b8fe8", fontWeight: 800, fontSize: 20 }}>
+                        {grupo.reduce((s, p) => s + (Number(p.rollos_usados) || 0), 0).toFixed(2)}
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "#e0e0e0", marginTop: 4 }}>
+                        {grupo[0].tipo} · {grupo[0].color}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div style={S.mini}>
-                  <div style={S.miniLbl}>Cajas utilizadas</div>
-                  <div style={{ color: "#e0e0e0", fontWeight: 800, fontSize: 20 }}>
-                    {grupo.reduce((s, p) => s + (Number(p.cajas) || 0), 0).toLocaleString()}
-                  </div>
-                </div>
-                <div style={S.mini}>
-                  <div style={S.miniLbl}>Rollo MP usado (total)</div>
-                  <div style={{ color: "#4b8fe8", fontWeight: 800, fontSize: 20 }}>
-                    {grupo.reduce((s, p) => s + (Number(p.rollos_usados) || 0), 0).toFixed(2)}
-                  </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#e0e0e0", marginTop: 4 }}>
-                    {grupo[0].tipo} · {grupo[0].color}
-                  </div>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* ── TIEMPO DE PRODUCCIÓN (mismo rollo, mismas fechas para las dos medidas) ── */}
             {(() => {

@@ -625,10 +625,25 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
                           );
                         })}
                         {mixtoPlan && (() => {
-                          const metrosTotales = planCortes.reduce((s, c) => s + calcPlanCorte(c, true).metros, 0);
+                          const calculos = planCortes.map(c => ({ c, calc: calcPlanCorte(c, true) }));
+                          const metrosTotales = calculos.reduce((s, x) => s + x.calc.metros, 0);
                           const sobra = metrosTotales > REBOB_LARGO_JUMBO_M;
+                          // Vueltas/metros solo se juntan si todas las medidas
+                          // son del mismo ancho -- si cambia el ancho (2" vs
+                          // 3") cada vuelta de la rebobinadora rinde una
+                          // cantidad distinta de piezas, asi que sumarlas de
+                          // corrido no dice nada util; se desglosan por ancho.
+                          const anchosUnicos = [...new Set(planCortes.map(c => c.ancho))];
+                          const porAncho = anchosUnicos.length > 1 ? anchosUnicos.map(a => ({
+                            ancho: a,
+                            vueltas: calculos.filter(x => x.c.ancho === a).reduce((s, x) => s + x.calc.vueltas, 0),
+                            metros: calculos.filter(x => x.c.ancho === a).reduce((s, x) => s + x.calc.metros, 0),
+                          })) : null;
                           return (
                             <div style={{ fontSize: 12, marginTop: 10, textAlign: "right", color: sobra ? "var(--red)" : "#9aa0bc" }}>
+                              {porAncho && porAncho.map(x => (
+                                <div key={x.ancho}>{x.ancho}: <strong>{x.vueltas}</strong> vueltas · {x.metros}m</div>
+                              ))}
                               Metros del jumbo usados: <strong>{metrosTotales}</strong> / {REBOB_LARGO_JUMBO_M}m{sobra ? " ⚠ te pasas del jumbo" : ""}
                             </div>
                           );
