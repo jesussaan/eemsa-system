@@ -7,6 +7,7 @@ import { sendPush } from "../lib/push";
 import NotifBell from "./NotifBell";
 import { IcoPalette, IcoFlask, IcoRoll, IcoProd, IcoAlertDot, IcoStore, IcoNote, IcoCal, IcoCheck, IcoPencil, IcoX, IcoEmilio, IcoRef, IcoBulb, IcoOperador, IcoCamera } from "./Icons";
 import { REBOB_CLIENTE, REBOB_COLOR } from "../lib/constants";
+import { horasEfectivas, JORNADA_HORAS } from "../lib/horario";
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
@@ -110,6 +111,10 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
     setLoading(null);
   };
 
+  // Tiempo EFECTIVO (mismo criterio que Modo Operador, ver lib/horario.js):
+  // solo cuenta horas laborables (L-V 8:00-17:45, Sab 9:00-13:15), no noches
+  // ni domingo -- antes se calculaba con dias de calendario crudos, que para
+  // un pedido de un par de horas mostraba "0.1 días" (poco claro).
   const calcTiempo = (p) => {
     const start = p.inicio_ts  ? new Date(p.inicio_ts)
                 : p.fecha_inicio   ? new Date(p.fecha_inicio   + 'T07:00:00')
@@ -117,12 +122,15 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
     const end   = p.fin_ts     ? new Date(p.fin_ts)
                 : p.fecha_termino  ? new Date(p.fecha_termino  + 'T16:00:00')
                 : null;
-    if (!start || !end) return null;
-    const ms = end - start;
-    if (ms < 0) return null;
-    const days = ms / (1000 * 3600 * 24);
-    const rounded = Math.round(days * 10) / 10;
-    return rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+    if (!start || !end || !(end > start)) return null;
+    const totalMin = Math.floor(horasEfectivas(start, end) * 60);
+    const d = Math.floor(totalMin / (JORNADA_HORAS * 60));
+    const restoMin = totalMin - d * JORNADA_HORAS * 60;
+    const h = Math.floor(restoMin / 60);
+    const m = restoMin % 60;
+    return d > 0 ? `${d}d ${h}h ${String(m).padStart(2, '0')}m`
+         : h > 0 ? `${h}h ${String(m).padStart(2, '0')}m`
+         : `${m}m`;
   };
 
   const fmtTS = (ts, fecha) => {
@@ -493,8 +501,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                   </div>
                   {tiempo0 ? (
                     <div style={{ background: "#0a0c10", borderRadius: 10, padding: "12px 16px", marginBottom: 12, display: "flex", alignItems: "baseline", gap: 8 }}>
-                      <span style={{ fontSize: 48, fontWeight: 900, color: "#fff", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>{tiempo0}</span>
-                      <span style={{ fontSize: 16, color: "#545a78", fontWeight: 600 }}>días</span>
+                      <span style={{ fontSize: 40, fontWeight: 900, color: "#fff", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>{tiempo0}</span>
                       {exacto0 && <span style={{ fontSize: 10, color: "#2a4a2a", background: "#1a2e1a", padding: "2px 7px", borderRadius: 20, marginLeft: 4 }}>exacto</span>}
                     </div>
                   ) : (
@@ -511,7 +518,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                           <div style={{ fontSize: 9, color: "#5a6080", display: "flex", alignItems: "center", justifyContent: "center", gap: 3, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 3 }}>
                             <Ico icon={row.ico} size={10} /> {row.lbl}
                           </div>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: "#e0e0e0", fontVariantNumeric: "tabular-nums" }}>{tiempo0}d</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#e0e0e0", fontVariantNumeric: "tabular-nums" }}>{tiempo0}</div>
                         </div>
                       ))}
                     </div>
@@ -734,10 +741,9 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                 {/* Tiempo total */}
                 {tiempo ? (
                   <div style={{ background: "#0a0c10", borderRadius: 10, padding: "12px 16px", marginBottom: 12, display: "flex", alignItems: "baseline", gap: 8 }}>
-                    <span style={{ fontSize: 48, fontWeight: 900, color: "#fff", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
+                    <span style={{ fontSize: 40, fontWeight: 900, color: "#fff", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
                       {tiempo}
                     </span>
-                    <span style={{ fontSize: 16, color: "#545a78", fontWeight: 600 }}>días</span>
                     {exacto && <span style={{ fontSize: 10, color: "#2a4a2a", background: "#1a2e1a", padding: "2px 7px", borderRadius: 20, marginLeft: 4 }}>exacto</span>}
                   </div>
                 ) : (
@@ -756,7 +762,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                         <div style={{ fontSize: 9, color: "#5a6080", display: "flex", alignItems: "center", justifyContent: "center", gap: 3, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 3 }}>
                           <Ico icon={row.ico} size={10} /> {row.lbl}
                         </div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: "#e0e0e0", fontVariantNumeric: "tabular-nums" }}>{tiempo}d</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#e0e0e0", fontVariantNumeric: "tabular-nums" }}>{tiempo}</div>
                       </div>
                     ))}
                   </div>
