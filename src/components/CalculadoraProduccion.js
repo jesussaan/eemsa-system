@@ -84,6 +84,15 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const [cajasProd,  setCajasProd]  = useState('');
   const [piezasProd, setPiezasProd] = useState('');
   const [mermaReal,  setMermaReal]  = useState('');
+  // Tinta/alcohol REALES (lo que de verdad se uso, no lo teorico que calcula
+  // la formula) -- opcionales: si se llenan, reemplazan el numero teorico al
+  // guardar (mas exacto para el inventario) y el teorico se guarda en notas
+  // para poder comparar despues y calibrar la formula con datos reales por
+  // color (ver conversacion: la viscosidad varia por color de tinta, no por
+  // cantidad, asi que hace falta juntar muestras reales antes de ajustar
+  // la formula de solvente).
+  const [tintaReal,   setTintaReal]   = useState('');
+  const [alcoholReal, setAlcoholReal] = useState('');
   // Stickybacks: 1 si el pedido lleva una tinta, 2 si lleva dos -- se
   // preselecciona solo (tieneColor2 ya dice cuantas tintas trae el pedido),
   // pero se deja tocar por si la realidad de la corrida es distinta.
@@ -326,6 +335,12 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
           {mermaPct !== null && (
             <div className="field"><label>% Merma real</label><input readOnly value={mermaPct + "%"} style={{ background: "#1a2744", color: Number(mermaPct) > 3 ? "#ff4d4d" : "#4be87a" }} /></div>
           )}
+          {/* Opcionales -- si se llenan, reemplazan el numero teorico de la
+              formula al guardar (mas exacto para el inventario) y el teorico
+              queda en notas para comparar. Sin llenar, se sigue guardando el
+              teorico como siempre. */}
+          <div className="field"><label>Tinta real usada (kg)</label><input type="number" step="0.001" placeholder={!clicheNA ? tintaKgTotal.toFixed(3) : '0'} value={tintaReal} onChange={e => setTintaReal(e.target.value)} /></div>
+          <div className="field"><label>Alcohol real usado (kg)</label><input type="number" step="0.001" placeholder={solventeKg.toFixed(3)} value={alcoholReal} onChange={e => setAlcoholReal(e.target.value)} /></div>
           <div className="field">
             <label>Stickybacks</label>
             <div style={{ display: "flex", gap: 6, marginTop: 4, padding: 3, borderRadius: 8, border: `1.5px solid ${stickyback == null ? 'var(--orange)' : 'var(--green)'}`, background: stickyback == null ? 'var(--orange-dim)' : 'var(--green-dim)' }}>
@@ -462,6 +477,8 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             : [['Tinta', clicheNA ? 'N/A' : `${tintaKgTotal.toFixed(2)} kg`]]),
           ['Solvente', clicheNA ? 'N/A' : `${solventeKg.toFixed(2)} kg`],
           ['Stickybacks', stickyback ?? '—'],
+          ...(tintaReal !== '' ? [['Tinta real (anotada)', `${tintaReal} kg`]] : []),
+          ...(alcoholReal !== '' ? [['Alcohol real (anotado)', `${alcoholReal} kg`]] : []),
         ];
         return (
           <div style={{ marginTop: 4 }}>
@@ -495,18 +512,32 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
               <button
                 className="btn btn-primary"
                 style={{ flex: 2, padding: '13px 0', fontSize: 15 }}
-                onClick={() => onConfirmar({
+                onClick={() => {
+                  // Tinta/alcohol reales anotados a mano no reemplazan el
+                  // numero teorico que se descuenta del inventario (un
+                  // typo aqui no deberia desajustar el stock) -- se guardan
+                  // en notas para comparar despues y, con suficientes
+                  // muestras por color, calibrar la formula de solvente
+                  // (ver conversacion: la viscosidad varia por color de
+                  // tinta, no por cantidad usada).
+                  const notasReal = [
+                    tintaReal   !== '' ? `Tinta real: ${tintaReal}kg (teórico: ${tintaKgTotal.toFixed(3)}kg)` : null,
+                    alcoholReal !== '' ? `Alcohol real: ${alcoholReal}kg (teórico: ${solventeKg.toFixed(3)}kg)` : null,
+                  ].filter(Boolean).join(' · ');
+                  onConfirmar({
                   rollosMP, rollosExacto, tintaKg, tintaKg2: tieneColor2 ? tintaKg2 : null, solventeKg,
                   rollosCaja:  rollosCajaN,
                   piezasProd:  piezasProd !== "" ? Number(piezasProd) : null,
                   mermaReal:   mermaReal  !== "" ? Number(mermaReal)  : null,
                   mermaPct, stickyback,
+                  notas: notasReal || undefined,
                   diseno:      clicheNA ? null : diseno,
                   portaliche:  clicheNA ? null : (Number(portaliche) || null),
                   diseno2:     (tieneColor2 && !clicheNA) ? diseno2 : null,
                   portaliche2: (tieneColor2 && !clicheNA) ? (Number(portaliche2) || null) : null,
                   clicheEstado: clicheNA ? null : clicheEstado,
-                })}
+                  });
+                }}
               >
                 ✅ Confirmar y enviar a Emilio
               </button>
