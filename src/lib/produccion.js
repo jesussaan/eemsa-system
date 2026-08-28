@@ -20,6 +20,19 @@ export const DISENOS = [
   { key: 'relleno', label: 'Relleno completo + logo', cob: 0.825 },
 ];
 
+// Cobertura medida de una imagen (ver lib/imagenCobertura.js) se codifica
+// dentro del mismo campo "diseno" como "img:34.2" en vez de agregar una
+// columna nueva a la tabla -- asi "sugerido" (ultimo pedido igual, ver
+// ModoOperador.js) sigue funcionando solo con lo que ya hay.
+export const disenoEsImagen = (diseno) => typeof diseno === 'string' && diseno.startsWith('img:');
+export const coberturaDe = (diseno) => {
+  if (disenoEsImagen(diseno)) {
+    const pct = parseFloat(diseno.slice(4));
+    if (!isNaN(pct)) return pct / 100;
+  }
+  return DISENOS.find(d => d.key === diseno)?.cob ?? 0.275;
+};
+
 // Rollos por caja segun ancho -- 2" caben 36, 3" caben 24 (Canela/Transparente/
 // Blanca). Engomado siempre se vende como 3" pero el rollo real es mas chico,
 // asi que caben 10 por caja en vez de 24. Fuente unica -- se usa al crear el
@@ -67,7 +80,7 @@ export function calcularProduccion({
   const rollosCajaN = parseInt(rollosCaja) || 0;
   const mermaN      = parseInt(merma)      || 0;
   const clicheLargo = parseFloat(portaliche);
-  const cobertura   = DISENOS.find(d => d.key === diseno)?.cob || 0.275;
+  const cobertura   = coberturaDe(diseno);
 
   const largoReal    = esEngomado ? largoN : (largoN > 4 ? largoN - 4 : largoN);
   const pistas       = esEngomado ? ENGOMADO_PISTAS : (anchoN > 0 ? Math.floor(MP_ANCHO / anchoN) : 0);
@@ -86,7 +99,7 @@ export function calcularProduccion({
   const tintaKg = sinTinta ? 0 : (impresiones * inkPerImpresion * INK_DENSITY * TRANSFER) / 1000;
 
   const clicheLargo2      = parseFloat(portaliche2);
-  const cobertura2        = DISENOS.find(d => d.key === diseno2)?.cob || 0.275;
+  const cobertura2        = coberturaDe(diseno2);
   const clicheArea2       = CLICHE_W * clicheLargo2;
   const inkPerImpresion2  = clicheArea2 * BCM_RATE * cobertura2;
   const impresiones2      = tieneColor2 && piezasTotal > 0 && clicheLargo2 > 0 && pistas > 0

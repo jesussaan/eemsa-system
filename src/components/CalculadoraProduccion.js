@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_MP_ROLLO_PRECIO } from '../lib/constants';
-import { calcularProduccion, MP_ANCHO, MP_LARGO, PORTALICHES, DISENOS, rollosPorCaja, anchoDePedido, largoDePedido } from '../lib/produccion';
+import { calcularProduccion, MP_ANCHO, MP_LARGO, PORTALICHES, DISENOS, rollosPorCaja, anchoDePedido, largoDePedido, disenoEsImagen } from '../lib/produccion';
+import { coberturaDeImagen } from '../lib/imagenCobertura';
 import { horasEfectivas, JORNADA_HORAS } from '../lib/horario';
 
 export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial, onConfirmar, inline, sugerido, clicheActivoInfo }) {
@@ -52,6 +53,28 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   const [diseno2,     setDiseno2]     = useState(sugerido?.diseno2 || 'normal');
   const [portaliche2Tocado, setPortaliche2Tocado] = useState(false);
   const [diseno2Tocado,     setDiseno2Tocado]     = useState(false);
+
+  // Cobertura de tinta calculada de una imagen del diseno en vez de elegir
+  // entre los 4 botones fijos -- todo pasa en el navegador (canvas), la
+  // imagen no se sube ni se guarda en ningun lado (ver lib/imagenCobertura.js).
+  const [analizandoImg,  setAnalizandoImg]  = useState(false);
+  const [analizandoImg2, setAnalizandoImg2] = useState(false);
+  const [errorImg,  setErrorImg]  = useState('');
+  const [errorImg2, setErrorImg2] = useState('');
+  const analizarImagenDiseno = async (file, esColor2) => {
+    (esColor2 ? setAnalizandoImg2 : setAnalizandoImg)(true);
+    (esColor2 ? setErrorImg2 : setErrorImg)('');
+    try {
+      const cob = await coberturaDeImagen(file);
+      const valor = `img:${(cob * 100).toFixed(1)}`;
+      if (esColor2) { setDiseno2(valor); setDiseno2Tocado(true); }
+      else { setDiseno(valor); setDisenoTocado(true); }
+    } catch (e) {
+      (esColor2 ? setErrorImg2 : setErrorImg)(e.message || 'No se pudo analizar la imagen');
+    } finally {
+      (esColor2 ? setAnalizandoImg2 : setAnalizandoImg)(false);
+    }
+  };
 
   // Datos reales (flujo finalizar) -- se captura "cajas producidas" y las
   // piezas se calculan solas (cajas x rollos/caja), en vez de escribirlas
@@ -185,10 +208,24 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
         {!clicheNA && (
           <div className="field">
             <label>Diseño</label>
-            <select className={disenoTocado ? 'campo-listo' : 'campo-pendiente'} value={diseno} onChange={e => { setDiseno(e.target.value); setDisenoTocado(true); }} onClick={() => setDisenoTocado(true)}>
-              {DISENOS.map(d => <option key={d.key} value={d.key}>{d.label} ({Math.round(d.cob * 100)}%)</option>)}
-            </select>
+            {disenoEsImagen(diseno) ? (
+              <div className={disenoTocado ? 'campo-listo' : 'campo-pendiente'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderRadius: 8, padding: '8px 10px' }}>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>📷 {diseno.slice(4)}% (de imagen)</span>
+                <button type="button" onClick={() => { setDiseno('normal'); setDisenoTocado(true); }} style={{ background: 'transparent', border: 'none', color: '#ff4d4d', cursor: 'pointer', fontSize: 12 }}>✕ Quitar</button>
+              </div>
+            ) : (
+              <select className={disenoTocado ? 'campo-listo' : 'campo-pendiente'} value={diseno} onChange={e => { setDiseno(e.target.value); setDisenoTocado(true); }} onClick={() => setDisenoTocado(true)}>
+                {DISENOS.map(d => <option key={d.key} value={d.key}>{d.label} ({Math.round(d.cob * 100)}%)</option>)}
+              </select>
+            )}
             <AvisoSugerido visible={disenoIgualSugerido} />
+            {!disenoEsImagen(diseno) && (
+              <label style={{ display: 'inline-block', marginTop: 6, fontSize: 11, color: 'var(--accent, #c9922a)', cursor: analizandoImg ? 'default' : 'pointer' }}>
+                <input type="file" accept="image/*" disabled={analizandoImg} style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) analizarImagenDiseno(f, false); e.target.value = ''; }} />
+                {analizandoImg ? '⏳ Calculando…' : '📷 O sube el diseño y calculo el % exacto'}
+              </label>
+            )}
+            {errorImg && <div style={{ fontSize: 11, color: '#ff4d4d', marginTop: 4 }}>{errorImg}</div>}
           </div>
         )}
 
@@ -224,10 +261,24 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
                 <AvisoSugerido visible={portaliche2IgualSugerido} />
               </div>
               <div className="field"><label>Diseño</label>
-                <select className={diseno2Tocado ? 'campo-listo' : 'campo-pendiente'} value={diseno2} onChange={e => { setDiseno2(e.target.value); setDiseno2Tocado(true); }} onClick={() => setDiseno2Tocado(true)}>
-                  {DISENOS.map(d => <option key={d.key} value={d.key}>{d.label} ({Math.round(d.cob * 100)}%)</option>)}
-                </select>
+                {disenoEsImagen(diseno2) ? (
+                  <div className={diseno2Tocado ? 'campo-listo' : 'campo-pendiente'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderRadius: 8, padding: '8px 10px' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700 }}>📷 {diseno2.slice(4)}% (de imagen)</span>
+                    <button type="button" onClick={() => { setDiseno2('normal'); setDiseno2Tocado(true); }} style={{ background: 'transparent', border: 'none', color: '#ff4d4d', cursor: 'pointer', fontSize: 12 }}>✕ Quitar</button>
+                  </div>
+                ) : (
+                  <select className={diseno2Tocado ? 'campo-listo' : 'campo-pendiente'} value={diseno2} onChange={e => { setDiseno2(e.target.value); setDiseno2Tocado(true); }} onClick={() => setDiseno2Tocado(true)}>
+                    {DISENOS.map(d => <option key={d.key} value={d.key}>{d.label} ({Math.round(d.cob * 100)}%)</option>)}
+                  </select>
+                )}
                 <AvisoSugerido visible={diseno2IgualSugerido} />
+                {!disenoEsImagen(diseno2) && (
+                  <label style={{ display: 'inline-block', marginTop: 6, fontSize: 11, color: 'var(--accent, #c9922a)', cursor: analizandoImg2 ? 'default' : 'pointer' }}>
+                    <input type="file" accept="image/*" disabled={analizandoImg2} style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) analizarImagenDiseno(f, true); e.target.value = ''; }} />
+                    {analizandoImg2 ? '⏳ Calculando…' : '📷 O sube el diseño y calculo el % exacto'}
+                  </label>
+                )}
+                {errorImg2 && <div style={{ fontSize: 11, color: '#ff4d4d', marginTop: 4 }}>{errorImg2}</div>}
               </div>
             </div>
           </div>
