@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_MP_ROLLO_PRECIO } from '../lib/constants';
-import { calcularProduccion, MP_ANCHO, MP_LARGO, PORTALICHES, DISENOS, rollosPorCaja, anchoDePedido, largoDePedido, disenoEsImagen } from '../lib/produccion';
+import { calcularProduccion, MP_ANCHO, MP_LARGO, PORTALICHES, rollosPorCaja, anchoDePedido, largoDePedido, disenoEsImagen } from '../lib/produccion';
 import { coberturaDeImagen } from '../lib/imagenCobertura';
 import { horasEfectivas, JORNADA_HORAS } from '../lib/horario';
 
@@ -18,7 +18,11 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   // default fijo -- el operador los puede seguir cambiando si el cliche
   // de esta corrida es distinto.
   const [portaliche, setPortaliche] = useState(String(sugerido?.portaliche || '30.9'));
-  const [diseno,     setDiseno]     = useState(sugerido?.diseno || 'normal');
+  // Diseno ahora se mide subiendo una foto (ver analizarImagenDiseno abajo),
+  // ya no hay boton manual de respaldo -- si el sugerido no trae una medida
+  // de imagen (pedidos viejos con bucket fijo), arranca vacio para forzar
+  // una foto fresca en vez de heredar un bucket que ya no existe en pantalla.
+  const [diseno,     setDiseno]     = useState(disenoEsImagen(sugerido?.diseno) ? sugerido.diseno : '');
   const [clicheNA,   setClicheNA]   = useState(false);
   // Nuevo/Usado: para trackear cuantas cajas/pedidos aguanta un mismo
   // cliche fisico (ver api/cliches.js). Se preselecciona solo con la misma
@@ -36,7 +40,6 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   // que el operador de verdad los toca (los revisa/confirma), no solo
   // porque ya traigan algo prellenado.
   const [portalicheTocado, setPortalicheTocado] = useState(false);
-  const [disenoTocado,     setDisenoTocado]     = useState(false);
 
   // Engomado: rollo de MP fijo (136mm x 685m, $900/rollo, corte real 6.8cm
   // aunque se venda como "3\""), en vez de la formula normal de la SIAT L36.
@@ -50,9 +53,8 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   // corrida pero su propio portacliche y diseno/cobertura.
   const tieneColor2   = !!pedidoInicial?.color2;
   const [portaliche2, setPortaliche2] = useState(String(sugerido?.portaliche2 || '30.9'));
-  const [diseno2,     setDiseno2]     = useState(sugerido?.diseno2 || 'normal');
+  const [diseno2,     setDiseno2]     = useState(disenoEsImagen(sugerido?.diseno2) ? sugerido.diseno2 : '');
   const [portaliche2Tocado, setPortaliche2Tocado] = useState(false);
-  const [diseno2Tocado,     setDiseno2Tocado]     = useState(false);
 
   // Cobertura de tinta calculada de una imagen del diseno en vez de elegir
   // entre los 4 botones fijos -- todo pasa en el navegador (canvas), la
@@ -67,8 +69,8 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
     try {
       const cob = await coberturaDeImagen(file);
       const valor = `img:${(cob * 100).toFixed(1)}`;
-      if (esColor2) { setDiseno2(valor); setDiseno2Tocado(true); }
-      else { setDiseno(valor); setDisenoTocado(true); }
+      if (esColor2) setDiseno2(valor);
+      else setDiseno(valor);
     } catch (e) {
       (esColor2 ? setErrorImg2 : setErrorImg)(e.message || 'No se pudo analizar la imagen');
     } finally {
@@ -206,25 +208,20 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
         </div>
 
         {!clicheNA && (
-          <div className="field">
-            <label>Diseño</label>
+          <div className="field full">
+            <label>Diseño (foto) *</label>
             {disenoEsImagen(diseno) ? (
-              <div className={disenoTocado ? 'campo-listo' : 'campo-pendiente'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderRadius: 8, padding: '8px 10px' }}>
-                <span style={{ fontSize: 13, fontWeight: 700 }}>📷 {diseno.slice(4)}% (de imagen)</span>
-                <button type="button" onClick={() => { setDiseno('normal'); setDisenoTocado(true); }} style={{ background: 'transparent', border: 'none', color: '#ff4d4d', cursor: 'pointer', fontSize: 12 }}>✕ Quitar</button>
+              <div className="campo-listo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderRadius: 8, padding: '10px 12px' }}>
+                <span style={{ fontSize: 14, fontWeight: 700 }}>📷 {diseno.slice(4)}% de cobertura</span>
+                <button type="button" onClick={() => setDiseno('')} style={{ background: 'transparent', border: 'none', color: '#ff4d4d', cursor: 'pointer', fontSize: 12 }}>✕ Quitar</button>
               </div>
             ) : (
-              <select className={disenoTocado ? 'campo-listo' : 'campo-pendiente'} value={diseno} onChange={e => { setDiseno(e.target.value); setDisenoTocado(true); }} onClick={() => setDisenoTocado(true)}>
-                {DISENOS.map(d => <option key={d.key} value={d.key}>{d.label} ({Math.round(d.cob * 100)}%)</option>)}
-              </select>
-            )}
-            <AvisoSugerido visible={disenoIgualSugerido} />
-            {!disenoEsImagen(diseno) && (
-              <label style={{ display: 'inline-block', marginTop: 6, fontSize: 11, color: 'var(--accent, #c9922a)', cursor: analizandoImg ? 'default' : 'pointer' }}>
+              <label className="campo-pendiente" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 8, padding: '14px 12px', cursor: analizandoImg ? 'default' : 'pointer', fontWeight: 700, fontSize: 13 }}>
                 <input type="file" accept="image/*" disabled={analizandoImg} style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) analizarImagenDiseno(f, false); e.target.value = ''; }} />
-                {analizandoImg ? '⏳ Calculando…' : '📷 O sube el diseño y calculo el % exacto'}
+                {analizandoImg ? '⏳ Calculando…' : '📷 Sube la foto del diseño'}
               </label>
             )}
+            <AvisoSugerido visible={disenoIgualSugerido} />
             {errorImg && <div style={{ fontSize: 11, color: '#ff4d4d', marginTop: 4 }}>{errorImg}</div>}
           </div>
         )}
@@ -260,24 +257,19 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
                 </select>
                 <AvisoSugerido visible={portaliche2IgualSugerido} />
               </div>
-              <div className="field"><label>Diseño</label>
+              <div className="field full"><label>Diseño (foto) *</label>
                 {disenoEsImagen(diseno2) ? (
-                  <div className={diseno2Tocado ? 'campo-listo' : 'campo-pendiente'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderRadius: 8, padding: '8px 10px' }}>
-                    <span style={{ fontSize: 13, fontWeight: 700 }}>📷 {diseno2.slice(4)}% (de imagen)</span>
-                    <button type="button" onClick={() => { setDiseno2('normal'); setDiseno2Tocado(true); }} style={{ background: 'transparent', border: 'none', color: '#ff4d4d', cursor: 'pointer', fontSize: 12 }}>✕ Quitar</button>
+                  <div className="campo-listo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderRadius: 8, padding: '10px 12px' }}>
+                    <span style={{ fontSize: 14, fontWeight: 700 }}>📷 {diseno2.slice(4)}% de cobertura</span>
+                    <button type="button" onClick={() => setDiseno2('')} style={{ background: 'transparent', border: 'none', color: '#ff4d4d', cursor: 'pointer', fontSize: 12 }}>✕ Quitar</button>
                   </div>
                 ) : (
-                  <select className={diseno2Tocado ? 'campo-listo' : 'campo-pendiente'} value={diseno2} onChange={e => { setDiseno2(e.target.value); setDiseno2Tocado(true); }} onClick={() => setDiseno2Tocado(true)}>
-                    {DISENOS.map(d => <option key={d.key} value={d.key}>{d.label} ({Math.round(d.cob * 100)}%)</option>)}
-                  </select>
-                )}
-                <AvisoSugerido visible={diseno2IgualSugerido} />
-                {!disenoEsImagen(diseno2) && (
-                  <label style={{ display: 'inline-block', marginTop: 6, fontSize: 11, color: 'var(--accent, #c9922a)', cursor: analizandoImg2 ? 'default' : 'pointer' }}>
+                  <label className="campo-pendiente" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 8, padding: '14px 12px', cursor: analizandoImg2 ? 'default' : 'pointer', fontWeight: 700, fontSize: 13 }}>
                     <input type="file" accept="image/*" disabled={analizandoImg2} style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) analizarImagenDiseno(f, true); e.target.value = ''; }} />
-                    {analizandoImg2 ? '⏳ Calculando…' : '📷 O sube el diseño y calculo el % exacto'}
+                    {analizandoImg2 ? '⏳ Calculando…' : '📷 Sube la foto del diseño'}
                   </label>
                 )}
+                <AvisoSugerido visible={diseno2IgualSugerido} />
                 {errorImg2 && <div style={{ fontSize: 11, color: '#ff4d4d', marginTop: 4 }}>{errorImg2}</div>}
               </div>
             </div>
@@ -420,11 +412,12 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
       {onConfirmar && (() => {
         const faltaPiezas = !piezasProd || Number(piezasProd) <= 0;
         const faltaCliche = !clicheNA && !clicheEstadoTocado;
+        const faltaDiseno = !clicheNA && (!disenoEsImagen(diseno) || (tieneColor2 && !disenoEsImagen(diseno2)));
         return (
           <button
             className="btn btn-primary btn-block"
-            disabled={!listo || faltaPiezas || faltaCliche}
-            style={{ padding: '14px 0', fontSize: 15, marginTop: 16, opacity: (listo && !faltaPiezas && !faltaCliche) ? 1 : 0.4 }}
+            disabled={!listo || faltaPiezas || faltaCliche || faltaDiseno}
+            style={{ padding: '14px 0', fontSize: 15, marginTop: 16, opacity: (listo && !faltaPiezas && !faltaCliche && !faltaDiseno) ? 1 : 0.4 }}
             onClick={handleAbrirRevision}
           >
             Revisar y confirmar
@@ -436,7 +429,12 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
           Falta "Piezas producidas" para poder enviar a Emilio
         </div>
       )}
-      {onConfirmar && piezasProd && listo && !clicheNA && !clicheEstadoTocado && (
+      {onConfirmar && piezasProd && listo && !clicheNA && (!disenoEsImagen(diseno) || (tieneColor2 && !disenoEsImagen(diseno2))) && (
+        <div style={{ textAlign: 'center', color: '#ff9900', fontSize: 12, marginTop: 8 }}>
+          Falta subir la foto del diseño para poder enviar a Emilio
+        </div>
+      )}
+      {onConfirmar && piezasProd && listo && !clicheNA && disenoEsImagen(diseno) && (!tieneColor2 || disenoEsImagen(diseno2)) && !clicheEstadoTocado && (
         <div style={{ textAlign: 'center', color: '#ff9900', fontSize: 12, marginTop: 8 }}>
           Confirma si el cliché es Nuevo o Usado para poder enviar a Emilio
         </div>
