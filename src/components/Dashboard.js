@@ -407,17 +407,23 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, m
     doc.setFontSize(7.5); doc.setTextColor(130, 145, 180);
     doc.text("Historial mes a mes de todos los años al final de este documento", W / 2, 85, { align: "center" });
 
-    // Resumen ejecutivo del mes en curso
+    // Resumen ejecutivo del mes en curso -- 6 KPIs en cuadricula 3x2 pareja
+    // (antes eran 5, dejaba una tarjeta "colgada" sola en la segunda fila).
+    // "Costo de producción" (antes "Valor producido") es lo que cuesta
+    // producir, NO lo que se le cobra al cliente -- la app no guarda precio
+    // de venta todavia, asi que este es el numero de dinero real disponible.
     const pedidosTerminadosMesCount = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual)).length;
+    const cajasMesCount = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(mesActual)).reduce((s, p) => s + Number(p.cajas || 0), 0);
     const fallasMesArr = fallas.filter(f => f.fecha?.startsWith(mesActual));
     const minParoMes = fallasMesArr.reduce((s, f) => s + Number(f.min_paro || 0), 0);
 
     const kpis = [
+      { val: `$${fmt(Math.round(valorProducidoMes))}`, lbl: "Costo de producción (mes)", color: [75, 232, 122] },
       { val: pedidosTerminadosMesCount.toLocaleString("es-MX"), lbl: "Pedidos terminados (mes)", color: [75, 143, 232] },
+      { val: cajasMesCount.toLocaleString("es-MX"), lbl: "Cajas producidas (mes)", color: [201, 146, 42] },
       { val: mermaPctMes != null ? `${mermaPctMes}%` : "—", lbl: "Merma promedio (mes)", color: [232, 75, 75] },
       { val: fallasMesArr.length.toLocaleString("es-MX"), lbl: `Fallas del mes (${fmt(minParoMes)} min. paro)`, color: [232, 137, 75] },
       { val: `$${fmt(gastoRefMes)}`, lbl: "Gasto en refacciones (mes)", color: [155, 111, 232] },
-      { val: `$${fmt(Math.round(valorProducidoMes))}`, lbl: "Valor producido (mes)", color: [75, 232, 122] },
     ];
     const kpiGap = 6, kpiW = (W - mg * 2 - kpiGap * 2) / 3, kpiH = 30, kpiY0 = 104;
     kpis.forEach((k, i) => {
@@ -473,9 +479,22 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, m
       const val = ps.length ? ps.reduce((s, p) => s + Number(p.merma_pct), 0) / ps.length : null;
       return { lbl: `${fmtM(d.getMonth() + 1).slice(0, 3)} ${String(d.getFullYear()).slice(2)}`, val };
     });
+    // Mismo periodo para costo de produccion -- para que la junta pueda ver
+    // de un vistazo si el costo sube/baja junto con la merma o aparte.
+    const ultimosCosto12 = ultimos12Fechas.map(d => {
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const ps = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(key) && p.costo_pieza != null);
+      const val = ps.length ? ps.reduce((s, p) => s + Number(p.costo_pieza) * Number(p.piezas_prod || 0), 0) : null;
+      return { lbl: `${fmtM(d.getMonth() + 1).slice(0, 3)} ${String(d.getFullYear()).slice(2)}`, val };
+    });
+    const fmtDineroCompacto = v => v >= 10000 ? `$${(v / 1000).toFixed(1)}k` : `$${fmt(Math.round(v))}`;
 
-    const chartY = 182, chartH = 68, chartW = W - mg * 2;
-    drawBarChart(mg, chartY, chartW, chartH, `% Merma — últimos 12 meses (meta ${META_MERMA_PCT}%)`, ultimosMerma12, {
+    const chart1Y = 184, chart2Y = 240, chartH = 40, chartW = W - mg * 2;
+    drawBarChart(mg, chart1Y, chartW, chartH, "Costo de producción — últimos 12 meses", ultimosCosto12, {
+      colorFn: () => [75, 143, 232],
+      fmtVal: fmtDineroCompacto,
+    });
+    drawBarChart(mg, chart2Y, chartW, chartH, `% Merma — últimos 12 meses (meta ${META_MERMA_PCT}%)`, ultimosMerma12, {
       colorFn: v => v == null ? [200, 200, 200] : (v > META_MERMA_PCT ? [232, 75, 75] : [75, 232, 122]),
       fmtVal: v => v.toFixed(1) + "%",
       refLineVal: META_MERMA_PCT,
@@ -582,21 +601,24 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, m
       }
     };
 
-    // 1. Pedidos terminados por mes (por fecha de término)
-    renderSec("1. Pedidos terminados por mes (por fecha de término)", ["Mes", "Pedidos term.", "Cajas", "Merma pzas.", "Merma % prom."], anio => {
+    // 1. Pedidos terminados por mes (por fecha de término) -- la tabla clave
+    // para la junta: cajas, costo de producción y merma, mes con mes.
+    renderSec("1. Pedidos terminados por mes (por fecha de término)", ["Mes", "Pedidos term.", "Cajas", "Costo producción", "Merma pzas.", "Merma % prom."], anio => {
       const rows = [];
       for (let m = 1; m <= 12; m++) {
         const k = `${anio}-${String(m).padStart(2, "0")}`;
         const ps = pedidos.filter(p => p.status === "terminado" && p.fecha_termino?.startsWith(k));
         if (!ps.length) continue;
         const cajas = ps.reduce((s, p) => s + Number(p.cajas || 0), 0);
+        const costoProd = ps.filter(p => p.costo_pieza != null).reduce((s, p) => s + Number(p.costo_pieza) * Number(p.piezas_prod || 0), 0);
         const mermaP = ps.reduce((s, p) => s + Number(p.merma || 0), 0);
         const mArr = ps.filter(p => p.merma_pct !== null && p.merma_pct !== "");
-        rows.push([fmtM(m), ps.length, cajas, mermaP || "—", mArr.length ? (mArr.reduce((s, p) => s + Number(p.merma_pct), 0) / mArr.length).toFixed(1) + "%" : "—"]);
+        rows.push([fmtM(m), ps.length, cajas, `$${fmt(Math.round(costoProd))}`, mermaP || "—", mArr.length ? (mArr.reduce((s, p) => s + Number(p.merma_pct), 0) / mArr.length).toFixed(1) + "%" : "—"]);
       }
       if (rows.length > 1) {
-        const totMerma = rows.reduce((s, r) => s + (isNaN(Number(r[3])) ? 0 : Number(r[3])), 0);
-        rows.push(["TOTAL", rows.reduce((s,r)=>s+r[1],0), rows.reduce((s,r)=>s+r[2],0), totMerma || "—", "—"]);
+        const totMerma = rows.reduce((s, r) => s + (isNaN(Number(r[4])) ? 0 : Number(r[4])), 0);
+        const totCosto = rows.reduce((s, r) => s + Number(String(r[3]).replace(/[^0-9.]/g, "")), 0);
+        rows.push(["TOTAL", rows.reduce((s,r)=>s+r[1],0), rows.reduce((s,r)=>s+r[2],0), `$${fmt(Math.round(totCosto))}`, totMerma || "—", "—"]);
       }
       return rows;
     });
@@ -755,7 +777,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, m
       <div className="stat-grid" style={{ marginBottom: 12 }}>
         <div className="stat-card green">
           <div className="stat-val" style={{ fontSize: 18 }}>${fmt(Math.round(valorProducidoMes))}</div>
-          <div className="stat-lbl">Valor producido este mes</div>
+          <div className="stat-lbl">Costo de producción este mes</div>
           {valorProducido !== valorProducidoMes && <div className="muted" style={{ marginTop: 3 }}>Total histórico: ${fmt(Math.round(valorProducido))}</div>}
         </div>
         <div className="stat-card red">
@@ -781,7 +803,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, m
         const lblPrev = MESES[parseInt(mesPrev.split('-')[1]) - 1];
         const items = [
           ...(mermaPctMes && mermaPctPrev ? [{ lbl: "Merma %", curr: Number(mermaPctMes), prev: Number(mermaPctPrev), fmt: v => v + "%", menorEsMejor: true, serie: mermaSerie }] : []),
-          ...(valorMes > 0 || valorPrev > 0 ? [{ lbl: "Valor producido", curr: valorMes, prev: valorPrev, fmt: v => "$" + fmt(Math.round(v)), menorEsMejor: false, serie: valorSerie }] : []),
+          ...(valorMes > 0 || valorPrev > 0 ? [{ lbl: "Costo producción", curr: valorMes, prev: valorPrev, fmt: v => "$" + fmt(Math.round(v)), menorEsMejor: false, serie: valorSerie }] : []),
         ];
         if (!items.length) return null;
         return (
@@ -873,7 +895,7 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, m
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    {['Fecha','Pedido','Cliente','Piezas','Costo/pza','Valor producido','Pérd. merma'].map(h => (
+                    {['Fecha','Pedido','Cliente','Piezas','Costo/pza','Costo producción','Pérd. merma'].map(h => (
                       <th key={h} style={{ padding: '6px 10px', color: 'var(--muted)', fontWeight: 600, textAlign: (h === 'Cliente' || h === 'Fecha') ? 'left' : 'right', whiteSpace: 'nowrap', position: 'sticky', top: 0, background: 'var(--card)' }}>{h}</th>
                     ))}
                   </tr>
@@ -900,13 +922,13 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, m
       {/* ── Rentabilidad por cliente ── */}
       {rentabilidadClientes.length > 0 && (
         <>
-          <SubTitle icon={IcoMoney}>Rentabilidad por cliente</SubTitle>
+          <SubTitle icon={IcoMoney}>Costo de producción por cliente</SubTitle>
           <div style={chartCard}>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    {['Cliente','Pedidos','Valor producido','Pérd. merma'].map(h => (
+                    {['Cliente','Pedidos','Costo producción','Pérd. merma'].map(h => (
                       <th key={h} style={{ padding: '6px 10px', color: 'var(--muted)', fontWeight: 600, textAlign: h === 'Cliente' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
