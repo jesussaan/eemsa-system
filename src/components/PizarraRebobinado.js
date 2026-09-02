@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { REBOB_CLIENTE, REBOB_PIEZAS_POR_VUELTA } from "../lib/constants";
-import { IcoSpinner, IcoBox, IcoTapeRoll } from "./Icons";
 
 // fmt() de lib/utils.js siempre fuerza 2 decimales (pensado para dinero) --
 // cajas/piezas son unidades enteras, se ven mal como "76.00" en numeros
 // grandes, asi que aqui se redondea a entero antes de formatear.
 const fmtEntero = (n) => Math.round(Number(n) || 0).toLocaleString("es-MX");
-
-const Ico = ({ icon: I, size = 15 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
 // Un color fijo por tipo de jumbo (material+adhesivo) para distinguirlos de
 // un vistazo -- se reparte por orden de aparicion entre los tipos que de
@@ -21,6 +18,9 @@ const PALETA_TIPO = ["#3ecfc0", "#e8894b", "#9b6fe8", "#4b8fe8", "#e8b84b", "#e8
 // supabase_inventario_mp.sql) -- mismo criterio que PizarraOperador.js, solo
 // que aqui se agrupa por jumbo (folio_rebobinado) para que se vea claro
 // "este jumbo, a esta medida" en vez de una lista plana de medidas sueltas.
+// Mismo diseño plano que PizarraOperador.js (a proposito, para que las dos
+// pizarras se vean/sientan igual en planta) en vez del look con gradientes
+// que tenia antes.
 export default function PizarraRebobinado() {
   const [pedidos, setPedidos] = useState([]);
   const [tarimas, setTarimas] = useState([]);
@@ -66,6 +66,9 @@ export default function PizarraRebobinado() {
   ).map(g => [...g].sort((a, b) => String(a.num).localeCompare(String(b.num))))
    .sort((a, b) => (a[0].orden ?? 9999) - (b[0].orden ?? 9999));
 
+  const gruposEnProceso = grupos.filter(g => g[0].status === "proceso");
+  const gruposAnotados  = grupos.filter(g => g[0].status === "anotado");
+
   // Vueltas de cada medida -- se recalculan de piezas_prod (guardado como
   // meta al planear, ver guardarPlan en Rebobinado.js) en vez de traer un
   // campo aparte.
@@ -94,105 +97,93 @@ export default function PizarraRebobinado() {
     return PALETA_TIPO[idx >= 0 ? idx % PALETA_TIPO.length : 0];
   };
 
-  return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse 900px 500px at 50% -10%, rgba(62,207,192,0.08), transparent), #0b0d11", color: "#e0e0e0" }}>
-      <style>{`
-        @keyframes pizarraPulse {
-          0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(62,207,192,0.55); }
-          50% { opacity: .55; box-shadow: 0 0 0 6px rgba(62,207,192,0); }
-        }
-        @keyframes pizarraFadeIn {
-          from { opacity: 0; transform: translateY(6px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+  const card = { background: "#181b24", borderRadius: 14, padding: 18, marginBottom: 14 };
 
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "16px 22px", position: "sticky", top: 0, background: "rgba(11,13,17,0.9)", backdropFilter: "blur(8px)", zIndex: 5, boxShadow: "0 1px 0 rgba(62,207,192,0.4), 0 14px 30px -18px rgba(0,0,0,0.7)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img src="/logo192.png" alt="EEMSA" style={{ height: 34, width: "auto" }} />
-          <div>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 17, letterSpacing: ".05em" }}>EEMSA · Pizarra Rebobinado</div>
-            <div style={{ fontSize: 10, color: "#3ecfc0", fontWeight: 700, letterSpacing: ".08em", display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3ecfc0", animation: "pizarraPulse 1.8s ease-in-out infinite" }} />
-              SOLO LECTURA · SE ACTUALIZA SOLA
+  const Medidas = ({ g, color }) => (
+    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+      {g.map(p => (
+        <div key={p.id} style={{ background: "#0d0f14", borderRadius: 10, padding: "10px 12px" }}>
+          <div style={{ color: "#c9922a", fontSize: 20, fontWeight: 800, marginBottom: 8 }}>{medidaBonita(p.medida)}</div>
+          <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+            <div>
+              <span style={{ fontSize: 24, fontWeight: 900, color }}>{vueltasDe(p)}</span>
+              <span style={{ fontSize: 11, color: "#666", marginLeft: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>vueltas</span>
+            </div>
+            <div>
+              <span style={{ fontSize: 24, fontWeight: 900, color: "#e0e0e0" }}>{fmtEntero(p.cajas)}</span>
+              <span style={{ fontSize: 11, color: "#666", marginLeft: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>cajas</span>
+            </div>
+            <div>
+              <span style={{ fontSize: 24, fontWeight: 900, color: "#e0e0e0" }}>{fmtEntero(p.piezas_prod)}</span>
+              <span style={{ fontSize: 11, color: "#666", marginLeft: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>piezas</span>
             </div>
           </div>
         </div>
-        <div style={{ fontSize: 13, color: "#8a90ac", textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>{ahora.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}</div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#0b0d11", color: "#e0e0e0" }}>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 20px", borderBottom: "2px solid #3ecfc0", position: "sticky", top: 0, background: "#0b0d11", zIndex: 5 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <img src="/logo192.png" alt="EEMSA" style={{ height: 32, width: "auto" }} />
+          <div>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 16, letterSpacing: ".05em" }}>EEMSA · Pizarra Rebobinado</div>
+            <div style={{ fontSize: 10, color: "#3ecfc0", fontWeight: 700, letterSpacing: ".08em" }}>SOLO LECTURA · SE ACTUALIZA SOLA</div>
+          </div>
+        </div>
+        <div style={{ fontSize: 12, color: "#666", textAlign: "right" }}>{ahora.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}</div>
       </header>
 
-      <main style={{ padding: "20px 16px 44px", maxWidth: 640, margin: "0 auto" }}>
+      <main style={{ padding: "18px 16px 40px", maxWidth: 620, margin: "0 auto" }}>
         {!cargado ? (
-          <p style={{ textAlign: "center", color: "#555", fontSize: 13, marginTop: 60 }}>Cargando…</p>
-        ) : grupos.length === 0 ? (
-          <div style={{ textAlign: "center", marginTop: 70, color: "#444" }}>
-            <div style={{ fontSize: 40, marginBottom: 10, opacity: .5 }}>🧵</div>
-            <p style={{ fontSize: 13 }}>Sin jumbos planeados por ahora.</p>
-          </div>
+          <p style={{ textAlign: "center", color: "#666", fontSize: 13, marginTop: 40 }}>Cargando…</p>
         ) : (
-          grupos.map((g, i) => {
-            const p0 = g[0];
-            const t = tarimas.find(x => x.id === p0.tarima_jumbo_id);
-            const color = colorDeGrupo(g);
-            const enProceso = p0.status === "proceso";
-            return (
-              <div key={p0.folio_rebobinado ?? p0.id} style={{
-                position: "relative",
-                background: "linear-gradient(160deg, #1c202b 0%, #14161e 100%)",
-                borderRadius: 20,
-                padding: "20px 20px 18px",
-                marginBottom: 16,
-                border: `1px solid ${color}33`,
-                boxShadow: `0 14px 34px -20px ${color}77, 0 2px 10px rgba(0,0,0,0.35)`,
-                overflow: "hidden",
-                animation: "pizarraFadeIn .35s ease both",
-              }}>
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: `linear-gradient(90deg, ${color}, ${color}55)` }} />
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14, gap: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 30, height: 30, borderRadius: "50%", background: `${color}22`, border: `1.5px solid ${color}`, color, fontWeight: 900, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
+          <>
+            <h2 style={{ color: "#3ecfc0", fontSize: 14, margin: "8px 0 10px", textTransform: "uppercase", letterSpacing: ".08em" }}>▶ En proceso</h2>
+            {gruposEnProceso.length === 0 ? (
+              <p style={{ color: "#666", fontSize: 13, marginBottom: 20 }}>Sin jumbos en proceso.</p>
+            ) : gruposEnProceso.map(g => {
+              const p0 = g[0];
+              const t = tarimas.find(x => x.id === p0.tarima_jumbo_id);
+              const color = colorDeGrupo(g);
+              return (
+                <div key={p0.folio_rebobinado ?? p0.id} style={{ ...card, borderLeft: `4px solid ${color}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div>
-                      <div style={{ fontSize: 11, color: "#6a7090", fontWeight: 700, letterSpacing: ".06em", marginBottom: 7, textTransform: "uppercase" }}>
-                        Jumbo {t ? `#${t.numero ?? "?"}${t.lote ? ` · ${t.lote}` : ""}` : ""}
+                      <div style={{ fontSize: 11, color: "#666", fontWeight: 700, letterSpacing: ".05em", marginBottom: 3 }}>
+                        JUMBO {t ? `#${t.numero ?? "?"}${t.lote ? ` · ${t.lote}` : ""}` : ""}
                       </div>
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: `${color}1c`, border: `1px solid ${color}55`, borderRadius: 20, padding: "5px 16px 5px 10px" }}>
-                        <span style={{ width: 11, height: 11, borderRadius: "50%", background: color, flexShrink: 0, boxShadow: `0 0 8px ${color}aa` }} />
-                        <span style={{ fontSize: 19, fontWeight: 800, color, letterSpacing: ".01em" }}>{p0.tipo} · {p0.color}</span>
-                      </div>
+                      <div style={{ fontSize: 19, fontWeight: 700, color }}>{p0.tipo} · {p0.color}</div>
                     </div>
                   </div>
-                  {enProceso && (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 800, color: "#3ecfc0", background: "rgba(62,207,192,0.12)", border: "1px solid rgba(62,207,192,0.35)", borderRadius: 20, padding: "5px 12px 5px 9px", whiteSpace: "nowrap", flexShrink: 0 }}>
-                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#3ecfc0", animation: "pizarraPulse 1.6s ease-in-out infinite" }} />
-                      EN PROCESO
-                    </span>
-                  )}
+                  <Medidas g={g} color={color} />
                 </div>
+              );
+            })}
 
-                <div style={{ display: "grid", gap: 9 }}>
-                  {g.map(p => (
-                    <div key={p.id} style={{ background: "rgba(0,0,0,0.28)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 14, padding: "13px 15px" }}>
-                      <div style={{ fontSize: 24, fontWeight: 900, color: "#c9922a", marginBottom: 12, lineHeight: 1, letterSpacing: ".01em" }}>{medidaBonita(p.medida)}</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
-                        {[
-                          { ico: IcoSpinner, val: vueltasDe(p), lbl: "vueltas", col: color },
-                          { ico: IcoBox, val: fmtEntero(p.cajas), lbl: "cajas", col: "#e0e0e0" },
-                          { ico: IcoTapeRoll, val: fmtEntero(p.piezas_prod), lbl: "piezas", col: "#e0e0e0" },
-                        ].map((s, j) => (
-                          <div key={j} style={{ textAlign: "center", borderLeft: j > 0 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
-                            <div style={{ color: "#4a5070", marginBottom: 4 }}><Ico icon={s.ico} size={13} /></div>
-                            <div style={{ fontSize: 30, fontWeight: 900, color: s.col, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{s.val}</div>
-                            <div style={{ fontSize: 10, color: "#5a6080", marginTop: 5, textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700 }}>{s.lbl}</div>
-                          </div>
-                        ))}
-                      </div>
+            <h2 style={{ color: "#ff9900", fontSize: 14, margin: "22px 0 10px", textTransform: "uppercase", letterSpacing: ".08em" }}>📋 Próximos anotados — orden de salida</h2>
+            {gruposAnotados.length === 0 ? (
+              <p style={{ color: "#666", fontSize: 13 }}>Sin jumbos anotados en cola.</p>
+            ) : gruposAnotados.map((g, i) => {
+              const p0 = g[0];
+              const t = tarimas.find(x => x.id === p0.tarima_jumbo_id);
+              const color = colorDeGrupo(g);
+              return (
+                <div key={p0.folio_rebobinado ?? p0.id} style={{ ...card, borderLeft: `4px solid #ff9900`, display: "flex", gap: 12 }}>
+                  <div style={{ color: "#ff9900", fontWeight: 800, fontSize: 20, minWidth: 24, textAlign: "center" }}>{i + 1}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: "#666", fontWeight: 700, letterSpacing: ".05em", marginBottom: 3 }}>
+                      JUMBO {t ? `#${t.numero ?? "?"}${t.lote ? ` · ${t.lote}` : ""}` : ""}
                     </div>
-                  ))}
+                    <div style={{ fontSize: 16, fontWeight: 700, color }}>{p0.tipo} · {p0.color}</div>
+                    <Medidas g={g} color={color} />
+                  </div>
                 </div>
-              </div>
-            );
-          })
+              );
+            })}
+          </>
         )}
       </main>
     </div>
