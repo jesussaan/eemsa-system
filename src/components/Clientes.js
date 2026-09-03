@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { today } from '../lib/utils';
+import { today, uid, subirConUrlFirmada } from '../lib/utils';
 import { STATUS_PED, META_MERMA_PCT } from '../lib/constants';
 import { supabase } from '../lib/supabase';
+import { authHeaders } from '../lib/auth';
+import ClicheImg from './ClicheImg';
 
 const PORTAL_BASE_URL = "https://eemsa-system.vercel.app";
 
-export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
+export default function Clientes({ pedidos: pedidosProp, ocultarMerma, clientesDisenos = [] }) {
   // Rebobinado es stock, no un cliente -- ademas del nombre fijo actual
   // (REBOB_CLIENTE), hay pedidos viejos de antes de que existiera Modo
   // Rebobinado guardados con nombres sueltos distintos (ej. "REBOBINADO
@@ -20,8 +22,35 @@ export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
   const [toast, setToast] = useState("");
   const [copiando, setCopiando] = useState(null);
   const [vistaImprimir, setVistaImprimir] = useState(false);
+  const [subiendoDiseno, setSubiendoDiseno] = useState(null);
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(""), 2500); };
+
+  // Foto de referencia del diseno actual del cliente -- no alimenta ningun
+  // calculo (a diferencia de la foto obligatoria en Calculadora de
+  // Produccion), es solo consulta visual rapida para Ventas/Supervisor
+  // ("¿cómo es el diseño de este cliente?") sin tener que buscar en
+  // pedidos viejos. Se guarda una sola vez por cliente y se sobreescribe
+  // si se sube una nueva (upsert por nombre, ver api/registro.js).
+  const disenoDe = (nombre) => clientesDisenos.find(d => d.cliente === nombre);
+  const subirDiseno = async (nombre, file) => {
+    if (!file) return;
+    setSubiendoDiseno(nombre);
+    try {
+      const path = `disenos-cliente/${uid()}_${file.name}`;
+      const { error: upErr } = await subirConUrlFirmada(supabase, 'cliches', path, file, authHeaders());
+      if (upErr) { showToast("❌ Error al subir: " + upErr.message); setSubiendoDiseno(null); return; }
+      const res = await fetch('/api/registro?tabla=clientes-disenos', {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ cliente: nombre, foto_path: path }),
+      });
+      if (!res.ok) { showToast("❌ Error al guardar"); setSubiendoDiseno(null); return; }
+      showToast("✓ Diseño guardado");
+    } catch {
+      showToast("❌ No se pudo subir la foto");
+    }
+    setSubiendoDiseno(null);
+  };
 
   const copiarLinkPortal = async (nombre) => {
     setCopiando(nombre);
@@ -278,6 +307,35 @@ export default function Clientes({ pedidos: pedidosProp, ocultarMerma }) {
               </div>
               <button className="btn btn-ghost btn-sm" onClick={() => setClienteSel(null)}>✕</button>
             </div>
+
+            {/* Diseño de referencia -- solo consulta visual, no alimenta
+                ningun calculo (a diferencia de la foto obligatoria en
+                Calculadora de Produccion). Se sube una vez y se puede
+                cambiar despues; si esta vieja no rompe nada, sigue
+                sirviendo para identificar el diseño de un vistazo. */}
+            {(() => {
+              const diseno = disenoDe(seleccionado.nombre);
+              const subiendo = subiendoDiseno === seleccionado.nombre;
+              return (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 11, color: "#545a78", fontWeight: 700, marginBottom: 6 }}>DISEÑO DE REFERENCIA</div>
+                  {diseno ? (
+                    <div style={{ position: "relative" }}>
+                      <ClicheImg src={diseno.foto_path} style={{ width: "100%", maxHeight: 260, objectFit: "contain", borderRadius: 10, background: "#0e1018", border: "1px solid #1e2132" }} />
+                      <label style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(10,12,18,0.85)", border: "1px solid #2a2d3a", borderRadius: 8, padding: "6px 12px", fontSize: 12, color: "#c9922a", cursor: subiendo ? "default" : "pointer", fontWeight: 600 }}>
+                        <input type="file" accept="image/*" disabled={subiendo} style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) subirDiseno(seleccionado.nombre, f); e.target.value = ""; }} />
+                        {subiendo ? "Subiendo…" : "📷 Cambiar foto"}
+                      </label>
+                    </div>
+                  ) : (
+                    <label style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "#0e1018", border: "1px dashed #2a2d3a", borderRadius: 10, padding: "18px 12px", fontSize: 13, color: "#9aa0bc", cursor: subiendo ? "default" : "pointer", fontWeight: 600 }}>
+                      <input type="file" accept="image/*" disabled={subiendo} style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) subirDiseno(seleccionado.nombre, f); e.target.value = ""; }} />
+                      {subiendo ? "Subiendo…" : "📷 Subir foto del diseño"}
+                    </label>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Stats del cliente */}
             <div className="stat-grid" style={{ marginBottom: 14 }}>

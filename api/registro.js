@@ -16,6 +16,7 @@ const TABLAS = {
   'lista-materiales': manejarListaMateriales,
   plantillas: manejarPlantillas,
   'prod-diaria': manejarProdDiaria,
+  'clientes-disenos': manejarClientesDisenos,
 };
 
 export default async function handler(req, res) {
@@ -175,6 +176,35 @@ async function manejarProdDiaria(req, res) {
     const { id } = req.body || {};
     if (!id) return res.status(400).json({ error: 'id es requerido' });
     const { error } = await supabase.from('prod_diaria').delete().eq('id', id);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ ok: true });
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
+}
+
+// Foto de referencia del diseno actual de cada cliente (modulo Clientes) --
+// solo escritura via aqui (RLS de la tabla bloquea anon/authenticated, ver
+// supabase_clientes_disenos.sql); la lectura la hace el navegador directo
+// con la anon key (select abierto), igual que el resto de las tablas que
+// carga App.js.
+async function manejarClientesDisenos(req, res) {
+  if (!(await requiereModo(req, 'supervisor'))) return res.status(401).json({ error: 'No autorizado' });
+
+  if (req.method === 'PUT') {
+    const { cliente, foto_path } = req.body || {};
+    if (!cliente || !foto_path) return res.status(400).json({ error: 'cliente y foto_path son requeridos' });
+    const { data: existente } = await supabase.from('clientes_disenos').select('id').eq('cliente', cliente).maybeSingle();
+    const fila = { id: existente?.id || uid(), cliente, foto_path, updated_at: new Date().toISOString() };
+    const { error } = await supabase.from('clientes_disenos').upsert([fila], { onConflict: 'cliente' });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json(fila);
+  }
+
+  if (req.method === 'DELETE') {
+    const { cliente } = req.body || {};
+    if (!cliente) return res.status(400).json({ error: 'cliente es requerido' });
+    const { error } = await supabase.from('clientes_disenos').delete().eq('cliente', cliente);
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json({ ok: true });
   }

@@ -155,6 +155,7 @@ function EemsaApp() {
   const [prodDiaria, setProdDiaria] = useState([]);
   const [listaMateriales, setListaMateriales] = useState([]);
   const [cliches, setCliches] = useState([]);
+  const [clientesDisenos, setClientesDisenos] = useState([]);
   const [errorCarga, setErrorCarga] = useState(null);
   // Se recuerda en localStorage -- si el celular/tablet mata la app en
   // segundo plano (o la recarga por una actualizacion), regresa directo al
@@ -207,6 +208,7 @@ function EemsaApp() {
       prod_diaria:      (d) => setProdDiaria(d),
       lista_materiales: (d) => setListaMateriales(d),
       cliches:          (d) => setCliches(d),
+      clientes_disenos: (d) => setClientesDisenos(d),
     };
     const fallidas = [];
     await Promise.all(tablas.map(async t => {
@@ -220,7 +222,7 @@ function EemsaApp() {
   // Se pide de una vez, en paralelo con el login -- asi no hay espera extra
   // despues de iniciar sesion (las tablas ya tienen lectura anon abierta).
   useEffect(() => {
-    cargarTablas(["pedidos", "fallas", "refacciones", "materiales", "tarimas", "proveedores", "prod_diaria", "lista_materiales", "cliches"]);
+    cargarTablas(["pedidos", "fallas", "refacciones", "materiales", "tarimas", "proveedores", "prod_diaria", "lista_materiales", "cliches", "clientes_disenos"]);
   }, []);
 
   // Realtime: actualiza el estado local cuando otro usuario cambia datos en Supabase
@@ -235,6 +237,7 @@ function EemsaApp() {
       prod_diaria:      { set: setProdDiaria },
       lista_materiales: { set: setListaMateriales },
       cliches:          { set: setCliches },
+      clientes_disenos: { set: setClientesDisenos },
     };
     const canales = Object.entries(setters).map(([tabla, { set }]) =>
       supabase.channel(`rt_${tabla}`)
@@ -424,7 +427,7 @@ function EemsaApp() {
           {tab === "prod" && <Produccion prodDiaria={prodDiaria} setProdDiaria={setProdDiaria} pedidos={pedidos} />}
           {tab === "ref"  && <Refacciones refs={refs} setRefs={setRefs} proveedores={proveedores} setProveedores={setProveedores} />}
           {tab === "fal"  && <Fallas fallas={fallas} setFallas={setFallas} />}
-          {tab === "cli"  && <Clientes pedidos={pedidos} />}
+          {tab === "cli"  && <Clientes pedidos={pedidos} clientesDisenos={clientesDisenos} />}
           {tab === "ia"   && <AsistenteIA onRefrescar={cargarTablas} />}
         </Suspense>
       </main>
