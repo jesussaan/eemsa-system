@@ -265,7 +265,12 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
       merma: modalPedido.merma || null, merma_pct: mPct || null,
       notas: modalPedido.notas, status: modalPedido.status,
       rollos_usados: n2(modalPedido.rollos_usados),
-      tinta_tipo: unificarPorTexto(modalPedido.tinta_tipo, tintasSugeridas) || null,
+      // tinta_tipo ya no tiene su propia caja en este modal -- se mantiene
+      // igual a "color" (un solo campo de color, ver feedback: dos cajas
+      // para lo mismo obligaba a escribirlo doble) para que cualquier
+      // lectura vieja que use tinta_tipo en vez de color siga viendo lo
+      // mismo que se acaba de corregir.
+      tinta_tipo: unificarPorTexto(modalPedido.color, tintasSugeridas) || null,
       tinta_kg: n2(modalPedido.tinta_kg),
       color2: unificarPorTexto(modalPedido.color2, tintasSugeridas) || null,
       tinta_kg2: n2(modalPedido.tinta_kg2),
@@ -529,10 +534,6 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
               <div style={{ fontSize: 12, color: "#c9922a", fontWeight: 700, marginBottom: 10 }}>📦 Consumos de producción</div>
               <div className="form-grid">
                 <div className="field"><label>Rollos usados</label><input type="number" step="0.5" value={modalPedido.rollos_usados || ""} onChange={e => setModalPedido(m => ({ ...m, rollos_usados: e.target.value }))} placeholder="36" /></div>
-                <div className="field"><label>Tipo de tinta</label>
-                  <input value={modalPedido.tinta_tipo || ""} onChange={e => setModalPedido(m => ({ ...m, tinta_tipo: e.target.value }))} placeholder="Roja UV, Azul PMS…" list="tintas-list" />
-                  <datalist id="tintas-list">{tintasSugeridas.map(t => <option key={t} value={t} />)}</datalist>
-                </div>
                 <div className="field"><label>Tinta usada (kg)</label><input type="number" step="0.01" value={modalPedido.tinta_kg || ""} onChange={e => setModalPedido(m => ({ ...m, tinta_kg: e.target.value }))} placeholder="0.5" /></div>
                 <div className="field"><label>2do color (opcional)</label><input value={modalPedido.color2 || ""} onChange={e => setModalPedido(m => ({ ...m, color2: e.target.value }))} placeholder="Solo si el pedido lleva 2 tintas" /></div>
                 <div className="field"><label>Tinta 2do color (kg)</label><input type="number" step="0.01" value={modalPedido.tinta_kg2 || ""} onChange={e => setModalPedido(m => ({ ...m, tinta_kg2: e.target.value }))} placeholder="0.5" /></div>
