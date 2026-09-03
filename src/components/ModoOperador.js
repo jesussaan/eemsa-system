@@ -6,12 +6,12 @@ import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
 import { today, fmt, alertaEntrega, subirConUrlFirmada, cargarBorrador, guardarBorrador } from '../lib/utils';
 import { anchoDePedido } from '../lib/produccion';
-import { horasEfectivas, JORNADA_HORAS } from '../lib/horario';
+import { horasEfectivasPedido, JORNADA_HORAS } from '../lib/horario';
 import { sendPush } from '../lib/push';
 import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV, UMBRAL_MERMA, REBOB_CLIENTE } from '../lib/constants';
 import { sendWhatsApp } from '../utils/whatsapp';
-import { IcoOperador, IcoPalette, IcoRoll, IcoClipboard, IcoCamera, IcoCheck, IcoFal, IcoScan } from './Icons';
+import { IcoOperador, IcoPalette, IcoRoll, IcoClipboard, IcoCamera, IcoCheck, IcoFal, IcoScan, IcoPause, IcoPlay } from './Icons';
 import NotifBell from './NotifBell';
 import EscanerTarima from './EscanerTarima';
 
@@ -213,6 +213,36 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
     setLoading(false);
   };
 
+  // Pausar/reanudar: para cuando el pedido se queda "en proceso" pero ese
+  // dia (o unas horas) el operador no vino o la maquina no se prendio --
+  // sin esto, ese tiempo muerto se contaba igual como produccion real y
+  // disparaba el costo por pieza (mismo bug que se corrigio en Pedidos.js,
+  // pero la causa real es que no habia forma de avisar "esto no es tiempo
+  // de maquina corriendo"). Se guarda como intervalos en pedidos.pausas;
+  // uno sin "fin" significa que sigue pausado ahorita.
+  const estaPausado = !!(pedidoSel?.pausas?.length && !pedidoSel.pausas[pedidoSel.pausas.length - 1].fin);
+  const pausar = async () => {
+    setLoading(true);
+    const nuevasPausas = [...(pedidoSel.pausas || []), { inicio: new Date().toISOString(), fin: null }];
+    const res = await actualizarEstadoPedido(pedidoSel.id, { pausas: nuevasPausas });
+    if (!res.ok) { showToast("❌ Error al pausar"); setLoading(false); return; }
+    setPedidos(ps => ps.map(p => p.id === pedidoSel.id ? { ...p, pausas: nuevasPausas } : p));
+    showToast("⏸ Pedido pausado");
+    setLoading(false);
+  };
+  const reanudar = async () => {
+    setLoading(true);
+    const pausas = [...(pedidoSel.pausas || [])];
+    if (pausas.length && !pausas[pausas.length - 1].fin) {
+      pausas[pausas.length - 1] = { ...pausas[pausas.length - 1], fin: new Date().toISOString() };
+    }
+    const res = await actualizarEstadoPedido(pedidoSel.id, { pausas });
+    if (!res.ok) { showToast("❌ Error al reanudar"); setLoading(false); return; }
+    setPedidos(ps => ps.map(p => p.id === pedidoSel.id ? { ...p, pausas } : p));
+    showToast("▶ Pedido reanudado");
+    setLoading(false);
+  };
+
   const finalizarPedido = async (fin, asignacionesTarima) => {
     setLoading(true);
     const piezas = fin.piezas_prod != null && fin.piezas_prod !== "" ? Number(fin.piezas_prod) : null;
@@ -254,7 +284,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
     // proceso" de viernes a lunes no debe cargar el sabado en la tarde ni
     // el domingo completo si la maquina no trabajo esas horas.
     const diasProd     = pedidoSel.inicio_ts
-      ? Math.max(0.5, horasEfectivas(new Date(pedidoSel.inicio_ts), new Date()) / JORNADA_HORAS)
+      ? Math.max(0.5, horasEfectivasPedido(new Date(pedidoSel.inicio_ts), new Date(), pedidoSel.pausas) / JORNADA_HORAS)
       : 1;
     // Cajas reales producidas (piezas ÷ rollos por caja), no pedidoSel.cajas
     // -- ese numero es lo que Ventas anoto al crear el pedido. Se usa tanto
@@ -688,9 +718,13 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
               // domingo si un pedido se queda "en proceso" de un dia para
               // otro. Los "dias" aqui son jornadas completas (9.75h),
               // no dias de calendario.
+              // Con pausas ya descontadas -- si no, el tiempo "en produccion"
+              // (y el costo fijo que se le carga al pedido, ver diasProd en
+              // finalizarPedido) sube igual aunque la maquina haya estado
+              // apagada o el operador ausente.
               let elapsed = null;
               if (pedidoSel.inicio_ts) {
-                const totalMin = Math.floor(horasEfectivas(new Date(pedidoSel.inicio_ts), ahora) * 60);
+                const totalMin = Math.floor(horasEfectivasPedido(new Date(pedidoSel.inicio_ts), ahora, pedidoSel.pausas) * 60);
                 if (totalMin >= 0) {
                   const d = Math.floor(totalMin / (JORNADA_HORAS * 60));
                   const restoMin = totalMin - d * JORNADA_HORAS * 60;
@@ -703,14 +737,24 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
               }
               return (
                 <>
-                  {elapsed && (
+                  {estaPausado ? (
+                    <div style={{ textAlign: "center", background: "var(--orange-dim, rgba(232,184,75,0.1))", border: "1px solid var(--orange, #e8b84b)", borderRadius: 12, padding: "12px 16px", marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, color: "var(--orange, #e8b84b)", fontWeight: 700, letterSpacing: ".07em", marginBottom: 4 }}><Ico icon={IcoPause} size={11} /> PAUSADO</div>
+                      <div style={{ fontSize: 13, color: "var(--text-2)" }}>El tiempo pausado no se le carga al pedido</div>
+                    </div>
+                  ) : elapsed && (
                     <div style={{ textAlign: "center", background: "var(--green-dim)", border: "1px solid var(--green)", borderRadius: 12, padding: "12px 16px", marginBottom: 14 }}>
                       <div style={{ fontSize: 11, color: "var(--green)", fontWeight: 700, letterSpacing: ".07em", marginBottom: 4 }}>⏱ TIEMPO EN PRODUCCIÓN</div>
                       <div style={{ fontSize: 36, fontWeight: 900, color: "var(--green)", fontVariantNumeric: "tabular-nums" }}>{elapsed}</div>
                       <div style={{ fontSize: 10, color: "var(--text-2)", marginTop: 4 }}>Solo horas de trabajo — no cuenta noches ni domingo</div>
                     </div>
                   )}
-                  <button className="btn btn-primary btn-block" style={{ marginBottom: 10, padding: 16, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={() => setVista("tarima")}><Ico icon={IcoCheck} size={16} /> Finalizar pedido</button>
+                  {estaPausado ? (
+                    <button className="btn btn-primary btn-block" style={{ marginBottom: 10, padding: 16, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={reanudar} disabled={loading}><Ico icon={IcoPlay} size={16} /> Reanudar pedido</button>
+                  ) : (
+                    <button className="btn btn-ghost btn-block" style={{ marginBottom: 10, padding: 14, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, border: "1px solid var(--orange, #e8b84b)", color: "var(--orange, #e8b84b)" }} onClick={pausar} disabled={loading}><Ico icon={IcoPause} size={15} /> Pausar (operador ausente / máquina apagada)</button>
+                  )}
+                  <button className="btn btn-primary btn-block" style={{ marginBottom: 10, padding: 16, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: estaPausado ? 0.4 : 1 }} onClick={() => setVista("tarima")} disabled={estaPausado}><Ico icon={IcoCheck} size={16} /> Finalizar pedido</button>
                   <button className="btn btn-danger btn-block" style={{ padding: 16, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={() => setVista("falla")}><Ico icon={IcoFal} size={16} /> Reportar falla</button>
                 </>
               );

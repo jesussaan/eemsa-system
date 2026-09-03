@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
 import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada, unificarPorTexto, normalizarMedida } from '../lib/utils';
 import { rollosPorCaja, anchoDePedido, largoDePedido } from '../lib/produccion';
+import { horasEfectivasPedido, JORNADA_HORAS } from '../lib/horario';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT, REBOB_CLIENTE } from '../lib/constants';
 import { sendWhatsApp, mensajePedidoNuevo } from '../utils/whatsapp';
 import { confirmar } from '../lib/confirm';
@@ -306,12 +307,15 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
     // prima. Asi paso con MAFENSA #113, Pahuatlan #129, Meritor #127, ICON
     // #125, MAS RECIO #134 y B hermanos engomado #117 -- se corrigieron a
     // mano una vez, pero sin este fix le iba a volver a pasar a cualquier
-    // pedido que se edite despues de terminado.
+    // pedido que se edite despues de terminado. De paso se unifica con la
+    // misma formula de horas EFECTIVAS (y pausas descontadas, ver
+    // ModoOperador.js) que ya usa finalizarPedido -- antes esta recalculacion
+    // contaba dias de calendario crudos (fines de semana completos incluidos).
     if (actualizado.piezas_prod > 0) {
       try {
         const finReal = modalPedido.fin_ts || (modalPedido.fecha_termino ? `${modalPedido.fecha_termino}T16:00:00` : null);
         const diasProd = modalPedido.inicio_ts
-          ? Math.max(0.5, Math.ceil((new Date(finReal || Date.now()).getTime() - new Date(modalPedido.inicio_ts).getTime()) / 86400000))
+          ? Math.max(0.5, horasEfectivasPedido(new Date(modalPedido.inicio_ts), new Date(finReal || Date.now()), modalPedido.pausas) / JORNADA_HORAS)
           : 1;
         const costoRes = await fetch('/api/costos?action=calcular', {
           method: 'POST',

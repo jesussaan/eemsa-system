@@ -41,3 +41,23 @@ export const minutosEfectivos = (inicio, fin) => {
 };
 
 export const horasEfectivas = (inicio, fin) => minutosEfectivos(inicio, fin) / 60;
+
+// Pausas manuales de un pedido "en proceso" (operador ausente, maquina
+// apagada, etc. -- ver ModoOperador.js) -- se guardan como
+// [{inicio: ISO, fin: ISO|null}, ...] en pedidos.pausas. Una pausa sin
+// "fin" sigue abierta (todavia pausado); se cuenta hasta `hasta` (default
+// ahora) para poder mostrar el tiempo pausado en vivo.
+export const horasPausadas = (pausas, hasta = new Date()) => {
+  if (!Array.isArray(pausas) || !pausas.length) return 0;
+  return pausas.reduce((s, p) => {
+    if (!p?.inicio) return s;
+    const fin = p.fin ? new Date(p.fin) : hasta;
+    return s + horasEfectivas(new Date(p.inicio), fin);
+  }, 0);
+};
+
+// Horas efectivas de produccion de un pedido, con las pausas ya
+// descontadas -- esto es lo que de verdad hay que usar para diasProd
+// (costo fijo) y para el cronometro en pantalla, no horasEfectivas crudo.
+export const horasEfectivasPedido = (inicio, fin, pausas) =>
+  Math.max(0, horasEfectivas(inicio, fin) - horasPausadas(pausas, fin));
