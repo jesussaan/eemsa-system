@@ -4,14 +4,11 @@ import BarChart from './BarChart';
 import { authHeaders } from '../lib/auth';
 import { today, fmt, diasHabilesRestantes, estadoPlazo } from '../lib/utils';
 import { META_CAJAS, META_MERMA_PCT, REBOB_CLIENTE, REBOB_COLOR, SEV } from '../lib/constants';
-import { horasEfectivas } from '../lib/horario';
-import { CAPACIDAD_DEFAULTS } from '../lib/capacidad';
 import { notificar } from '../lib/notificaciones';
 import { exportarExcel } from '../lib/exportExcel';
 import { analizarComponentes } from '../lib/mantenimiento';
 import { IcoDash, IcoFal, IcoMoney, IcoCompare, IcoTrendUp, IcoTrophy, IcoDroplet, IcoTapeRoll, IcoRef, IcoRoll, IcoStamp, IcoBox } from './Icons';
 import EditorCostos from './EditorCostos';
-import EditorCapacidad from './EditorCapacidad';
 
 const SECCIONES = [
   { id: 'resumen',    lbl: 'Resumen',    Icon: IcoDash },
@@ -78,10 +75,6 @@ const delta = (curr, prev) => {
 
 export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, materiales = [], tarimas = [], proveedores, prodDiaria, cliches = [] }) {
   const [seccion, setSeccion] = useState('resumen');
-  // Tiempos estandar / capacidad teorica -- ver EditorCapacidad.js. Se carga
-  // aqui (onLoaded/onSaved) para poder comparar contra la produccion real
-  // del mes en la seccion Producción.
-  const [capacidadDB, setCapacidadDB] = useState(null);
 
   // Salidas manuales de tarima (mala calidad, mermas, etc. -- ver "− Salida"
   // en Inventario.js) para el resumen de bajas de la seccion Inventario. Se
@@ -134,7 +127,6 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, m
     pedidosUrgentes, ultimas14, pedidosMerma, tiempoPromedio, componentesVencidos, fallasPorComp, topClientes,
     rentabilidadClientes, historialCostos, valorProducido, perdidaMerma, valorProducidoMes, perdidaMermaMes,
     mermaPctMes, mermaPctPrev, valorMes, valorPrev, valorSerie, mermaSerie, tintaMes, alcoholMes, rollosMes,
-    piezasHoraRealCintas, piezasHoraRealEngomado,
     tintaPorColor, tipoCintaStats, rebPendientes, rebPiezasTotal, rebCajasTotal, rebMermaPctProm,
     rebPorMaterial, rebPorAdhesivo, rebRecientes,
     clichesActivos, clichesCerrados, promCajasPorCliche, promPedidosPorCliche, clichesTopDuracion,
@@ -248,24 +240,6 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, m
     const alcoholMes = pedMes.reduce((s, p) => s + Number(p.alcohol_litros || 0), 0);
     const rollosMes = pedMes.reduce((s, p) => s + Number(p.rollos_usados || 0), 0);
 
-    // Piezas/hora REAL del mes -- suma de piezas producidas / suma de horas
-    // EFECTIVAS trabajadas (mismo criterio que Modo Operador/Emilio, ver
-    // lib/horario.js), separado Cintas (SIAT L36) vs Engomado porque son
-    // procesos distintos. Solo cuenta pedidos con inicio_ts/fin_ts reales --
-    // Rebobinado no se incluye aqui porque no registra esos timestamps
-    // (solo fecha_inicio/fecha_termino, sin precision de horas), asi que su
-    // capacidad se muestra nomas como referencia teorica, sin comparar
-    // contra un "real" que no se puede calcular con datos confiables.
-    const piezasHoraReal = (tipoFiltro) => {
-      const ps = pedMes.filter(p => p.inicio_ts && p.fin_ts && Number(p.piezas_prod) > 0
-        && (tipoFiltro === 'engomado' ? p.tipo === 'Engomado' : p.tipo !== 'Engomado'));
-      const piezas = ps.reduce((s, p) => s + Number(p.piezas_prod), 0);
-      const horas = ps.reduce((s, p) => s + horasEfectivas(new Date(p.inicio_ts), new Date(p.fin_ts)), 0);
-      return horas > 0 ? piezas / horas : null;
-    };
-    const piezasHoraRealCintas = piezasHoraReal('cintas');
-    const piezasHoraRealEngomado = piezasHoraReal('engomado');
-
     const tintaPorColor = (() => {
       const map = {};
       // Agrupa ignorando mayus/minusculas -- "Negro" y "NEGRO" son la misma
@@ -340,7 +314,6 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, m
       pedidosUrgentes, ultimas14, pedidosMerma, tiempoPromedio, componentesVencidos, fallasPorComp, topClientes,
       rentabilidadClientes, historialCostos, valorProducido, perdidaMerma, valorProducidoMes, perdidaMermaMes,
       mermaPctMes, mermaPctPrev, valorMes, valorPrev, valorSerie, mermaSerie, tintaMes, alcoholMes, rollosMes,
-      piezasHoraRealCintas, piezasHoraRealEngomado,
       tintaPorColor, tipoCintaStats, rebPendientes, rebPiezasTotal, rebCajasTotal, rebMermaPctProm,
       rebPorMaterial, rebPorAdhesivo, rebRecientes,
       clichesActivos, clichesCerrados, promCajasPorCliche, promPedidosPorCliche, clichesTopDuracion,
@@ -909,43 +882,6 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, m
           <BarChart data={pedidosMerma} meta={META_MERMA_PCT} lowerIsBetter />
         </div>
       )}
-
-      {/* ── Capacidad (tiempos estándar, se actualizan con un estudio de
-          tiempos ocasional -- no es dato de cada corrida, ver
-          EditorCapacidad.js) ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }}>
-        <SubTitle icon={IcoTrendUp}>Capacidad</SubTitle>
-        <EditorCapacidad label="Editar tiempos" onLoaded={setCapacidadDB} onSaved={setCapacidadDB} />
-      </div>
-      {(() => {
-        const cap = capacidadDB || CAPACIDAD_DEFAULTS;
-        const lineas = [
-          { lbl: 'Cintas (SIAT L36)', teorica: Number(cap.velocidad_piezasmin_cintas) * 60, real: piezasHoraRealCintas, montaje: Number(cap.montaje_min_cintas) },
-          { lbl: 'Engomado', teorica: Number(cap.velocidad_piezasmin_engomado) * 60, real: piezasHoraRealEngomado, montaje: Number(cap.montaje_min_engomado) },
-          { lbl: 'Rebobinado', teorica: Number(cap.velocidad_piezasmin_rebobinado) * 60, real: null, montaje: Number(cap.montaje_min_rebobinado) },
-        ];
-        return (
-          <div className="stat-grid" style={{ marginBottom: 12 }}>
-            {lineas.map(l => {
-              const pct = l.real != null && l.teorica > 0 ? Math.round((l.real / l.teorica) * 100) : null;
-              return (
-                <div key={l.lbl} className={`stat-card ${pct == null ? "accent" : pct >= 70 ? "green" : pct >= 40 ? "orange" : "red"}`}>
-                  <div className="stat-val" style={{ fontSize: 20 }}>
-                    {pct != null ? `${pct}%` : `${Math.round(l.teorica).toLocaleString('es-MX')}`}
-                    {pct == null && <span style={{ fontSize: 12 }}> pzas/h teórico</span>}
-                  </div>
-                  <div className="stat-lbl">
-                    {l.lbl}{pct != null ? ' de tu capacidad (mes)' : ''}
-                  </div>
-                  <div className="muted" style={{ marginTop: 3, fontSize: 11 }}>
-                    {pct != null ? `${Math.round(l.real).toLocaleString('es-MX')} vs ${Math.round(l.teorica).toLocaleString('es-MX')} pzas/h teórico` : `Montaje ~${l.montaje} min · sin dato real (no registra inicio/fin por hora)`}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })()}
 
       </>}
 
