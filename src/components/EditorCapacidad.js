@@ -16,7 +16,7 @@ export default function EditorCapacidad({ onLoaded, onSaved, label = 'Capacidad'
   const [savedMsg,     setSavedMsg]    = useState(false);
 
   useEffect(() => {
-    fetch('/api/capacidad', { headers: authHeaders() })
+    fetch('/api/registro?tabla=capacidad', { headers: authHeaders() })
       .then(res => res.ok ? res.json() : null)
       .then(obj => {
         if (!obj || !Object.keys(obj).length) return;
@@ -35,7 +35,7 @@ export default function EditorCapacidad({ onLoaded, onSaved, label = 'Capacidad'
   const guardar = async () => {
     setGuardando(true);
     try {
-      const res = await fetch('/api/capacidad', {
+      const res = await fetch('/api/registro?tabla=capacidad', {
         method: 'PUT',
         headers: authHeaders(),
         body: JSON.stringify(editVals),

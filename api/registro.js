@@ -16,6 +16,7 @@ const TABLAS = {
   'lista-materiales': manejarListaMateriales,
   plantillas: manejarPlantillas,
   'prod-diaria': manejarProdDiaria,
+  capacidad: manejarCapacidad,
 };
 
 export default async function handler(req, res) {
@@ -175,6 +176,34 @@ async function manejarProdDiaria(req, res) {
     const { id } = req.body || {};
     if (!id) return res.status(400).json({ error: 'id es requerido' });
     const { error } = await supabase.from('prod_diaria').delete().eq('id', id);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ ok: true });
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
+}
+
+// Tiempos estandar / capacidad teorica (Cintas/Engomado/Rebobinado) -- mismo
+// patron key/valor que costos.js, pero se guarda en su propia tabla porque
+// es tiempo, no dinero. Iba en su propio api/capacidad.js hasta que eso
+// tumbo el deploy (Vercel Hobby: max 12 funciones serverless, ya iban 13) --
+// se fusiona aqui igual que fallas/lista-materiales/etc.
+async function manejarCapacidad(req, res) {
+  if (!(await requiereAlgunModo(req, ['supervisor']))) return res.status(401).json({ error: 'No autorizado' });
+
+  if (req.method === 'GET') {
+    const { data, error } = await supabase.from('capacidad').select('*');
+    if (error) return res.status(500).json({ error: error.message });
+    const mapa = {};
+    (data || []).forEach(r => { mapa[r.key] = Number(r.valor); });
+    return res.status(200).json(mapa);
+  }
+
+  if (req.method === 'PUT') {
+    const valores = req.body || {};
+    const filas = Object.entries(valores).map(([key, valor]) => ({ key, valor: Number(valor) }));
+    if (!filas.length) return res.status(400).json({ error: 'Sin valores para guardar' });
+    const { error } = await supabase.from('capacidad').upsert(filas, { onConflict: 'key' });
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json({ ok: true });
   }
