@@ -7,7 +7,7 @@ import { sendPush } from "../lib/push";
 import NotifBell from "./NotifBell";
 import { IcoPalette, IcoFlask, IcoRoll, IcoProd, IcoAlertDot, IcoStore, IcoNote, IcoCal, IcoCheck, IcoPencil, IcoX, IcoEmilio, IcoRef, IcoBulb, IcoOperador, IcoCamera } from "./Icons";
 import { REBOB_CLIENTE, REBOB_COLOR } from "../lib/constants";
-import { horasEfectivas, JORNADA_HORAS } from "../lib/horario";
+import { horasEfectivasPedido, JORNADA_HORAS } from "../lib/horario";
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
@@ -123,7 +123,7 @@ export default function ModoEmilio({ pedidos, setPedidos, listaMateriales = [], 
                 : p.fecha_termino  ? new Date(p.fecha_termino  + 'T16:00:00')
                 : null;
     if (!start || !end || !(end > start)) return null;
-    const totalMin = Math.floor(horasEfectivas(start, end) * 60);
+    const totalMin = Math.floor(horasEfectivasPedido(start, end, p.pausas) * 60);
     const d = Math.floor(totalMin / (JORNADA_HORAS * 60));
     const restoMin = totalMin - d * JORNADA_HORAS * 60;
     const h = Math.floor(restoMin / 60);

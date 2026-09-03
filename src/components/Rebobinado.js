@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { QRCodeSVG } from 'qrcode.react';
 import { authHeaders } from '../lib/auth';
 import { uid, today, fmt } from '../lib/utils';
 import { REBOB_CLIENTE, REBOB_COLOR, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_VUELTA, REBOB_CAJAS_POR_CAMA, calcularPiezasTeoricas, piezasPorCajaDe } from '../lib/constants';
+import { horasEfectivasPedido, JORNADA_HORAS } from '../lib/horario';
 import { confirmar } from '../lib/confirm';
-import { IcoCheck } from './Icons';
+import { IcoCheck, IcoPause, IcoPlay } from './Icons';
 
 const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", fontSize: size, verticalAlign: -2 }}><I /></span>;
 
@@ -284,7 +285,14 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
   // planeado (si la realidad de verdad salio en otras medidas, mejor
   // cancelar el plan y registrar libre). id de cada corte = id real del
   // pedido "anotado" para poder actualizarlo en vez de crear otro.
-  const cargarPlanParaCortar = (grupo) => {
+  // "Cortar este jumbo" arranca el cronometro (inicio_ts + status=proceso)
+  // igual que Modo Operador -- antes no habia forma de saber cuanto tardo
+  // de verdad un jumbo, ni de pausarlo si el operador no vino o la maquina
+  // no se prendio ese dia (mismo mecanismo de pausas que Modo Operador,
+  // ver lib/horario.js). Se guarda en TODOS los pedidos del grupo (un
+  // rollo mixto reparte el mismo tiempo entre sus medidas, igual que ya
+  // se muestra un solo cronometro compartido en Modo Emilio).
+  const cargarPlanParaCortar = async (grupo) => {
     setForm(f => ({ ...f, adhesivo: grupo[0].color, material: grupo[0].tipo }));
     setMaterialTocado(true);
     setAdhesivoTocado(true);
@@ -292,16 +300,56 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
       const { ancho, largoPieza } = parseMedidaRebob(p.medida);
       return { id: p.id, ancho, largoPieza, cajasCompletas: "", piezasSueltas: "", merma: "", anchoTocado: true, largoPiezaTocado: true, camasCompletas: "", cajasUltimaCama: "" };
     }));
-    setGrupoActivo(grupo);
-    showToast(`📋 Cargado folio #${grupo[0].folio_rebobinado} — captura lo real y guarda`);
+    const inicio_ts = grupo[0].inicio_ts || new Date().toISOString();
+    const grupoConInicio = grupo.map(p => ({ ...p, inicio_ts, status: "proceso" }));
+    setGrupoActivo(grupoConInicio);
+    if (!grupo[0].inicio_ts) {
+      await Promise.all(grupo.map(p => actualizarPedidoRebob(p.id, { inicio_ts, status: "proceso" })));
+      setPedidos(ps => ps.map(p => grupo.some(g => g.id === p.id) ? { ...p, inicio_ts, status: "proceso" } : p));
+    }
+    showToast(`📋 Cargado folio #${grupo[0].folio_rebobinado} — cronómetro en marcha`);
   };
-  const cancelarCargaPlan = () => {
+  // Cancelar regresa el jumbo a "anotado" y borra inicio_ts/pausas -- si no,
+  // se queda atorado en "proceso" para siempre en la pizarra.
+  const cancelarCargaPlan = async () => {
+    if (grupoActivo) {
+      await Promise.all(grupoActivo.map(p => actualizarPedidoRebob(p.id, { status: "anotado", inicio_ts: null, pausas: [] })));
+      setPedidos(ps => ps.map(p => grupoActivo.some(g => g.id === p.id) ? { ...p, status: "anotado", inicio_ts: null, pausas: [] } : p));
+    }
     setGrupoActivo(null);
     setCortes([corteInicial()]);
     setForm(formInicial);
     setMaterialTocado(false);
     setAdhesivoTocado(false);
   };
+
+  const estaPausadoJumbo = !!(grupoActivo?.[0]?.pausas?.length && !grupoActivo[0].pausas[grupoActivo[0].pausas.length - 1].fin);
+  const pausarJumbo = async () => {
+    const nuevasPausas = [...(grupoActivo[0].pausas || []), { inicio: new Date().toISOString(), fin: null }];
+    await Promise.all(grupoActivo.map(p => actualizarPedidoRebob(p.id, { pausas: nuevasPausas })));
+    setGrupoActivo(g => g.map(p => ({ ...p, pausas: nuevasPausas })));
+    setPedidos(ps => ps.map(p => grupoActivo.some(g => g.id === p.id) ? { ...p, pausas: nuevasPausas } : p));
+    showToast("⏸ Jumbo pausado");
+  };
+  const reanudarJumbo = async () => {
+    const pausas = [...(grupoActivo[0].pausas || [])];
+    if (pausas.length && !pausas[pausas.length - 1].fin) {
+      pausas[pausas.length - 1] = { ...pausas[pausas.length - 1], fin: new Date().toISOString() };
+    }
+    await Promise.all(grupoActivo.map(p => actualizarPedidoRebob(p.id, { pausas })));
+    setGrupoActivo(g => g.map(p => ({ ...p, pausas })));
+    setPedidos(ps => ps.map(p => grupoActivo.some(g => g.id === p.id) ? { ...p, pausas } : p));
+    showToast("▶ Jumbo reanudado");
+  };
+
+  // Reloj en vivo solo mientras hay un jumbo cortandose -- para el
+  // cronometro de "Cortar este jumbo" (mismo patron que Modo Operador).
+  const [ahora, setAhora] = useState(new Date());
+  useEffect(() => {
+    if (!grupoActivo) return;
+    const t = setInterval(() => setAhora(new Date()), 1000);
+    return () => clearInterval(t);
+  }, [grupoActivo]);
 
   // Mismo rollo MP (8000m) a veces sale mezclado -- parte a una medida y
   // parte a otra -- en vez de una sola medida fija para todo el rollo.
@@ -350,6 +398,7 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
         const updates = {
           cajas: calc.cajasCompletasN, piezas_prod: calc.piezasReal, rollos_usados: fracciones[i],
           merma: calc.mermaNum, merma_pct: calc.mermaPct, status: "pendiente",
+          fin_ts: new Date().toISOString(),
           notas: (form.notas || `Teórico: ${calc.piezasTeoricas} pzas (${calc.vueltas} vueltas x ${c.ancho})`) + notaSueltas,
         };
         const res = await actualizarPedidoRebob(c.id, updates);
@@ -664,10 +713,38 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
       )}
 
       {grupoActivo && (
-        <div style={{ background: "rgba(62,207,192,0.12)", border: "1px solid var(--teal)", borderRadius: 10, padding: "10px 14px", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 13, color: "var(--teal)" }}>📋 Capturando el corte real del folio #{grupoActivo[0].folio_rebobinado} planeado</span>
-          <button onClick={cancelarCargaPlan} style={{ background: "transparent", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: 12 }}>✕ Salir sin guardar</button>
-        </div>
+        <>
+          <div style={{ background: "rgba(62,207,192,0.12)", border: "1px solid var(--teal)", borderRadius: 10, padding: "10px 14px", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 13, color: "var(--teal)" }}>📋 Capturando el corte real del folio #{grupoActivo[0].folio_rebobinado} planeado</span>
+            <button onClick={cancelarCargaPlan} style={{ background: "transparent", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: 12 }}>✕ Salir sin guardar</button>
+          </div>
+          {(() => {
+            const totalMin = Math.floor(horasEfectivasPedido(new Date(grupoActivo[0].inicio_ts), ahora, grupoActivo[0].pausas) * 60);
+            const d = Math.floor(totalMin / (JORNADA_HORAS * 60));
+            const restoMin = totalMin - d * JORNADA_HORAS * 60;
+            const h = Math.floor(restoMin / 60);
+            const m = restoMin % 60;
+            const elapsed = d > 0 ? `${d}d ${h}h ${String(m).padStart(2,'0')}m` : h > 0 ? `${h}h ${String(m).padStart(2,'0')}m` : `${m}m`;
+            return (
+              <div style={{ marginBottom: 14 }}>
+                {estaPausadoJumbo ? (
+                  <div style={{ textAlign: "center", background: "rgba(232,184,75,0.1)", border: "1px solid #e8b84b", borderRadius: 12, padding: "12px 16px", marginBottom: 10 }}>
+                    <div style={{ fontSize: 11, color: "#e8b84b", fontWeight: 700, letterSpacing: ".07em", marginBottom: 4 }}><Ico icon={IcoPause} size={11} /> PAUSADO</div>
+                    <div style={{ fontSize: 13, color: "#9aa0bc" }}>El tiempo pausado no se le carga al jumbo</div>
+                  </div>
+                ) : (
+                  <div style={{ textAlign: "center", background: "rgba(75,232,122,0.08)", border: "1px solid var(--green)", borderRadius: 12, padding: "12px 16px", marginBottom: 10 }}>
+                    <div style={{ fontSize: 11, color: "var(--green)", fontWeight: 700, letterSpacing: ".07em", marginBottom: 4 }}>⏱ TIEMPO EN PRODUCCIÓN</div>
+                    <div style={{ fontSize: 30, fontWeight: 900, color: "var(--green)", fontVariantNumeric: "tabular-nums" }}>{elapsed}</div>
+                  </div>
+                )}
+                <button className="btn btn-block" style={{ padding: 12, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, border: "1px solid #e8b84b", color: "#e8b84b", background: "transparent" }} onClick={estaPausadoJumbo ? reanudarJumbo : pausarJumbo}>
+                  <Ico icon={estaPausadoJumbo ? IcoPlay : IcoPause} size={14} /> {estaPausadoJumbo ? "Reanudar" : "Pausar (operador ausente / máquina apagada)"}
+                </button>
+              </div>
+            );
+          })()}
+        </>
       )}
 
       <h3 className="sub-title">Rollo (material) del jumbo — {REBOB_LARGO_JUMBO_M}m</h3>

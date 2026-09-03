@@ -96,7 +96,7 @@ export default async function handler(req, res) {
           return res.status(401).json({ error: 'No autorizado' });
         }
       }
-      const CAMPOS_REBOBINADO = ['cajas', 'piezas_prod', 'merma', 'merma_pct', 'rollos_usados', 'notas', 'orden', 'status', 'tarima_jumbo_id'];
+      const CAMPOS_REBOBINADO = ['cajas', 'piezas_prod', 'merma', 'merma_pct', 'rollos_usados', 'notas', 'orden', 'status', 'tarima_jumbo_id', 'inicio_ts', 'fin_ts', 'pausas'];
       const updates = {};
       for (const k of CAMPOS_REBOBINADO) if (req.body[k] !== undefined) updates[k] = req.body[k];
       if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'Sin campos válidos para actualizar' });
