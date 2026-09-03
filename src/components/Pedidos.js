@@ -134,7 +134,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
       rollos_totales: (cajas && rollosCaja) ? String(Number(cajas) * Number(rollosCaja)) : "",
       ancho,
       largo: p.largo || "",
-      color: p.color || "",
+      color: p.color || p.tinta_tipo || "",
       maq: p.maq || "SIAT L36 #1",
       op: p.op || "William",
       fecha_solicitud: today(),
@@ -173,7 +173,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
     autoTable(doc, {
       startY: doc.lastAutoTable.finalY + 13,
       head: [["Tipo", "Medida", "Cajas", "Rollos/caja", "Color impresión"]],
-      body: [[p.tipo || "—", p.medida || "—", String(p.cajas || "—"), String(p.rollos_caja || "—"), p.color || "—"]],
+      body: [[p.tipo || "—", p.medida || "—", String(p.cajas || "—"), String(p.rollos_caja || "—"), p.color || p.tinta_tipo || "—"]],
       styles: { fontSize: 10 }, headStyles: { fillColor: [26, 39, 68], textColor: [201, 146, 42] },
     });
     const consumoRows = [];
@@ -181,7 +181,6 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
     if (p.fecha_termino) consumoRows.push(["Fecha término producción", p.fecha_termino]);
     if (p.fecha_inicio && p.fecha_termino) consumoRows.push(["Días de producción", `${Math.round((new Date(p.fecha_termino + "T12:00:00") - new Date(p.fecha_inicio + "T12:00:00")) / 86400000) + 1} días`]);
     if (p.rollos_usados) consumoRows.push(["Rollos usados", String(p.rollos_usados)]);
-    if (p.tinta_tipo) consumoRows.push(["Tipo de tinta", p.tinta_tipo]);
     if (p.tinta_kg) consumoRows.push(["Tinta usada", `${p.tinta_kg} kg`]);
     if (p.alcohol_litros) consumoRows.push(["Alcohol utilizado", `${p.alcohol_litros} L`]);
     if (p.merma_pct) consumoRows.push(["% Merma", `${p.merma_pct}%`]);
@@ -219,7 +218,14 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
       if (upErr) { showToast("⚠ Foto no subida: " + upErr.message); }
       else if (up) { cliche_url = up.path; }
     }
-    const nuevo = { id: uid(), created: today(), cliente: unificarPorTexto(form.cliente, clientesSugeridos), num: form.num, tipo: form.tipo, medida: normalizarMedida(form.medida), cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(form.rollos_totales), ancho: form.ancho, largo: form.largo, color: unificarPorTexto(form.color, tintasSugeridas) || null, color2: unificarPorTexto(form.color2, tintasSugeridas) || null, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
+    // color y tinta_tipo se guardan iguales desde que se crea el pedido (no
+    // solo al editar) -- Modo Operador, Consumibles y el PDF leen cualquiera
+    // de las dos segun de donde venga el pedido (ver comentario arriba de
+    // tintasSugeridas), asi que dejarlas sincronizadas desde el inicio evita
+    // que un pedido nuevo se vea "sin color" en algun lado por leer la
+    // columna que no es.
+    const colorFinal = unificarPorTexto(form.color, tintasSugeridas) || null;
+    const nuevo = { id: uid(), created: today(), cliente: unificarPorTexto(form.cliente, clientesSugeridos), num: form.num, tipo: form.tipo, medida: normalizarMedida(form.medida), cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(form.rollos_totales), ancho: form.ancho, largo: form.largo, color: colorFinal, tinta_tipo: colorFinal, color2: unificarPorTexto(form.color2, tintasSugeridas) || null, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
     try {
       const res = await fetch('/api/pedidos', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
       const data = await res.json();
@@ -233,7 +239,14 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
     setLoading(false);
   };
 
-  const abrirModal = (p) => setModalPedido({ ...p });
+  // El color puede venir en "color" (pedidos anotados/editados aqui) o en
+  // "tinta_tipo" (pedidos anotados desde Módulo Ventas) -- el modal solo
+  // tiene una caja de "Color impresión" (ver feedback: dos cajas para lo
+  // mismo obligaba a escribirlo doble), asi que se prellena con el que
+  // sea que traiga el pedido. Sin este respaldo, un pedido de Ventas se
+  // veia con el color en blanco al editarlo, y guardar asi lo borraba
+  // (tinta_tipo se sincroniza con "color" al guardar, ver guardarEdicion).
+  const abrirModal = (p) => setModalPedido({ ...p, color: p.color || p.tinta_tipo || "" });
   const cerrarModal = () => { setModalPedido(null); setModalClicheImg(null); setModalClichePreview(null); };
 
   const guardarModal = async () => {
@@ -342,7 +355,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   const pedidosPendientes = pedidos.filter(p => p.status === "pendiente").filter(p => !busqueda || [p.cliente, p.num, p.tipo, p.medida].some(v => String(v || "").toLowerCase().includes(busqueda.toLowerCase())));
   const pedidosFiltrados = pedidos
     .filter(p => filtro === "pendiente" ? p.status === "pendiente" : (p.status !== "pendiente" && (filtro === "todos" ? true : filtro === "activos" ? ["anotado", "proceso"].includes(p.status) : p.status === filtro)))
-    .filter(p => !busqueda || [p.cliente, p.num, p.tipo, p.medida, p.color, p.color_cinta].some(v => String(v || "").toLowerCase().includes(busqueda.toLowerCase())))
+    .filter(p => !busqueda || [p.cliente, p.num, p.tipo, p.medida, p.color, p.tinta_tipo, p.color_cinta].some(v => String(v || "").toLowerCase().includes(busqueda.toLowerCase())))
     .map(p => ({ ...p, diasRest: p.status !== "terminado" ? diasHabilesRestantes(p.fecha_solicitud) : null }))
     .sort((a, b) => { if (a.status === "terminado" && b.status !== "terminado") return 1; if (b.status === "terminado" && a.status !== "terminado") return -1; return (a.diasRest ?? 999) - (b.diasRest ?? 999); });
   const colorStatus = s => s === "terminado" ? "b-green" : s === "proceso" ? "b-blue" : s === "pendiente" ? "b-red" : "b-orange";
@@ -488,7 +501,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
                 {p.status === "terminado" && (p.rollos_usados || p.tinta_kg || p.alcohol_litros) && (
                   <div className="muted" style={{ color: "#c9922a" }}>
                     📦 {p.rollos_usados ? `${p.rollos_usados} rollos` : ""}
-                    {p.tinta_tipo ? ` · Tinta: ${p.tinta_tipo}` : ""}
+                    {(p.tinta_tipo || p.color) ? ` · Tinta: ${p.tinta_tipo || p.color}` : ""}
                     {p.tinta_kg ? ` ${p.tinta_kg}kg` : ""}
                     {p.alcohol_litros ? ` · Alcohol: ${p.alcohol_litros}L` : ""}
                     {p.notas_consumo ? ` · ${p.notas_consumo}` : ""}

@@ -159,7 +159,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
     const anterior = pedidos
       .filter(p => p.id !== pedido.id && p.diseno
         && p.cliente === pedido.cliente && p.medida === pedido.medida
-        && (p.color || null) === (pedido.color || null))
+        && (p.color || p.tinta_tipo || null) === (pedido.color || pedido.tinta_tipo || null))
       .sort((a, b) => (b.fin_ts || b.fecha_termino || "").localeCompare(a.fin_ts || a.fecha_termino || ""))[0];
     if (!anterior) return null;
     return { diseno: anterior.diseno, portaliche: anterior.portaliche, diseno2: anterior.diseno2, portaliche2: anterior.portaliche2 };
@@ -171,7 +171,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
   const clicheActivo = (pedido) => {
     if (!pedido || !cliches) return null;
     return cliches.find(c => c.estado === 'activo' && c.cliente === pedido.cliente
-      && c.medida === pedido.medida && (c.color || null) === (pedido.color || null)) || null;
+      && c.medida === pedido.medida && (c.color || null) === (pedido.color || pedido.tinta_tipo || null)) || null;
   };
 
   const seleccionarPedido = (p) => {
@@ -299,7 +299,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
         const clicheRes = await fetch('/api/cliches', {
           method: 'POST', headers: authHeaders(),
           body: JSON.stringify({
-            cliente: pedidoSel.cliente, medida: pedidoSel.medida, color: pedidoSel.color || null,
+            cliente: pedidoSel.cliente, medida: pedidoSel.medida, color: pedidoSel.color || pedidoSel.tinta_tipo || null,
             diseno: fin.diseno, portaliche: fin.portaliche,
             cajas: cajasReales, estado: fin.clicheEstado,
           }),

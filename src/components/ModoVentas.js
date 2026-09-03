@@ -106,6 +106,10 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
 
   const save = async () => {
     setSaving(true);
+    // color y tinta_tipo van iguales -- Modo Operador/Consumibles/PDF leen
+    // cualquiera de las dos segun de donde vino el pedido (ver Pedidos.js),
+    // asi que se dejan sincronizadas desde que se crea aqui tambien.
+    const colorFinal = unificarPorTexto(form.tinta_tipo, tintasSugeridas) || null;
     const nuevo = {
       id:              uid(),
       cliente:         unificarPorTexto(form.cliente, clientesSugeridos),
@@ -115,7 +119,8 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
       cajas:           Number(form.cajas),
       rollos_caja:     form.rollos_caja ? Number(form.rollos_caja) : null,
       rollos_totales:  form.rollos_totales ? Number(form.rollos_totales) : null,
-      tinta_tipo:      unificarPorTexto(form.tinta_tipo, tintasSugeridas) || null,
+      tinta_tipo:      colorFinal,
+      color:           colorFinal,
       color2:          unificarPorTexto(form.color2, tintasSugeridas) || null,
       fecha_solicitud: form.fecha_solicitud || hoy,
       notas:           form.notas.trim() || null,
