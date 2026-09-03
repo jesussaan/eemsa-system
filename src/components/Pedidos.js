@@ -297,10 +297,21 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
     // usados, tinta o alcohol despues de que Modo Operador ya calculo el
     // costo, ese numero se queda desactualizado a menos que se recalcule
     // con los valores nuevos (paso lo mismo que con el pedido de Ariat).
+    //
+    // BUG QUE SE ARREGLA AQUI: usaba Date.now() como fin de la produccion en
+    // vez de fin_ts (o fecha_termino) -- si alguien editaba un pedido YA
+    // TERMINADO semanas despues (para corregir cualquier cosa, ni siquiera
+    // algo relacionado a consumos), diasProd se inflaba con todos esos dias
+    // de mas y el costo por pieza se disparaba sin que nadie tocara materia
+    // prima. Asi paso con MAFENSA #113, Pahuatlan #129, Meritor #127, ICON
+    // #125, MAS RECIO #134 y B hermanos engomado #117 -- se corrigieron a
+    // mano una vez, pero sin este fix le iba a volver a pasar a cualquier
+    // pedido que se edite despues de terminado.
     if (actualizado.piezas_prod > 0) {
       try {
+        const finReal = modalPedido.fin_ts || (modalPedido.fecha_termino ? `${modalPedido.fecha_termino}T16:00:00` : null);
         const diasProd = modalPedido.inicio_ts
-          ? Math.max(0.5, Math.ceil((Date.now() - new Date(modalPedido.inicio_ts).getTime()) / 86400000))
+          ? Math.max(0.5, Math.ceil((new Date(finReal || Date.now()).getTime() - new Date(modalPedido.inicio_ts).getTime()) / 86400000))
           : 1;
         const costoRes = await fetch('/api/costos?action=calcular', {
           method: 'POST',
