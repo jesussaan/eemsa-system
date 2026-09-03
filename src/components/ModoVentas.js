@@ -21,7 +21,7 @@ const FORM_INIT = { cliente:"", num:"", tipo:"Blanca", medida:"", cajas:"", roll
 
 const STATUS_LBL = { pendiente:"Pendiente", anotado:"Anotado", proceso:"En proceso", terminado:"Terminado" };
 
-export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
+export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], onSalir }) {
   const hoy = today();
   // El tab activo y el pedido a medio anotar se recuerdan en localStorage --
   // si sales de la app a revisar algo y regresas (o la app se recarga sola),
@@ -373,7 +373,7 @@ export default function ModoVentas({ pedidos, setPedidos, onSalir }) {
         )}
 
         {/* ── CLIENTES ── */}
-        {tab === "clientes" && <Clientes pedidos={pedidos} ocultarMerma />}
+        {tab === "clientes" && <Clientes pedidos={pedidos} ocultarMerma clientesDisenos={clientesDisenos} />}
       </main>
 
       {/* Toast */}

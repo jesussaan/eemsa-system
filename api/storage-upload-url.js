@@ -1,22 +1,24 @@
 import { createClient } from '@supabase/supabase-js';
-import { requiereModo } from './_lib/auth.js';
+import { requiereAlgunModo } from './_lib/auth.js';
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
 
-// cliches: lo sube Modo Operador (o Supervisor desde Pedidos).
+// cliches: lo sube Modo Operador (cliché de un pedido) o Ventas (foto de
+// referencia del diseño de un cliente, ver Clientes.js) -- Supervisor
+// siempre pasa de todos modos via requiereAlgunModo.
 // refacciones: solo se usa dentro de Modo Supervisor (tickets de compra).
-const BUCKETS_MODO = { cliches: 'operador', refacciones: 'supervisor' };
+const BUCKETS_MODOS = { cliches: ['operador', 'ventas'], refacciones: ['supervisor'] };
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { bucket, paths } = req.body || {};
-  const modoRequerido = BUCKETS_MODO[bucket];
-  if (!modoRequerido) return res.status(400).json({ error: 'bucket inválido' });
-  if (!(await requiereModo(req, modoRequerido))) return res.status(401).json({ error: 'No autorizado' });
+  const modosPermitidos = BUCKETS_MODOS[bucket];
+  if (!modosPermitidos) return res.status(400).json({ error: 'bucket inválido' });
+  if (!(await requiereAlgunModo(req, modosPermitidos))) return res.status(401).json({ error: 'No autorizado' });
 
   if (!Array.isArray(paths) || !paths.length) return res.status(400).json({ error: 'paths es requerido' });
   if (paths.some(p => typeof p !== 'string' || !p || p.includes('..') || p.startsWith('/'))) {

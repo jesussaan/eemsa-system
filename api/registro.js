@@ -189,7 +189,10 @@ async function manejarProdDiaria(req, res) {
 // con la anon key (select abierto), igual que el resto de las tablas que
 // carga App.js.
 async function manejarClientesDisenos(req, res) {
-  if (!(await requiereModo(req, 'supervisor'))) return res.status(401).json({ error: 'No autorizado' });
+  // Ventas (no solo Supervisor) tambien usa Clientes.js -- son quienes
+  // hablan con el cliente por telefono, el caso de uso principal de esta
+  // foto de referencia.
+  if (!(await requiereAlgunModo(req, ['ventas', 'supervisor']))) return res.status(401).json({ error: 'No autorizado' });
 
   if (req.method === 'PUT') {
     const { cliente, foto_path } = req.body || {};

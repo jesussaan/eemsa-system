@@ -362,6 +362,7 @@ function EemsaApp() {
     <Suspense fallback={<PantallaCargando />}>
       <ModoVentas
         pedidos={pedidos} setPedidos={setPedidos}
+        clientesDisenos={clientesDisenos}
         onSalir={() => setModo(null)}
       />
     </Suspense>
