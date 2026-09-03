@@ -504,6 +504,10 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
             <div className="form-grid">
               <div className="field"><label>Status</label><select value={modalPedido.status} onChange={e => setModalPedido(m => ({ ...m, status: e.target.value }))}>{Object.entries(STATUS_PED).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
               <div className="field"><label>Operador</label><select value={modalPedido.op || ""} onChange={e => setModalPedido(m => ({ ...m, op: e.target.value }))}>{OPERADORES.map(o => <option key={o}>{o}</option>)}</select></div>
+              <div className="field"><label>Color impresión</label>
+                <input value={modalPedido.color || ""} onChange={e => setModalPedido(m => ({ ...m, color: e.target.value }))} placeholder="Rojo PMS 485" list="tintas-list-editar" />
+                <datalist id="tintas-list-editar">{tintasSugeridas.map(t => <option key={t} value={t} />)}</datalist>
+              </div>
               <div className="field"><label>Cajas solicitadas</label><input type="number" value={modalPedido.cajas || ""} onChange={e => setModalPedido(m => ({ ...m, cajas: e.target.value }))} /></div>
               <div className="field"><label>Rollos por caja</label><input type="number" value={modalPedido.rollos_caja || ""} onChange={e => setModalPedido(m => ({ ...m, rollos_caja: e.target.value }))} /></div>
               <div className="field"><label>Rollos / piezas totales</label><input type="number" value={modalPedido.rollos_totales || ""} onChange={e => setModalPedido(m => ({ ...m, rollos_totales: e.target.value }))} placeholder="1800" /></div>
