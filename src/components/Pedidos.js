@@ -370,7 +370,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   const pedidosPendientes = pedidos.filter(p => p.status === "pendiente").filter(p => !busqueda || [p.cliente, p.num, p.tipo, p.medida].some(v => String(v || "").toLowerCase().includes(busqueda.toLowerCase())));
   const pedidosFiltrados = pedidos
     .filter(p => filtro === "pendiente" ? p.status === "pendiente" : (p.status !== "pendiente" && (filtro === "todos" ? true : filtro === "activos" ? ["anotado", "proceso"].includes(p.status) : p.status === filtro)))
-    .filter(p => !busqueda || [p.cliente, p.num, p.tipo, p.medida, p.color, p.tinta_tipo, p.color_cinta].some(v => String(v || "").toLowerCase().includes(busqueda.toLowerCase())))
+    .filter(p => !busqueda || [p.cliente, p.num, p.tipo, p.medida, p.color, p.tinta_tipo, p.color2, p.color_cinta].some(v => String(v || "").toLowerCase().includes(busqueda.toLowerCase())))
     .map(p => ({ ...p, diasRest: p.status !== "terminado" ? diasHabilesRestantes(p.fecha_solicitud) : null }))
     .sort((a, b) => { if (a.status === "terminado" && b.status !== "terminado") return 1; if (b.status === "terminado" && a.status !== "terminado") return -1; return (a.diasRest ?? 999) - (b.diasRest ?? 999); });
   const colorStatus = s => s === "terminado" ? "b-green" : s === "proceso" ? "b-blue" : s === "pendiente" ? "b-red" : "b-orange";

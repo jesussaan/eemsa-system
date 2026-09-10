@@ -113,6 +113,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
     anchoN, largoN, rollosCajaN, mermaN,
     largoReal, pistas, rollosPista, rendimiento, piezasBuenas, piezasTotal,
     rollosExacto, rollosMP, tintaKg, tintaKg2, tintaKgTotal, solventeKg, listo,
+    cobertura, cobertura2,
   } = calcularProduccion({
     ancho, largo, cajas, rollosCaja, merma,
     portaliche, diseno, portaliche2, diseno2, tieneColor2,
@@ -513,19 +514,25 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
                 className="btn btn-primary"
                 style={{ flex: 2, padding: '13px 0', fontSize: 15 }}
                 onClick={() => {
-                  // Tinta/alcohol reales anotados a mano no reemplazan el
-                  // numero teorico que se descuenta del inventario (un
-                  // typo aqui no deberia desajustar el stock) -- se guardan
-                  // en notas para comparar despues y, con suficientes
-                  // muestras por color, calibrar la formula de solvente
-                  // (ver conversacion: la viscosidad varia por color de
-                  // tinta, no por cantidad usada).
+                  // Tinta/alcohol reales anotados a mano SI reemplazan el
+                  // numero teorico al guardar (mas exacto para el inventario
+                  // y para Modo Emilio) -- si se dejan vacios, se sigue
+                  // usando el teorico de la formula como siempre. En pedidos
+                  // de 2 colores no se puede repartir un solo "tinta real"
+                  // entre ambos, asi que ahi se queda el teorico por color.
+                  // El teorico y la cobertura del diseno quedan anotados en
+                  // notas para comparar despues y, con suficientes muestras
+                  // por color, calibrar la formula (ver conversacion: la
+                  // viscosidad varia por color de tinta, no por cantidad
+                  // usada).
+                  const tintaKgFinal    = (tintaReal !== '' && !tieneColor2) ? Number(tintaReal) : tintaKg;
+                  const solventeKgFinal = alcoholReal !== '' ? Number(alcoholReal) : solventeKg;
                   const notasReal = [
-                    tintaReal   !== '' ? `Tinta real: ${tintaReal}kg (teórico: ${tintaKgTotal.toFixed(3)}kg)` : null,
+                    tintaReal   !== '' ? `Tinta real: ${tintaReal}kg (teórico: ${tintaKgTotal.toFixed(3)}kg, cobertura: ${(cobertura * 100).toFixed(1)}%${tieneColor2 ? `/${(cobertura2 * 100).toFixed(1)}%` : ''})` : null,
                     alcoholReal !== '' ? `Alcohol real: ${alcoholReal}kg (teórico: ${solventeKg.toFixed(3)}kg)` : null,
                   ].filter(Boolean).join(' · ');
                   onConfirmar({
-                  rollosMP, rollosExacto, tintaKg, tintaKg2: tieneColor2 ? tintaKg2 : null, solventeKg,
+                  rollosMP, rollosExacto, tintaKg: tintaKgFinal, tintaKg2: tieneColor2 ? tintaKg2 : null, solventeKg: solventeKgFinal,
                   rollosCaja:  rollosCajaN,
                   piezasProd:  piezasProd !== "" ? Number(piezasProd) : null,
                   mermaReal:   mermaReal  !== "" ? Number(mermaReal)  : null,
