@@ -28,6 +28,11 @@ const interpretarConsulta = (texto) => {
   return null;
 };
 
+// Number(...toFixed(2)) redondea Y quita ceros de sobra (471.26 se queda
+// 471.26, 48.069999999999999 -- error de punto flotante normal al sumar/
+// restar decimales -- se ve como 48.07, 76 se queda 76 sin ".00").
+const fmtStock = (n) => Number(Number(n || 0).toFixed(2));
+
 const formatearPedidosHoy = (d) => {
   if (d.total === 0) return `Hoy (${d.fecha}) no se ha anotado ningún pedido todavía.`;
   const partes = Object.entries(d.por_status).map(([s, n]) => `${n} ${ETIQUETA_STATUS[s] || s}`).join(", ");
@@ -38,13 +43,14 @@ const formatearSiat1 = (d) => {
   const base = d.pedido_activo
     ? `SIAT L36 #1 está trabajando en el pedido #${d.pedido_activo.num} de ${d.pedido_activo.cliente} (${d.pedido_activo.tipo}, ${d.pedido_activo.medida}).`
     : "SIAT L36 #1 no tiene ningún pedido en proceso ahora mismo.";
-  const cajas = ` Lleva ${d.cajas_hoy} caja${d.cajas_hoy === 1 ? "" : "s"} hoy${d.meta_cajas ? ` de una meta de ${d.meta_cajas}` : ""}.`;
+  const cajasHoy = fmtStock(d.cajas_hoy);
+  const cajas = ` Lleva ${cajasHoy} caja${cajasHoy === 1 ? "" : "s"} hoy${d.meta_cajas ? ` de una meta de ${d.meta_cajas}` : ""}.`;
   return base + cajas;
 };
 
 const formatearInventarioCinta = (d) => {
   if (!d.materiales.length) return "No hay materiales de Rollo MP dados de alta.";
-  const lineas = d.materiales.map(m => `${m.tipo || m.nombre}: ${m.stock} ${m.unidad}${m.bajo ? " ⚠ bajo" : ""}`);
+  const lineas = d.materiales.map(m => `${m.tipo || m.nombre}: ${fmtStock(m.stock)} ${m.unidad}${m.bajo ? " ⚠ bajo" : ""}`);
   return `Inventario de Rollo MP:\n${lineas.join("\n")}`;
 };
 
