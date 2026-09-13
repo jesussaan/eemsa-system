@@ -211,6 +211,18 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
 
   const save = async () => {
     if (!form.cliente || !form.num || !form.medida || !form.cajas || !form.fecha_solicitud) { showToast("⚠ Llena cliente, número, medida, cajas y fecha solicitada"); return; }
+    // El numero es solo "sugerido" (autocompletado, ver siguienteNumPedido) y
+    // el campo se puede editar libremente -- sin este aviso es facil dejarlo
+    // repetido sin querer (paso con el pedido #140: ARIAT y MAFENSA quedaron
+    // con el mismo numero y sus movimientos de inventario se confundieron).
+    const numRepetido = pedidosProp.some(p => String(p.num ?? '').trim().toLowerCase() === String(form.num).trim().toLowerCase());
+    if (numRepetido) {
+      const seguro = await confirmar(
+        `Ya existe un pedido con el número "${form.num}". ¿Seguro que quieres anotar otro con el mismo número? Puede confundirse en movimientos de inventario, PDFs y búsquedas.`,
+        { peligro: true, textoConfirmar: "Anotar de todos modos", textoCancelar: "Cancelar" }
+      );
+      if (!seguro) return;
+    }
     setLoading(true);
     const n = (v) => v === "" ? null : Number(v);
     let cliche_url = "";
@@ -252,6 +264,16 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
 
   const guardarModal = async () => {
     if (!modalPedido) return;
+    // Mismo aviso que al anotar un pedido nuevo -- si se le cambia el numero
+    // a mano aqui tambien puede terminar repetido con otro pedido existente.
+    const numRepetido = pedidos.some(p => p.id !== modalPedido.id && String(p.num ?? '').trim().toLowerCase() === String(modalPedido.num ?? '').trim().toLowerCase());
+    if (numRepetido) {
+      const seguro = await confirmar(
+        `Ya existe otro pedido con el número "${modalPedido.num}". ¿Seguro que quieres guardarlo así? Puede confundirse en movimientos de inventario, PDFs y búsquedas.`,
+        { peligro: true, textoConfirmar: "Guardar de todos modos", textoCancelar: "Cancelar" }
+      );
+      if (!seguro) return;
+    }
     const n2 = (v) => (v === "" || v === null || v === undefined) ? null : Number(v);
     const mPct = modalPedido.piezas_prod && modalPedido.merma
       ? ((Number(modalPedido.merma) / Number(modalPedido.piezas_prod)) * 100).toFixed(2)
