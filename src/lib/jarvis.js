@@ -71,3 +71,151 @@ export const resumenInventarioCinta = (materiales) => ({
       bajo: Number(m.stock_min || 0) > 0 && Number(m.stock || 0) <= Number(m.stock_min),
     })),
 });
+
+// ---------------------------------------------------------------------------
+// Ampliacion a los demas modulos operativos (ver api/chat.js, manejarJarvisIA)
+// ---------------------------------------------------------------------------
+
+// Redondea igual que fmtStock en Jarvis.js -- evita que un resto de punto
+// flotante (48.069999999999999) le llegue a Claude tal cual en el JSON.
+const redondear = (n) => Number(Number(n || 0).toFixed(2));
+
+// Que modo (ademas de "jarvis", que ya es el gate de entrada a la pantalla)
+// hace falta para cada modulo -- vacio significa que cualquiera con acceso a
+// Jarvis puede preguntar, sin candado extra (asi ya funcionaban pedidos_hoy/
+// siat_1 desde el principio). "supervisor" o esAdmin siempre pasan todo,
+// igual que en el resto de la app (ver requiereAlgunModo en api/_lib/auth.js).
+export const MODULOS_JARVIS = {
+  pedidos: [],
+  produccion: [],
+  agenda: ['supervisor'],
+  inventario: ['inventario'],
+  clientes: ['ventas'],
+  compras: ['emilio'],
+  refacciones: ['supervisor'],
+  costos: ['supervisor'],
+  reportes: ['supervisor'],
+};
+
+export const tieneAccesoModulo = (modulo, usuario) => {
+  if (!usuario) return false;
+  if (usuario.esAdmin || (usuario.modos || []).includes('supervisor')) return true;
+  const requeridos = MODULOS_JARVIS[modulo];
+  if (!requeridos || requeridos.length === 0) return true;
+  return requeridos.some(m => (usuario.modos || []).includes(m));
+};
+
+// Filtro por palabras clave (no un modelo de lenguaje, ver interpretarConsulta
+// en Jarvis.js) que decide que modulo(s) tocan la pregunta -- asi no se le
+// manda a Claude el negocio completo en cada mensaje, solo lo relevante. Sin
+// coincidencias, cae a los 3 modulos originales (los mas baratos y comunes)
+// en vez de mandar los 9 por default.
+export const detectarModulos = (texto) => {
+  const t = (texto || '').toLowerCase();
+  const modulos = new Set();
+  if (t.includes('pedido')) modulos.add('pedidos');
+  if (t.includes('siat') || t.includes('producci') || t.includes('maquina') || t.includes('máquina')) modulos.add('produccion');
+  if (t.includes('inventario') || t.includes('cinta') || t.includes('rollo') || t.includes('tinta') || t.includes('stock') || t.includes('material')) modulos.add('inventario');
+  if (t.includes('cliente')) modulos.add('clientes');
+  if (t.includes('agenda') || t.includes('entrega') || t.includes('atrasad') || t.includes('vence')) modulos.add('agenda');
+  if (t.includes('compra') || t.includes('proveedor')) modulos.add('compras');
+  if (t.includes('refaccion') || t.includes('refacción') || t.includes('pieza') || t.includes('queja')) modulos.add('refacciones');
+  if (t.includes('costo') || t.includes('cuesta') || t.includes('cuánto sale') || t.includes('cuanto sale')) modulos.add('costos');
+  if (t.includes('reporte') || t.includes('resumen') || t.includes('merma')) modulos.add('reportes');
+  if (modulos.size === 0) { modulos.add('pedidos'); modulos.add('produccion'); modulos.add('inventario'); }
+  return [...modulos];
+};
+
+// Todas las maquinas, no solo SIAT L36 #1 -- reutiliza resumenSiat1 tal cual
+// (ya acepta "maquina" como parametro) para no duplicar la logica.
+export const resumenProduccionTodas = (pedidos, prodDiaria, hoy, metaCajas) => ({
+  maquinas: ['SIAT L36 #1', 'SIAT L36 #2', 'SIAT L36 #3']
+    .map(maq => resumenSiat1(pedidos, prodDiaria, hoy, metaCajas, maq)),
+});
+
+// Igual que resumenInventarioCinta pero sin filtrar por categoria -- tinta,
+// solvente, centros y jumbo de rebobinado incluidos. Sin costo_unitario.
+export const resumenInventarioTodo = (materiales) => ({
+  materiales: (materiales || []).map(m => ({
+    categoria: m.categoria,
+    tipo: m.match_valor || null,
+    nombre: m.nombre,
+    stock: redondear(m.stock),
+    unidad: m.unidad,
+    bajo: Number(m.stock_min || 0) > 0 && Number(m.stock || 0) <= Number(m.stock_min),
+  })),
+});
+
+// Pedidos recientes con su cliente -- Claude filtra por el nombre que haya
+// mencionado la pregunta en vez de que el servidor intente adivinar a que
+// cliente se refiere el texto libre.
+export const resumenClientes = (pedidos) => ({
+  pedidos_recientes: (pedidos || []).slice(0, 80).map(p => ({
+    cliente: p.cliente, num: p.num, tipo: p.tipo, medida: p.medida,
+    cajas: p.cajas, status: p.status, fecha_estimada: p.fecha_estimada || null,
+  })),
+});
+
+// Fechas de entrega de pedidos activos -- mismo criterio que
+// CalendarioEntregas.js (solo pedidos no terminados, agrupados por si ya
+// vencieron o no).
+export const resumenAgenda = (pedidos, hoy) => {
+  const activos = (pedidos || []).filter(p => p.status !== 'terminado' && p.fecha_estimada);
+  return {
+    atrasados: activos.filter(p => p.fecha_estimada < hoy)
+      .map(p => ({ num: p.num, cliente: p.cliente, fecha_estimada: p.fecha_estimada })),
+    proximos: activos.filter(p => p.fecha_estimada >= hoy)
+      .sort((a, b) => a.fecha_estimada.localeCompare(b.fecha_estimada)).slice(0, 15)
+      .map(p => ({ num: p.num, cliente: p.cliente, fecha_estimada: p.fecha_estimada })),
+  };
+};
+
+// Lista de compras pendientes (Modo Emilio) + compras ya registradas
+// recientes -- sin telefono/direccion del proveedor, no hace falta para
+// contestar "que esta pendiente de comprar".
+export const resumenCompras = (listaMateriales, proveedores) => ({
+  pendientes: (listaMateriales || []).filter(m => m.status !== 'listo')
+    .map(m => ({ material: m.material, tipo: m.tipo, cantidad: m.cantidad, unidad: m.unidad, urgente: !!m.urgente })),
+  compras_recientes: (proveedores || []).slice(0, 20)
+    .map(p => ({ proveedor: p.nombre, que_compro: p.que_compro, monto: p.monto, fecha: p.fecha })),
+});
+
+// Refacciones bajas de stock (no el catalogo completo) + quejas de materia
+// prima abiertas -- sin costo de refaccion ni datos del proveedor de la
+// queja mas alla de su nombre.
+export const resumenRefacciones = (refacciones, quejasMp) => ({
+  refacciones_bajas: (refacciones || [])
+    .filter(r => Number(r.stock_min || 0) > 0 && Number(r.stock || 0) <= Number(r.stock_min))
+    .map(r => ({ nombre: r.nombre, stock: r.stock, stock_min: r.stock_min, maq: r.maq })),
+  quejas_abiertas: (quejasMp || []).filter(q => q.estatus !== 'Cerrada')
+    .map(q => ({ folio: q.folio, proveedor: q.proveedor, material: q.material, fecha: q.fecha })),
+});
+
+// Solo el costo por pieza YA CALCULADO de pedidos terminados recientes --
+// nunca los parametros de costeo (mano de obra/luz/mantenimiento/precio de
+// insumos de EditorCostos), que son configuracion financiera interna, no
+// datos operativos de una corrida.
+export const resumenCostos = (pedidos, hoy) => {
+  const mes = hoy.slice(0, 7);
+  const delMes = (pedidos || []).filter(p => p.status === 'terminado' && p.costo_pieza != null && String(p.fecha_termino || '').startsWith(mes));
+  const promedio = delMes.length ? redondear(delMes.reduce((s, p) => s + Number(p.costo_pieza), 0) / delMes.length) : null;
+  return {
+    mes,
+    pedidos_con_costo: delMes.map(p => ({ num: p.num, cliente: p.cliente, costo_pieza: redondear(p.costo_pieza) })),
+    costo_pieza_promedio_mes: promedio,
+  };
+};
+
+// Digesto del mes -- agregados ya calculados, nunca filas crudas de mas de
+// lo necesario.
+export const resumenReportes = (pedidos, prodDiaria, hoy) => {
+  const mes = hoy.slice(0, 7);
+  const prodMes = (prodDiaria || []).filter(r => String(r.fecha || '').startsWith(mes));
+  const cajasMes = prodMes.reduce((s, r) => s + Number(r.cajas_dia || 0), 0);
+  const terminadosMes = (pedidos || []).filter(p => p.status === 'terminado' && String(p.fecha_termino || '').startsWith(mes));
+  const conMerma = terminadosMes.filter(p => p.piezas_prod > 0 && p.merma != null);
+  const mermaPct = conMerma.length
+    ? redondear((conMerma.reduce((s, p) => s + Number(p.merma), 0) / conMerma.reduce((s, p) => s + Number(p.piezas_prod), 0)) * 100)
+    : null;
+  return { mes, cajas_producidas_mes: cajasMes, pedidos_terminados_mes: terminadosMes.length, merma_pct_mes: mermaPct };
+};

@@ -1,7 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import { requiereModo, requiereAlgunModo } from './_lib/auth.js';
-import { hoyMexico, resumenPedidosHoy, resumenSiat1, resumenInventarioCinta } from '../src/lib/jarvis.js';
+import {
+  hoyMexico, resumenPedidosHoy, resumenSiat1, resumenInventarioCinta,
+  MODULOS_JARVIS, tieneAccesoModulo, detectarModulos,
+  resumenProduccionTodas, resumenInventarioTodo, resumenClientes, resumenAgenda,
+  resumenCompras, resumenRefacciones, resumenCostos, resumenReportes,
+} from '../src/lib/jarvis.js';
 import { META_CAJAS } from '../src/lib/constants.js';
 
 const supabase = createClient(
@@ -351,36 +356,75 @@ const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://eemsa-system.verce
 //   - Sin `tools` en la llamada a Claude -- no es "se le pidio no escribir",
 //     es que la funcion no tiene ninguna herramienta que pueda invocar para
 //     escribir, ni aunque alguien intente manipular el prompt.
-//   - El contexto son los mismos 3 resumenes ya acotados que usa el boton
-//     rapido (src/lib/jarvis.js) -- nada de tablas completas ni columnas de
-//     costo/ids internos.
+//   - El contexto son resumenes ya acotados por modulo (src/lib/jarvis.js),
+//     nunca tablas completas ni columnas de costo/config/ids internos.
 //   - Historial acotado a los ultimos 6 mensajes para no inflar el costo de
 //     una conversacion larga con cada pregunta nueva.
-async function manejarJarvisIA(req, res, messages) {
+//
+// Permisos por modulo: detectarModulos() decide, por palabras clave en la
+// ULTIMA pregunta, que modulo(s) tocan (pedidos, produccion, inventario,
+// clientes, agenda, compras, refacciones, costos, reportes -- ver
+// MODULOS_JARVIS). tieneAccesoModulo() filtra esa lista contra los modos
+// reales del usuario que pregunta -- si pidio algo de un modulo que no le
+// toca, ese modulo se descarta ANTES de tocar Supabase o llamar a Claude; si
+// no queda ningun modulo autorizado, se responde de una vez sin gastar nada
+// en la IA. "usuarios/administracion", contraseñas, tokens, sesiones y
+// configuracion de costeo nunca se arman como modulo -- no existen en este
+// archivo, asi que no hay nada que filtrar mal ni que Claude pueda contestar
+// por accidente.
+async function manejarJarvisIA(req, res, messages, usuario) {
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages es requerido' });
   }
 
-  const hoy = hoyMexico();
-  const [pedidosRes, prodRes, materialesRes] = await Promise.all([
-    supabase.from('pedidos').select('num, cliente, tipo, medida, cajas, status, maq, created, fecha_inicio, inicio_ts, fin_ts'),
-    supabase.from('prod_diaria').select('num_pedido, cajas_dia, fecha, created'),
-    supabase.from('materiales').select('categoria, match_valor, nombre, stock, unidad, stock_min').eq('categoria', 'rollo_mp'),
-  ]);
-  if (pedidosRes.error) return res.status(500).json({ error: pedidosRes.error.message });
-  if (prodRes.error) return res.status(500).json({ error: prodRes.error.message });
-  if (materialesRes.error) return res.status(500).json({ error: materialesRes.error.message });
+  const ultimaPregunta = [...messages].reverse().find(m => m.role === 'user')?.content || '';
+  const detectados = detectarModulos(ultimaPregunta);
+  const autorizados = detectados.filter(m => tieneAccesoModulo(m, usuario));
 
-  const datos = {
-    fecha_hoy: hoy,
-    pedidos_hoy: resumenPedidosHoy(pedidosRes.data, hoy),
-    siat_1: resumenSiat1(pedidosRes.data, prodRes.data, hoy, META_CAJAS),
-    inventario_cinta: resumenInventarioCinta(materialesRes.data),
-  };
+  if (autorizados.length === 0) {
+    return res.status(200).json({ reply: 'No tienes permiso para consultar esa información desde Jarvis. Pídele a un supervisor que te dé acceso al módulo correspondiente.' });
+  }
+
+  const hoy = hoyMexico();
+  const necesita = (m) => autorizados.includes(m);
+
+  // Solo se pide a Supabase lo que de verdad hace falta para los modulos
+  // autorizados de ESTA pregunta -- no las 9 tablas siempre.
+  const [pedidosRes, prodRes, materialesRes, listaMatRes, proveedoresRes, refaccionesRes, quejasRes] = await Promise.all([
+    (necesita('pedidos') || necesita('produccion') || necesita('clientes') || necesita('agenda') || necesita('costos') || necesita('reportes'))
+      ? supabase.from('pedidos').select('num, cliente, tipo, medida, cajas, status, maq, created, fecha_estimada, fecha_inicio, fecha_termino, inicio_ts, fin_ts, piezas_prod, merma, costo_pieza').order('created', { ascending: false }).limit(300)
+      : { data: null },
+    (necesita('produccion') || necesita('reportes')) ? supabase.from('prod_diaria').select('num_pedido, cajas_dia, fecha, created') : { data: null },
+    necesita('inventario') ? supabase.from('materiales').select('categoria, match_valor, nombre, stock, unidad, stock_min') : { data: null },
+    necesita('compras') ? supabase.from('lista_materiales').select('material, tipo, cantidad, unidad, urgente, status') : { data: null },
+    necesita('compras') ? supabase.from('proveedores').select('nombre, monto, que_compro, fecha').order('fecha', { ascending: false }).limit(20) : { data: null },
+    necesita('refacciones') ? supabase.from('refacciones').select('nombre, stock, stock_min, maq') : { data: null },
+    necesita('refacciones') ? supabase.from('quejas_mp').select('folio, proveedor, material, fecha, estatus') : { data: null },
+  ]);
+  for (const r of [pedidosRes, prodRes, materialesRes, listaMatRes, proveedoresRes, refaccionesRes, quejasRes]) {
+    if (r?.error) return res.status(500).json({ error: r.error.message });
+  }
+
+  const datos = { fecha_hoy: hoy };
+  if (necesita('pedidos')) datos.pedidos_hoy = resumenPedidosHoy(pedidosRes.data, hoy);
+  if (necesita('produccion')) datos.produccion = resumenProduccionTodas(pedidosRes.data, prodRes.data, hoy, META_CAJAS);
+  if (necesita('inventario')) datos.inventario = resumenInventarioTodo(materialesRes.data);
+  if (necesita('clientes')) datos.clientes = resumenClientes(pedidosRes.data);
+  if (necesita('agenda')) datos.agenda = resumenAgenda(pedidosRes.data, hoy);
+  if (necesita('compras')) datos.compras = resumenCompras(listaMatRes.data, proveedoresRes.data);
+  if (necesita('refacciones')) datos.refacciones = resumenRefacciones(refaccionesRes.data, quejasRes.data);
+  if (necesita('costos')) datos.costos = resumenCostos(pedidosRes.data, hoy);
+  if (necesita('reportes')) datos.reportes = resumenReportes(pedidosRes.data, prodRes.data, hoy);
+
+  const negados = detectados.filter(m => !autorizados.includes(m));
+  const avisoPermisos = negados.length
+    ? `\n\nEl usuario tambien pregunto algo relacionado a: ${negados.join(', ')} -- NO tienes datos de eso (sin permiso), dile que no puedes consultar esa parte y sugiere que pida acceso.`
+    : '';
 
   const systemPrompt = `Eres Jarvis, el asistente de solo lectura de EEMSA. Respondes SIEMPRE en español, breve y claro (la respuesta se puede leer en voz alta en un celular).
 Solo puedes usar los datos de este mensaje -- no inventes cifras ni asumas nada que no este aqui. Si la pregunta no se puede responder con estos datos, dilo claramente.
 No tienes forma de crear, modificar ni borrar nada, ni de controlar ninguna máquina -- si te piden hacer algo (no solo consultar), explica que Jarvis es de solo lectura y que usen el módulo correspondiente (Pedidos, Modo Operador, Inventario, etc.).
+No tienes acceso a usuarios, contraseñas, sesiones, tokens ni configuración del sistema -- si preguntan por eso, di que no es información que Jarvis maneje.${avisoPermisos}
 
 DATOS (${hoy}):
 ${JSON.stringify(datos)}`;
@@ -440,10 +484,14 @@ async function manejarConsultaPorToken(req, res, token) {
     ultimo_uso: new Date().toISOString(), fecha_contador: hoy, usos_hoy: usosHoy + 1,
   }).eq('id', fila.id);
 
-  const { data: perfil } = await supabaseAdmin.from('perfiles').select('activo').eq('id', fila.user_id).single();
+  const { data: perfil } = await supabaseAdmin.from('perfiles').select('modos, activo, es_admin').eq('id', fila.user_id).single();
   if (!perfil?.activo) return res.status(401).json({ error: 'Cuenta inactiva' });
 
-  return manejarJarvisIA(req, res, req.body?.messages);
+  // El token hereda los modos reales del usuario que lo genero -- ni mas ni
+  // menos permiso que si esa persona hubiera entrado a Jarvis con su sesion
+  // normal (ver tieneAccesoModulo en src/lib/jarvis.js).
+  const usuarioDelToken = { id: fila.user_id, modos: perfil.modos || [], esAdmin: !!perfil.es_admin };
+  return manejarJarvisIA(req, res, req.body?.messages, usuarioDelToken);
 }
 
 export default async function handler(req, res) {
@@ -476,7 +524,7 @@ export default async function handler(req, res) {
     // parte de este archivo pensada para eso. No se mezcla con el resto del
     // asistente (que si puede escribir), asi que ni siquiera se le arma el
     // array de TOOLS a Claude en esta rama.
-    if (jarvis) return manejarJarvisIA(req, res, messages);
+    if (jarvis) return manejarJarvisIA(req, res, messages, usuario);
 
     // A partir de aqui: OCR de tickets y el asistente completo (crea/edita
     // pedidos, fallas, refacciones, compras...) -- requiere supervisor o

@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import "./App.css";
 import { supabase } from "./lib/supabase";
 import { initAuth, authHeaders, cerrarSesion } from "./lib/auth";
@@ -193,6 +193,24 @@ function EemsaApp() {
     const valido = modo === "usuarios" ? perfil.esAdmin : (perfil.esAdmin || perfil.modos.includes(modo));
     if (!valido) setModo(null);
   }, [perfil, modo]);
+
+  // En iPhone, entrar directo a Jarvis al iniciar sesion (no en computadora,
+  // que sigue mandando al menu/Dashboard normal). Se evalua UNA sola vez por
+  // login real (autoAbiertoRef guarda el id del usuario ya evaluado), no en
+  // cada cambio de "modo" -- si no, tocar "Salir" en Jarvis (que limpia modo
+  // a null) te regresaria a Jarvis solo en vez de dejarte ver el menu. Si ya
+  // habia un modo recordado de una sesion anterior, se respeta ese en vez de
+  // forzar Jarvis.
+  const autoAbiertoRef = useRef(null);
+  useEffect(() => {
+    if (!perfil || !sesion) return;
+    if (autoAbiertoRef.current === sesion.user.id) return;
+    autoAbiertoRef.current = sesion.user.id;
+    if (modo) return;
+    const esIphone = /iPhone/i.test(navigator.userAgent);
+    const tieneJarvis = perfil.esAdmin || perfil.modos?.includes("jarvis");
+    if (esIphone && tieneJarvis) setModo("jarvis");
+  }, [perfil, sesion, modo]);
 
   useEffect(() => {
     if (modo) localStorage.setItem("eemsa_modo", modo);
@@ -404,7 +422,10 @@ function EemsaApp() {
 
   if (modo === "jarvis") return (
     <Suspense fallback={<PantallaCargando />}>
-      <Jarvis onSalir={() => setModo(null)} />
+      <Jarvis
+        onSalir={() => setModo(null)}
+        onIrAlPanel={() => setModo((perfil.esAdmin || perfil.modos.includes("supervisor")) ? "supervisor" : null)}
+      />
     </Suspense>
   );
 

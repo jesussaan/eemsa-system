@@ -71,7 +71,7 @@ const formatearInventarioCinta = (d) => {
 // carga -- null cuando ya se confirmo que no existe.
 const RecognitionCtor = typeof window !== "undefined" ? (window.SpeechRecognition || window.webkitSpeechRecognition || null) : null;
 
-export default function Jarvis({ onSalir }) {
+export default function Jarvis({ onSalir, onIrAlPanel }) {
   const [historial, setHistorial] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -237,7 +237,10 @@ export default function Jarvis({ onSalir }) {
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 16, color: "#e0e0e0", letterSpacing: ".06em" }}>EEMSA System</div>
           <div style={{ fontSize: 10, color: "var(--tan)", fontWeight: 700, letterSpacing: ".08em" }}>JARVIS</div>
         </div>
-        {onSalir && <button onClick={onSalir} style={{ marginLeft: "auto", fontSize: 11, color: "#666", background: "transparent", border: "none", cursor: "pointer", padding: "4px 8px" }}>← Salir</button>}
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          {onIrAlPanel && <button onClick={onIrAlPanel} className="btn btn-ghost btn-sm">🖥️ Ir al panel</button>}
+          {onSalir && <button onClick={onSalir} style={{ fontSize: 11, color: "#666", background: "transparent", border: "none", cursor: "pointer", padding: "4px 8px" }}>← Salir</button>}
+        </div>
       </header>
 
       <main style={{ flex: 1, padding: "16px 16px 82px", maxWidth: 640, margin: "0 auto", width: "100%" }}>

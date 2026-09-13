@@ -1,4 +1,7 @@
-import { resumenPedidosHoy, resumenSiat1, resumenInventarioCinta } from './jarvis';
+import {
+  resumenPedidosHoy, resumenSiat1, resumenInventarioCinta,
+  tieneAccesoModulo, detectarModulos, resumenCostos, resumenReportes, resumenClientes,
+} from './jarvis';
 
 describe('resumenPedidosHoy', () => {
   const pedidos = [
@@ -85,5 +88,91 @@ describe('resumenInventarioCinta', () => {
     expect(navitek.bajo).toBe(true);
     const janel = r.materiales.find(m => m.tipo === 'Blanca');
     expect(janel.bajo).toBe(false);
+  });
+});
+
+describe('tieneAccesoModulo -- lo mas critico de la ampliacion a 9 modulos', () => {
+  const usuarioBasico = { modos: ['jarvis'], esAdmin: false };
+  const usuarioInventario = { modos: ['jarvis', 'inventario'], esAdmin: false };
+  const usuarioVentas = { modos: ['jarvis', 'ventas'], esAdmin: false };
+  const supervisor = { modos: ['jarvis', 'supervisor'], esAdmin: false };
+  const admin = { modos: [], esAdmin: true };
+
+  test('pedidos y produccion no piden modo extra -- cualquiera con jarvis entra', () => {
+    expect(tieneAccesoModulo('pedidos', usuarioBasico)).toBe(true);
+    expect(tieneAccesoModulo('produccion', usuarioBasico)).toBe(true);
+  });
+
+  test('un usuario SIN el modo del modulo queda bloqueado', () => {
+    expect(tieneAccesoModulo('inventario', usuarioBasico)).toBe(false);
+    expect(tieneAccesoModulo('clientes', usuarioBasico)).toBe(false);
+    expect(tieneAccesoModulo('compras', usuarioBasico)).toBe(false);
+    expect(tieneAccesoModulo('refacciones', usuarioBasico)).toBe(false);
+    expect(tieneAccesoModulo('costos', usuarioBasico)).toBe(false);
+    expect(tieneAccesoModulo('reportes', usuarioBasico)).toBe(false);
+    expect(tieneAccesoModulo('agenda', usuarioBasico)).toBe(false);
+  });
+
+  test('el modo dueño del modulo si deja pasar ese modulo especifico, pero no los demas restringidos', () => {
+    expect(tieneAccesoModulo('inventario', usuarioInventario)).toBe(true);
+    expect(tieneAccesoModulo('costos', usuarioInventario)).toBe(false);
+    expect(tieneAccesoModulo('clientes', usuarioVentas)).toBe(true);
+    expect(tieneAccesoModulo('inventario', usuarioVentas)).toBe(false);
+  });
+
+  test('supervisor y es_admin pasan todos los modulos, sin excepcion', () => {
+    for (const m of ['pedidos', 'produccion', 'inventario', 'clientes', 'agenda', 'compras', 'refacciones', 'costos', 'reportes']) {
+      expect(tieneAccesoModulo(m, supervisor)).toBe(true);
+      expect(tieneAccesoModulo(m, admin)).toBe(true);
+    }
+  });
+
+  test('sin usuario (no autenticado) no hay acceso a nada', () => {
+    expect(tieneAccesoModulo('pedidos', null)).toBe(false);
+  });
+});
+
+describe('detectarModulos', () => {
+  test('reconoce el modulo por palabras clave', () => {
+    expect(detectarModulos('cuánta tinta azul queda')).toContain('inventario');
+    expect(detectarModulos('qué clientes pidieron esta semana')).toContain('clientes');
+    expect(detectarModulos('qué hay pendiente de comprar')).toContain('compras');
+    expect(detectarModulos('cuánto cuesta el pedido 150')).toContain('costos');
+    expect(detectarModulos('resumen de merma del mes')).toContain('reportes');
+    expect(detectarModulos('hay pedidos atrasados en la agenda')).toContain('agenda');
+    expect(detectarModulos('qué refacción anda baja')).toContain('refacciones');
+  });
+
+  test('sin coincidencia cae a los 3 modulos originales, no a los 9', () => {
+    const r = detectarModulos('hola, buenos dias');
+    expect(r.sort()).toEqual(['inventario', 'pedidos', 'produccion'].sort());
+  });
+});
+
+describe('resumenCostos y resumenReportes -- nunca exponen configuracion de costeo', () => {
+  const pedidos = [
+    { num: '1', cliente: 'A', status: 'terminado', costo_pieza: 2.5, fecha_termino: '2026-09-05', piezas_prod: 100, merma: 2 },
+    { num: '2', cliente: 'B', status: 'terminado', costo_pieza: 3.5, fecha_termino: '2026-09-10', piezas_prod: 200, merma: 4 },
+    { num: '3', cliente: 'C', status: 'proceso', costo_pieza: null, fecha_termino: null, piezas_prod: null, merma: null },
+  ];
+
+  test('promedia solo pedidos terminados del mes pedido, con costo_pieza ya calculado', () => {
+    const r = resumenCostos(pedidos, '2026-09-12');
+    expect(r.costo_pieza_promedio_mes).toBe(3);
+    expect(r.pedidos_con_costo).toHaveLength(2);
+    expect(r.pedidos_con_costo[0]).not.toHaveProperty('mano_obra_dia');
+  });
+
+  test('reportes agrega merma% del mes sin filas crudas', () => {
+    const prodDiaria = [{ fecha: '2026-09-05', cajas_dia: 10 }, { fecha: '2026-08-01', cajas_dia: 99 }];
+    const r = resumenReportes(pedidos, prodDiaria, '2026-09-12');
+    expect(r.cajas_producidas_mes).toBe(10);
+    expect(r.pedidos_terminados_mes).toBe(2);
+    expect(r.merma_pct_mes).toBeCloseTo(2, 1); // (2+4)/(100+200)*100
+  });
+
+  test('resumenClientes no expone fotos ni datos fuera de pedidos', () => {
+    const r = resumenClientes(pedidos);
+    expect(r.pedidos_recientes[0]).not.toHaveProperty('foto_path');
   });
 });
