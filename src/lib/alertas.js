@@ -17,11 +17,16 @@ export const detectarPedidosUrgentes = (pedidos, hoy) => (pedidos || [])
   .map(p => ({ num: p.num, cliente: p.cliente, fecha_estimada: p.fecha_estimada, dias_vencido: diasEntre(p.fecha_estimada, hoy) }))
   .sort((a, b) => b.dias_vencido - a.dias_vencido);
 
+// Number(...toFixed(2)) redondea y quita ceros de sobra -- sin esto un
+// resto de punto flotante (9.179999999999996) se le mostraba crudo al
+// usuario en el Command Center y en el correo de alerta.
+const redondear = (n) => Number(Number(n || 0).toFixed(2));
+
 // Mismo criterio de "bajo" que ya se muestra en Inventario.js -- aqui solo
 // se reusa para decidir si se manda un aviso, no cambia como se calcula.
 export const detectarInventarioCritico = (materiales) => (materiales || [])
   .filter(m => Number(m.stock_min || 0) > 0 && Number(m.stock || 0) <= Number(m.stock_min))
-  .map(m => ({ nombre: m.nombre, categoria: m.categoria, stock: Number(m.stock || 0), stock_min: Number(m.stock_min || 0) }));
+  .map(m => ({ nombre: m.nombre, categoria: m.categoria, stock: redondear(m.stock), stock_min: redondear(m.stock_min) }));
 
 // Pedidos que YA llevaban corriendo desde ayer (o antes) sin ningun
 // registro en prod_diaria para el dia de AYER -- se revisa el dia anterior,
