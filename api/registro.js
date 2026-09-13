@@ -20,6 +20,7 @@ const TABLAS = {
   'prod-diaria': manejarProdDiaria,
   'clientes-disenos': manejarClientesDisenos,
   jarvis: manejarJarvis,
+  'jarvis-app': manejarJarvisApp,
 };
 
 export default async function handler(req, res) {
@@ -226,10 +227,10 @@ async function manejarClientesDisenos(req, res) {
 // nunca habla con Supabase directo -- solo con este endpoint.
 const CONSULTAS_JARVIS = new Set(['pedidos_hoy', 'siat_1', 'inventario_cinta']);
 
-async function manejarJarvis(req, res) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-  if (!requiereSecretoJarvis(req)) return res.status(401).json({ error: 'No autorizado' });
-
+// Las 3 consultas en si son identicas sin importar quien las pida -- lo unico
+// que cambia entre manejarJarvis (secreto) y manejarJarvisApp (sesion de
+// usuario) es la autorizacion, ver cada uno abajo.
+async function responderConsultaJarvis(req, res) {
   const consulta = req.query.consulta;
   if (!CONSULTAS_JARVIS.has(consulta)) {
     return res.status(400).json({ error: `consulta inválida, usa una de: ${[...CONSULTAS_JARVIS].join(', ')}` });
@@ -257,4 +258,29 @@ async function manejarJarvis(req, res) {
   const { data, error } = await supabase.from('materiales').select('categoria, match_valor, nombre, stock, unidad, stock_min').eq('categoria', 'rollo_mp');
   if (error) return res.status(500).json({ error: error.message });
   return res.status(200).json({ ok: true, ...resumenInventarioCinta(data) });
+}
+
+// Integracion de solo lectura para Jarvis (o cualquier cliente servidor-a-
+// servidor futuro) -- no hay sesion de usuario de por medio (ver
+// requiereSecretoJarvis en _lib/auth.js), asi que a proposito esta acotada a
+// GET y a estas 3 consultas fijas: nada de escritura ni control de maquina.
+// El cliente (Jarvis, un iPhone Shortcut corriendo contra un backend, etc.)
+// nunca habla con Supabase directo -- solo con este endpoint.
+async function manejarJarvis(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  if (!requiereSecretoJarvis(req)) return res.status(401).json({ error: 'No autorizado' });
+  return responderConsultaJarvis(req, res);
+}
+
+// Misma integracion de solo lectura que manejarJarvis, pero para la pantalla
+// "Jarvis" dentro de la app (ver src/components/Jarvis.js) -- aqui SI hay un
+// usuario logueado, asi que se autoriza con la sesion JWT normal (modo
+// "jarvis" o supervisor/admin, igual que el resto de la app) en vez del
+// secreto de servidor-a-servidor. A proposito nunca lee ni compara
+// JARVIS_API_SECRET en esta rama -- ese secreto es solo para integraciones
+// externas sin sesion, no para el navegador.
+async function manejarJarvisApp(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  if (!(await requiereAlgunModo(req, ['jarvis']))) return res.status(401).json({ error: 'No autorizado' });
+  return responderConsultaJarvis(req, res);
 }

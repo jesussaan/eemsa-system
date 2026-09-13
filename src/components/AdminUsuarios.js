@@ -10,6 +10,7 @@ const MODOS = [
   { id: "supervisor", label: "Supervisor" },
   { id: "cotizador", label: "Cotizador" },
   { id: "inventario", label: "Inventario" },
+  { id: "jarvis", label: "Jarvis" },
 ];
 
 export default function AdminUsuarios({ onSalir }) {

@@ -6,7 +6,7 @@ import NotifBell from "./components/NotifBell";
 import Login from "./components/Login";
 import ConfirmModal from "./components/ConfirmModal";
 import ThemeToggle from "./components/ThemeToggle";
-import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoOperador, IcoVentas, IcoEmilio, IcoCotizador, IcoSpinner, IcoRoll, IcoBox } from "./components/Icons";
+import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoOperador, IcoVentas, IcoEmilio, IcoCotizador, IcoSpinner, IcoRoll, IcoBox, IcoMic } from "./components/Icons";
 import { REBOB_CLIENTE } from "./lib/constants";
 
 // Cada pantalla se carga solo cuando se visita, en vez de todas juntas en el
@@ -30,6 +30,7 @@ const InfoTarima = lazy(() => import("./components/InfoTarima"));
 const PizarraOperador = lazy(() => import("./components/PizarraOperador"));
 const PizarraRebobinado = lazy(() => import("./components/PizarraRebobinado"));
 const AdminUsuarios = lazy(() => import("./components/AdminUsuarios"));
+const Jarvis = lazy(() => import("./components/Jarvis"));
 
 const PantallaCargando = () => (
   <div className="loading-screen">
@@ -107,6 +108,7 @@ const MODOS_DISPONIBLES = [
   { id: "emilio",     Icon: IcoEmilio,    lbl: "Modo Emilio",     cls: "mode-btn-emi", grupo: "admin" },
   { id: "supervisor", Icon: IcoDash,      lbl: "Modo Supervisor", cls: "mode-btn-sup", grupo: "admin" },
   { id: "inventario", Icon: IcoBox,       lbl: "Inventario",      cls: "mode-btn-inv", grupo: "admin" },
+  { id: "jarvis",     Icon: IcoMic,       lbl: "Jarvis",          cls: "mode-btn-jar", grupo: "admin" },
 ];
 // Orden fijo en que aparecen los grupos en la pantalla de seleccion de modo.
 const GRUPOS_MODO = [
@@ -397,6 +399,12 @@ function EemsaApp() {
   if (modo === "inventario") return (
     <Suspense fallback={<PantallaCargando />}>
       <Inventario materiales={materiales} setMateriales={setMateriales} tarimas={tarimas} setTarimas={setTarimas} pedidos={pedidos} listaMateriales={listaMateriales} setListaMateriales={setListaMateriales} onSalir={() => setModo(null)} />
+    </Suspense>
+  );
+
+  if (modo === "jarvis") return (
+    <Suspense fallback={<PantallaCargando />}>
+      <Jarvis onSalir={() => setModo(null)} />
     </Suspense>
   );
 
