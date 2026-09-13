@@ -115,8 +115,16 @@ export const tieneAccesoModulo = (modulo, usuario) => {
 // manda a Claude el negocio completo en cada mensaje, solo lo relevante. Sin
 // coincidencias, cae a los 3 modulos originales (los mas baratos y comunes)
 // en vez de mandar los 9 por default.
+const TODOS_LOS_MODULOS = Object.keys(MODULOS_JARVIS);
+
 export const detectarModulos = (texto) => {
   const t = (texto || '').toLowerCase();
+  // Pregunta explicitamente por "todo" -- se manda cada modulo al que el
+  // usuario tenga permiso (tieneAccesoModulo filtra esto despues, en
+  // api/chat.js), no solo el default angosto de abajo.
+  if (t.includes('todo') || t.includes('toda la informaci') || t.includes('todos los modulos') || t.includes('todos los módulos')) {
+    return [...TODOS_LOS_MODULOS];
+  }
   const modulos = new Set();
   if (t.includes('pedido')) modulos.add('pedidos');
   if (t.includes('siat') || t.includes('producci') || t.includes('maquina') || t.includes('máquina')) modulos.add('produccion');
@@ -127,7 +135,15 @@ export const detectarModulos = (texto) => {
   if (t.includes('refaccion') || t.includes('refacción') || t.includes('pieza') || t.includes('queja')) modulos.add('refacciones');
   if (t.includes('costo') || t.includes('cuesta') || t.includes('cuánto sale') || t.includes('cuanto sale')) modulos.add('costos');
   if (t.includes('reporte') || t.includes('resumen') || t.includes('merma')) modulos.add('reportes');
-  if (modulos.size === 0) { modulos.add('pedidos'); modulos.add('produccion'); modulos.add('inventario'); }
+  // Sin ninguna palabra clave reconocida: en vez de un default angosto fijo,
+  // se manda TODO lo que el usuario tenga permiso de ver (tieneAccesoModulo
+  // filtra esto en api/chat.js) -- asi una pregunta que no se supo
+  // clasificar no se queda corta de informacion para quien si tiene acceso
+  // amplio (supervisor/direccion/admin), y para alguien con permiso angosto
+  // (ej. solo jarvis+ventas) de todos modos no se le abre nada que no
+  // tuviera ya. El costo extra solo aplica a estas preguntas ambiguas, no a
+  // las que si matchean una palabra clave arriba.
+  if (modulos.size === 0) return [...TODOS_LOS_MODULOS];
   return [...modulos];
 };
 

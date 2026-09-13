@@ -152,9 +152,16 @@ describe('detectarModulos', () => {
     expect(detectarModulos('qué refacción anda baja')).toContain('refacciones');
   });
 
-  test('sin coincidencia cae a los 3 modulos originales, no a los 9', () => {
+  test('sin coincidencia manda TODOS los modulos (tieneAccesoModulo filtra despues por permiso)', () => {
     const r = detectarModulos('hola, buenos dias');
-    expect(r.sort()).toEqual(['inventario', 'pedidos', 'produccion'].sort());
+    expect(r.sort()).toEqual(['agenda', 'clientes', 'compras', 'costos', 'inventario', 'pedidos', 'produccion', 'refacciones', 'reportes'].sort());
+  });
+
+  test('"quiero toda la informacion" pide explicitamente todos los modulos', () => {
+    const r = detectarModulos('quiero toda la información de la app');
+    expect(r).toContain('costos');
+    expect(r).toContain('compras');
+    expect(r).toContain('refacciones');
   });
 });
 
