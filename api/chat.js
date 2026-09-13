@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-import { requiereModo } from './_lib/auth.js';
+import { requiereModo, requiereAlgunModo } from './_lib/auth.js';
+import { hoyMexico, resumenPedidosHoy, resumenSiat1, resumenInventarioCinta } from '../src/lib/jarvis.js';
+import { META_CAJAS } from '../src/lib/constants.js';
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -341,6 +343,69 @@ async function ejecutarHerramienta(name, input) {
 
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://eemsa-system.vercel.app';
 
+// Version de Claude de la pantalla Jarvis para preguntas que el filtro por
+// palabras clave de Jarvis.js no reconoce (ver src/components/Jarvis.js:
+// interpretarConsulta). A proposito NO comparte camino con el asistente
+// completo de mas abajo:
+//   - Sin `tools` en la llamada a Claude -- no es "se le pidio no escribir",
+//     es que la funcion no tiene ninguna herramienta que pueda invocar para
+//     escribir, ni aunque alguien intente manipular el prompt.
+//   - El contexto son los mismos 3 resumenes ya acotados que usa el boton
+//     rapido (src/lib/jarvis.js) -- nada de tablas completas ni columnas de
+//     costo/ids internos.
+//   - Historial acotado a los ultimos 6 mensajes para no inflar el costo de
+//     una conversacion larga con cada pregunta nueva.
+async function manejarJarvisIA(req, res, messages) {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: 'messages es requerido' });
+  }
+
+  const hoy = hoyMexico();
+  const [pedidosRes, prodRes, materialesRes] = await Promise.all([
+    supabase.from('pedidos').select('num, cliente, tipo, medida, cajas, status, maq, created, fecha_inicio, inicio_ts, fin_ts'),
+    supabase.from('prod_diaria').select('num_pedido, cajas_dia, fecha, created'),
+    supabase.from('materiales').select('categoria, match_valor, nombre, stock, unidad, stock_min').eq('categoria', 'rollo_mp'),
+  ]);
+  if (pedidosRes.error) return res.status(500).json({ error: pedidosRes.error.message });
+  if (prodRes.error) return res.status(500).json({ error: prodRes.error.message });
+  if (materialesRes.error) return res.status(500).json({ error: materialesRes.error.message });
+
+  const datos = {
+    fecha_hoy: hoy,
+    pedidos_hoy: resumenPedidosHoy(pedidosRes.data, hoy),
+    siat_1: resumenSiat1(pedidosRes.data, prodRes.data, hoy, META_CAJAS),
+    inventario_cinta: resumenInventarioCinta(materialesRes.data),
+  };
+
+  const systemPrompt = `Eres Jarvis, el asistente de solo lectura de EEMSA. Respondes SIEMPRE en español, breve y claro (la respuesta se puede leer en voz alta en un celular).
+Solo puedes usar los datos de este mensaje -- no inventes cifras ni asumas nada que no este aqui. Si la pregunta no se puede responder con estos datos, dilo claramente.
+No tienes forma de crear, modificar ni borrar nada, ni de controlar ninguna máquina -- si te piden hacer algo (no solo consultar), explica que Jarvis es de solo lectura y que usen el módulo correspondiente (Pedidos, Modo Operador, Inventario, etc.).
+
+DATOS (${hoy}):
+${JSON.stringify(datos)}`;
+
+  const ultimosMensajes = messages.slice(-6).map(m => ({ role: m.role, content: m.content }));
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        max_tokens: 300,
+        system: systemPrompt,
+        messages: ultimosMensajes,
+      }),
+    });
+    const data = await response.json();
+    if (data.error) return res.status(502).json({ error: data.error.message || 'Error al consultar la IA.' });
+    const reply = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('') || 'Sin respuesta.';
+    return res.status(200).json({ reply });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -348,10 +413,31 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  if (!(await requiereModo(req, 'supervisor'))) return res.status(401).json({ error: 'No autorizado' });
+  // Ampliado de "supervisor" a "supervisor o jarvis" para que la pantalla
+  // Jarvis (modo mas angosto, ver AdminUsuarios.js) tambien pueda llamar este
+  // mismo endpoint -- pero OJO: pasar este gate NO alcanza para la parte de
+  // abajo que crea/modifica datos con herramientas. Eso se revalida aparte,
+  // explicitamente, unas lineas mas abajo.
+  const usuario = await requiereAlgunModo(req, ['supervisor', 'jarvis']);
+  if (!usuario) return res.status(401).json({ error: 'No autorizado' });
 
   try {
-    const { messages, image, mediaType, extractTicket } = req.body;
+    const { messages, image, mediaType, extractTicket, jarvis } = req.body;
+
+    // Rama de Jarvis: solo lectura, sin herramientas, sin OCR. Cualquiera con
+    // el modo "jarvis" (o supervisor) puede entrar aqui -- es justo la unica
+    // parte de este archivo pensada para eso. No se mezcla con el resto del
+    // asistente (que si puede escribir), asi que ni siquiera se le arma el
+    // array de TOOLS a Claude en esta rama.
+    if (jarvis) return manejarJarvisIA(req, res, messages);
+
+    // A partir de aqui: OCR de tickets y el asistente completo (crea/edita
+    // pedidos, fallas, refacciones, compras...) -- requiere supervisor o
+    // admin DE VERDAD, verificado aqui mismo, no solo "paso el gate de
+    // arriba" (que tambien deja pasar el modo "jarvis", mas angosto).
+    if (!usuario.esAdmin && !usuario.modos.includes('supervisor')) {
+      return res.status(401).json({ error: 'No autorizado' });
+    }
 
     // OCR de ticket
     if (extractTicket && image) {

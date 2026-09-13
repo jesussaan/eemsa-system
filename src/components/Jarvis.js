@@ -3,11 +3,16 @@ import { authHeaders } from "../lib/auth";
 import { IcoMic } from "./Icons";
 
 // Pantalla de solo lectura, pensada para consultarse rapido desde el celular.
-// Nunca escribe nada ni controla una maquina: solo llama
+// Nunca escribe nada ni controla una maquina: las 3 frases conocidas llaman
 // /api/registro?tabla=jarvis-app con la sesion normal del usuario (ver
-// api/registro.js) -- el secreto JARVIS_API_SECRET no existe en este
-// archivo ni en ningun otro codigo de React. Sin IA ni servicio externo:
-// tanto la voz de entrada como la de salida son APIs del propio navegador.
+// api/registro.js), gratis e instantaneo, sin IA. Si el texto (escrito o
+// dictado) no matchea ninguna de esas 3, se manda a Claude via /api/chat
+// (rama "jarvis", ver api/chat.js) -- esa rama tampoco puede escribir nada
+// (no se le pasan herramientas) ni usa mas datos que los mismos 3 resumenes
+// de siempre. En ningun caso se usa ni se expone JARVIS_API_SECRET ni
+// ANTHROPIC_KEY en este archivo ni en ningun otro codigo de React -- viven
+// solo del lado del servidor. La voz (entrada y salida) sigue siendo APIs
+// del propio navegador, sin servicio externo.
 //
 // OJO Safari/iOS: SpeechRecognition (voz -> texto) nunca se implemento ahi
 // -- ni en Safari de escritorio ni en los navegadores de iOS, que por regla
@@ -123,23 +128,35 @@ export default function Jarvis({ onSalir }) {
     setInput("");
 
     const consulta = interpretarConsulta(texto);
-    if (!consulta) {
-      const respuesta = 'No reconocí esa consulta. Usa uno de los botones de arriba, o incluye "pedido", "SIAT" o "inventario"/"cinta".';
-      setHistorial(h => [...h, { pregunta: texto, respuesta }]);
-      setUltimaRespuesta(respuesta);
-      if (leerEnVoz) hablar(respuesta);
-      return;
-    }
-
     setLoading(true);
     let respuesta;
     try {
-      const res = await fetch(`/api/registro?tabla=jarvis-app&consulta=${consulta}`, { headers: authHeaders() });
-      const data = await res.json();
-      if (!res.ok || data.error) respuesta = `❌ ${data.error || "Error al consultar."}`;
-      else if (consulta === "pedidos_hoy") respuesta = formatearPedidosHoy(data);
-      else if (consulta === "siat_1") respuesta = formatearSiat1(data);
-      else respuesta = formatearInventarioCinta(data);
+      if (consulta) {
+        // Camino gratis e instantaneo -- sin llamar a Claude -- para las 3
+        // frases que ya reconoce el filtro de palabras clave.
+        const res = await fetch(`/api/registro?tabla=jarvis-app&consulta=${consulta}`, { headers: authHeaders() });
+        const data = await res.json();
+        if (!res.ok || data.error) respuesta = `❌ ${data.error || "Error al consultar."}`;
+        else if (consulta === "pedidos_hoy") respuesta = formatearPedidosHoy(data);
+        else if (consulta === "siat_1") respuesta = formatearSiat1(data);
+        else respuesta = formatearInventarioCinta(data);
+      } else {
+        // El filtro no reconocio la frase -- se manda a Claude (ver
+        // api/chat.js, rama jarvis) en vez de decir "no entendí". Sigue
+        // siendo de solo lectura: esa rama no tiene herramientas de
+        // escritura ni usa mas datos que los mismos 3 resumenes de arriba.
+        const historialMsgs = historial.flatMap(h => [
+          { role: "user", content: h.pregunta },
+          { role: "assistant", content: h.respuesta },
+        ]);
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ jarvis: true, messages: [...historialMsgs, { role: "user", content: texto }] }),
+        });
+        const data = await res.json();
+        respuesta = (!res.ok || data.error) ? `❌ ${data.error || "Error al consultar."}` : (data.reply || "Sin respuesta.");
+      }
     } catch {
       respuesta = "❌ Error de conexión.";
     }
