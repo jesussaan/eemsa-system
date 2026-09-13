@@ -2,13 +2,21 @@ import { useState, useRef, useEffect } from "react";
 import { authHeaders } from "../lib/auth";
 import { IcoMic } from "./Icons";
 
-// Pantalla de solo lectura, pensada para consultarse rapido desde el celular
-// (dictado incluido: en iPhone el teclado de iOS ya trae microfono en
-// cualquier campo de texto, no hace falta Web Speech API -- que ademas
-// Safari/iOS nunca implemento). Nunca escribe nada ni controla una maquina:
-// solo llama /api/registro?tabla=jarvis-app con la sesion normal del
-// usuario (ver api/registro.js) -- el secreto JARVIS_API_SECRET no existe
-// en este archivo ni en ningun otro codigo de React.
+// Pantalla de solo lectura, pensada para consultarse rapido desde el celular.
+// Nunca escribe nada ni controla una maquina: solo llama
+// /api/registro?tabla=jarvis-app con la sesion normal del usuario (ver
+// api/registro.js) -- el secreto JARVIS_API_SECRET no existe en este
+// archivo ni en ningun otro codigo de React. Sin IA ni servicio externo:
+// tanto la voz de entrada como la de salida son APIs del propio navegador.
+//
+// OJO Safari/iOS: SpeechRecognition (voz -> texto) nunca se implemento ahi
+// -- ni en Safari de escritorio ni en los navegadores de iOS, que por regla
+// de Apple todos corren sobre el motor de Safari por debajo. No hay forma
+// de arreglar eso con codigo sin mandar el audio a un servicio externo (lo
+// cual se pidio evitar). Por eso el boton "Hablar" solo aparece donde el
+// navegador de verdad puede escuchar; en iPhone cae automaticamente al
+// dictado nativo del teclado de iOS sobre el mismo campo de texto de
+// siempre. La voz de SALIDA (speechSynthesis) si funciona en Safari/iOS.
 const FRASES_RAPIDAS = [
   { label: "📋 Pedidos de hoy", texto: "pedidos de hoy" },
   { label: "🖨️ Cómo va la SIAT 1", texto: "cómo va la SIAT 1" },
@@ -54,22 +62,59 @@ const formatearInventarioCinta = (d) => {
   return `Inventario de Rollo MP:\n${lineas.join("\n")}`;
 };
 
+// undefined mientras el navegador no ha definido si existe -- SSR/primera
+// carga -- null cuando ya se confirmo que no existe.
+const RecognitionCtor = typeof window !== "undefined" ? (window.SpeechRecognition || window.webkitSpeechRecognition || null) : null;
+
 export default function Jarvis({ onSalir }) {
   const [historial, setHistorial] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [leerEnVoz, setLeerEnVoz] = useState(false);
+  const [leerEnVoz, setLeerEnVoz] = useState(true);
+  const [hablando, setHablando] = useState(false);
+  const [escuchando, setEscuchando] = useState(false);
+  const [ultimaRespuesta, setUltimaRespuesta] = useState("");
+  const [vozEs, setVozEs] = useState(null);
   const bottomRef = useRef(null);
+  const inputRef = useRef(null);
+  const recognitionRef = useRef(null);
+
   const puedeHablar = typeof window !== "undefined" && "speechSynthesis" in window;
+  const puedeEscuchar = !!RecognitionCtor;
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [historial, loading]);
 
-  const hablar = (texto) => {
+  // getVoices() puede llegar vacio la primera vez (carga async, sobre todo
+  // en Safari) -- se reintenta con onvoiceschanged. Se prefiere es-MX, si no
+  // cualquier voz en espanol disponible en el dispositivo.
+  useEffect(() => {
     if (!puedeHablar) return;
+    const cargarVoces = () => {
+      const voces = window.speechSynthesis.getVoices();
+      const elegida = voces.find(v => v.lang?.toLowerCase() === "es-mx") || voces.find(v => v.lang?.toLowerCase().startsWith("es")) || null;
+      setVozEs(elegida);
+    };
+    cargarVoces();
+    window.speechSynthesis.onvoiceschanged = cargarVoces;
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
+  }, [puedeHablar]);
+
+  const hablar = (texto) => {
+    if (!puedeHablar || !texto) return;
     window.speechSynthesis.cancel();
     const utt = new window.SpeechSynthesisUtterance(texto.replace(/[⚠❌\n]/g, " "));
     utt.lang = "es-MX";
+    if (vozEs) utt.voice = vozEs;
+    utt.onstart = () => setHablando(true);
+    utt.onend = () => setHablando(false);
+    utt.onerror = () => setHablando(false);
     window.speechSynthesis.speak(utt);
+  };
+
+  const detenerVoz = () => {
+    if (!puedeHablar) return;
+    window.speechSynthesis.cancel();
+    setHablando(false);
   };
 
   const preguntar = async (textoDirecto) => {
@@ -79,7 +124,10 @@ export default function Jarvis({ onSalir }) {
 
     const consulta = interpretarConsulta(texto);
     if (!consulta) {
-      setHistorial(h => [...h, { pregunta: texto, respuesta: 'No reconocí esa consulta. Usa uno de los botones de arriba, o incluye "pedido", "SIAT" o "inventario"/"cinta".' }]);
+      const respuesta = 'No reconocí esa consulta. Usa uno de los botones de arriba, o incluye "pedido", "SIAT" o "inventario"/"cinta".';
+      setHistorial(h => [...h, { pregunta: texto, respuesta }]);
+      setUltimaRespuesta(respuesta);
+      if (leerEnVoz) hablar(respuesta);
       return;
     }
 
@@ -96,9 +144,33 @@ export default function Jarvis({ onSalir }) {
       respuesta = "❌ Error de conexión.";
     }
     setHistorial(h => [...h, { pregunta: texto, respuesta }]);
+    setUltimaRespuesta(respuesta);
     setLoading(false);
     if (leerEnVoz) hablar(respuesta);
   };
+
+  // Un solo toque: escucha una frase, la transcribe y la manda directo a
+  // preguntar() -- mismo pipeline que escribir a mano o tocar un boton
+  // rapido. Solo existe en navegadores que de verdad soportan
+  // SpeechRecognition (ver nota arriba del archivo sobre Safari/iOS).
+  const escuchar = () => {
+    if (!puedeEscuchar || escuchando || loading) return;
+    const rec = new RecognitionCtor();
+    rec.lang = "es-MX";
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    recognitionRef.current = rec;
+    rec.onstart = () => setEscuchando(true);
+    rec.onerror = () => setEscuchando(false);
+    rec.onend = () => setEscuchando(false);
+    rec.onresult = (e) => {
+      const texto = e.results?.[0]?.[0]?.transcript;
+      if (texto) preguntar(texto);
+    };
+    try { rec.start(); } catch { setEscuchando(false); }
+  };
+
+  const detenerEscucha = () => { recognitionRef.current?.stop(); setEscuchando(false); };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--bg)" }}>
@@ -115,19 +187,50 @@ export default function Jarvis({ onSalir }) {
         <h2 className="sec-title"><Ico icon={IcoMic} /> Jarvis</h2>
         <p className="muted" style={{ marginBottom: 12 }}>Preguntas rápidas de solo lectura — nada de esto cambia datos ni controla una máquina.</p>
 
+        {puedeEscuchar ? (
+          <button
+            className="btn btn-primary"
+            onClick={escuchando ? detenerEscucha : escuchar}
+            disabled={loading}
+            style={{
+              width: "100%", padding: "16px 0", fontSize: 16, fontWeight: 800, marginBottom: 10,
+              background: escuchando ? "var(--red, #e84b4b)" : undefined,
+            }}
+          >
+            {escuchando ? "🎙️ Escuchando… (toca para cancelar)" : "🎙️ Hablar"}
+          </button>
+        ) : (
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => inputRef.current?.focus()}
+            style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(201,146,42,0.1)", border: "1px solid rgba(201,146,42,0.3)", color: "#c9922a", fontSize: 12.5, marginBottom: 10, cursor: "pointer" }}
+          >
+            🎤 Dictado por voz no disponible en este navegador (normal en Safari/iPhone) — toca aquí o el campo de abajo y usa el micrófono de tu teclado para dictar.
+          </div>
+        )}
+
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
           {FRASES_RAPIDAS.map(f => (
             <button key={f.texto} className="btn btn-ghost btn-sm" disabled={loading} onClick={() => preguntar(f.texto)}>{f.label}</button>
           ))}
         </div>
 
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#999", marginBottom: 10, cursor: puedeHablar ? "pointer" : "not-allowed" }}>
-          <input type="checkbox" checked={leerEnVoz} disabled={!puedeHablar} onChange={e => setLeerEnVoz(e.target.checked)} />
-          🔊 Leer respuestas en voz alta{!puedeHablar ? " (no disponible en este navegador)" : ""}
-        </label>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginBottom: 10 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#999", cursor: puedeHablar ? "pointer" : "not-allowed" }}>
+            <input type="checkbox" checked={leerEnVoz} disabled={!puedeHablar} onChange={e => setLeerEnVoz(e.target.checked)} />
+            🔊 Leer respuestas automáticamente{!puedeHablar ? " (no disponible)" : ""}
+          </label>
+          {puedeHablar && (
+            <>
+              <button className="btn btn-ghost btn-sm" onClick={() => hablar(ultimaRespuesta)} disabled={!ultimaRespuesta || hablando}>🔁 Repetir</button>
+              <button className="btn btn-ghost btn-sm" onClick={detenerVoz} disabled={!hablando}>⏹ Detener voz</button>
+            </>
+          )}
+        </div>
 
         <div className="chat-box">
-          {historial.length === 0 && <div className="msg msg-a">Escribe o dicta una pregunta, o toca uno de los botones de arriba.</div>}
+          {historial.length === 0 && <div className="msg msg-a">Escribe, dicta o toca "Hablar" para hacer una pregunta.</div>}
           {historial.map((h, i) => (
             <div key={i}>
               <div className="msg msg-u">{h.pregunta}</div>
@@ -145,6 +248,7 @@ export default function Jarvis({ onSalir }) {
 
         <div className="chat-row">
           <input
+            ref={inputRef}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && preguntar()}
