@@ -80,6 +80,10 @@ export default function Jarvis({ onSalir }) {
   const [escuchando, setEscuchando] = useState(false);
   const [ultimaRespuesta, setUltimaRespuesta] = useState("");
   const [vozEs, setVozEs] = useState(null);
+  const [mostrarTokens, setMostrarTokens] = useState(false);
+  const [tokens, setTokens] = useState([]);
+  const [tokenNuevo, setTokenNuevo] = useState(null);
+  const [generandoToken, setGenerandoToken] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -189,6 +193,42 @@ export default function Jarvis({ onSalir }) {
 
   const detenerEscucha = () => { recognitionRef.current?.stop(); setEscuchando(false); };
 
+  // Acceso personal y revocable para Atajos de Siri (ver
+  // supabase_jarvis_tokens.sql y la rama x-jarvis-token en api/chat.js). El
+  // valor real del token solo llega aqui una vez, al crearlo -- de ahi en
+  // adelante el servidor solo guarda su hash, asi que no hay forma de
+  // volver a mostrarlo, solo revocarlo y generar uno nuevo.
+  const cargarTokens = async () => {
+    try {
+      const res = await fetch("/api/registro?tabla=jarvis-tokens", { headers: authHeaders() });
+      const data = await res.json();
+      if (Array.isArray(data)) setTokens(data);
+    } catch { /* silencioso -- no es critico para el resto de la pantalla */ }
+  };
+
+  const abrirTokens = () => { setMostrarTokens(v => !v); if (!mostrarTokens) cargarTokens(); };
+
+  const generarToken = async () => {
+    if (generandoToken) return;
+    setGenerandoToken(true);
+    setTokenNuevo(null);
+    try {
+      const res = await fetch("/api/registro?tabla=jarvis-tokens", {
+        method: "POST", headers: authHeaders(), body: JSON.stringify({ nombre: "Atajo de Siri" }),
+      });
+      const data = await res.json();
+      if (res.ok && data.token) { setTokenNuevo(data.token); cargarTokens(); }
+    } catch { /* el boton se puede volver a tocar */ }
+    setGenerandoToken(false);
+  };
+
+  const revocarToken = async (id) => {
+    try {
+      await fetch("/api/registro?tabla=jarvis-tokens", { method: "DELETE", headers: authHeaders(), body: JSON.stringify({ id }) });
+      cargarTokens();
+    } catch { /* el boton se puede volver a tocar */ }
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--bg)" }}>
       <header style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--surface)", borderBottom: "2px solid var(--tan)", position: "sticky", top: 0, zIndex: 10 }}>
@@ -273,6 +313,48 @@ export default function Jarvis({ onSalir }) {
             disabled={loading}
           />
           <button className="btn btn-primary" onClick={() => preguntar()} disabled={loading || !input.trim()}>Enviar</button>
+        </div>
+
+        <div style={{ marginTop: 24, borderTop: "1px solid var(--border, #2a2d3a)", paddingTop: 12 }}>
+          <button className="btn btn-ghost btn-sm" onClick={abrirTokens}>🔑 Acceso para Atajos de Siri {mostrarTokens ? "▲" : "▼"}</button>
+
+          {mostrarTokens && (
+            <div style={{ marginTop: 10 }}>
+              <p className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
+                Genera un token personal para preguntarle a Jarvis desde un Atajo de Siri en tu iPhone, sin abrir la app. Es de solo lectura, hereda tus mismos permisos, y lo puedes revocar cuando quieras.
+              </p>
+
+              {tokenNuevo && (
+                <div style={{ background: "rgba(75,232,122,0.1)", border: "1px solid rgba(75,232,122,0.35)", borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                  <div style={{ fontSize: 12, color: "#4be87a", fontWeight: 700, marginBottom: 6 }}>⚠ Cópialo ahora — no se vuelve a mostrar</div>
+                  <code style={{ display: "block", wordBreak: "break-all", fontSize: 12, background: "#0d0f14", padding: 8, borderRadius: 6 }}>{tokenNuevo}</code>
+                  <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={() => navigator.clipboard?.writeText(tokenNuevo)}>📋 Copiar</button>
+                </div>
+              )}
+
+              <button className="btn btn-primary btn-sm" onClick={generarToken} disabled={generandoToken} style={{ marginBottom: 12 }}>
+                {generandoToken ? "Generando…" : "➕ Generar nuevo token"}
+              </button>
+
+              {tokens.length === 0 ? (
+                <p className="muted" style={{ fontSize: 12 }}>Todavía no tienes ningún token generado.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {tokens.map(t => (
+                    <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontSize: 12, background: "var(--surface)", border: "1px solid var(--border, #2a2d3a)", borderRadius: 8, padding: "8px 10px" }}>
+                      <div>
+                        <div style={{ fontWeight: 700 }}>{t.nombre}</div>
+                        <div className="muted" style={{ fontSize: 11 }}>
+                          {t.revoked_at ? "Revocado" : t.ultimo_uso ? `Último uso: ${new Date(t.ultimo_uso).toLocaleString("es-MX")}` : "Nunca usado"}
+                        </div>
+                      </div>
+                      {!t.revoked_at && <button className="btn btn-ghost btn-sm" onClick={() => revocarToken(t.id)}>Revocar</button>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
     </div>

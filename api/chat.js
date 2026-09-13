@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 import { requiereModo, requiereAlgunModo } from './_lib/auth.js';
 import { hoyMexico, resumenPedidosHoy, resumenSiat1, resumenInventarioCinta } from '../src/lib/jarvis.js';
 import { META_CAJAS } from '../src/lib/constants.js';
@@ -406,11 +407,57 @@ ${JSON.stringify(datos)}`;
   }
 }
 
+// Acceso de un token personal de Jarvis (Atajos de Siri u otro cliente sin
+// sesion de usuario -- ver supabase_jarvis_tokens.sql y
+// api/registro.js?tabla=jarvis-tokens). A proposito SIEMPRE cae en
+// manejarJarvisIA sin importar el body: un token nunca llega al asistente
+// completo (herramientas de escritura, OCR), ni siquiera si la cuenta dueña
+// del token es supervisor -- ese es justo el punto de que Siri use un
+// camino aparte y mas angosto que la sesion normal.
+async function manejarConsultaPorToken(req, res, token) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const { data: fila, error } = await supabaseAdmin.from('jarvis_tokens')
+    .select('*').eq('token_hash', tokenHash).is('revoked_at', null).maybeSingle();
+  if (error || !fila) return res.status(401).json({ error: 'Token inválido o revocado' });
+
+  // Anti-loop: un Atajo mal configurado (o un token filtrado) no puede
+  // disparar llamadas en rafaga.
+  if (fila.ultimo_uso && Date.now() - new Date(fila.ultimo_uso).getTime() < 2000) {
+    return res.status(429).json({ error: 'Demasiadas consultas seguidas, espera un momento.' });
+  }
+
+  // Limite diario -- se resetea solo cuando cambia el dia (hora de Mexico,
+  // ver hoyMexico en src/lib/jarvis.js), sin cron ni job aparte.
+  const hoy = hoyMexico();
+  const usosHoy = fila.fecha_contador === hoy ? fila.usos_hoy : 0;
+  if (usosHoy >= fila.limite_diario) {
+    return res.status(429).json({ error: `Límite diario de ${fila.limite_diario} consultas alcanzado.` });
+  }
+
+  await supabaseAdmin.from('jarvis_tokens').update({
+    ultimo_uso: new Date().toISOString(), fecha_contador: hoy, usos_hoy: usosHoy + 1,
+  }).eq('id', fila.id);
+
+  const { data: perfil } = await supabaseAdmin.from('perfiles').select('activo').eq('id', fila.user_id).single();
+  if (!perfil?.activo) return res.status(401).json({ error: 'Cuenta inactiva' });
+
+  return manejarJarvisIA(req, res, req.body?.messages);
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-jarvis-token');
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // Atajos de Siri (o cualquier cliente sin sesion de usuario) mandan este
+  // header en vez de un JWT -- se revisa antes que nada porque no hay sesion
+  // Supabase de por medio para requiereAlgunModo.
+  const tokenSiri = req.headers['x-jarvis-token'];
+  if (tokenSiri) return manejarConsultaPorToken(req, res, String(tokenSiri));
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   // Ampliado de "supervisor" a "supervisor o jarvis" para que la pantalla

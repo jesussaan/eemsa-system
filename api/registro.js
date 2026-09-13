@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 import { requiereModo, requiereAlgunModo, requiereSecretoJarvis } from './_lib/auth.js';
 import { uid, today } from '../src/lib/utils.js';
 import { hoyMexico, resumenPedidosHoy, resumenSiat1, resumenInventarioCinta } from '../src/lib/jarvis.js';
@@ -21,6 +22,7 @@ const TABLAS = {
   'clientes-disenos': manejarClientesDisenos,
   jarvis: manejarJarvis,
   'jarvis-app': manejarJarvisApp,
+  'jarvis-tokens': manejarJarvisTokens,
 };
 
 export default async function handler(req, res) {
@@ -283,4 +285,48 @@ async function manejarJarvisApp(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   if (!(await requiereAlgunModo(req, ['jarvis']))) return res.status(401).json({ error: 'No autorizado' });
   return responderConsultaJarvis(req, res);
+}
+
+// Generar/listar/revocar los tokens personales de Jarvis para Atajos de Siri
+// (ver supabase_jarvis_tokens.sql y la rama de x-jarvis-token en api/chat.js).
+// El valor real del token SOLO se devuelve aqui, una vez, al crearlo -- de
+// ahi en adelante solo se guarda su hash SHA-256, igual que un Personal
+// Access Token de GitHub: si esta tabla se filtrara no revela ningun token
+// usable. Cada quien solo puede ver/revocar sus propios tokens (eq user_id).
+async function manejarJarvisTokens(req, res) {
+  const usuario = await requiereAlgunModo(req, ['jarvis']);
+  if (!usuario) return res.status(401).json({ error: 'No autorizado' });
+
+  if (req.method === 'GET') {
+    const { data, error } = await supabase.from('jarvis_tokens')
+      .select('id, nombre, created_at, revoked_at, ultimo_uso')
+      .eq('user_id', usuario.id)
+      .order('created_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json(data || []);
+  }
+
+  if (req.method === 'POST') {
+    const nombre = (req.body?.nombre || 'Atajo de Siri').toString().trim().slice(0, 60) || 'Atajo de Siri';
+    const token = 'jrv_' + crypto.randomBytes(24).toString('hex');
+    const token_hash = crypto.createHash('sha256').update(token).digest('hex');
+    const { data, error } = await supabase.from('jarvis_tokens')
+      .insert([{ user_id: usuario.id, nombre, token_hash }])
+      .select('id, nombre, created_at')
+      .single();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ ...data, token });
+  }
+
+  if (req.method === 'DELETE') {
+    const { id } = req.body || {};
+    if (!id) return res.status(400).json({ error: 'id es requerido' });
+    const { error } = await supabase.from('jarvis_tokens')
+      .update({ revoked_at: new Date().toISOString() })
+      .eq('id', id).eq('user_id', usuario.id);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ ok: true });
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
 }
