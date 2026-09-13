@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
-import { requiereModo, requiereAlgunModo } from './_lib/auth.js';
+import { requiereModo, requiereAlgunModo, requiereSecretoJarvis } from './_lib/auth.js';
 import { uid, today } from '../src/lib/utils.js';
+import { hoyMexico, resumenPedidosHoy, resumenSiat1, resumenInventarioCinta } from '../src/lib/jarvis.js';
+import { META_CAJAS } from '../src/lib/constants.js';
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -17,6 +19,7 @@ const TABLAS = {
   plantillas: manejarPlantillas,
   'prod-diaria': manejarProdDiaria,
   'clientes-disenos': manejarClientesDisenos,
+  jarvis: manejarJarvis,
 };
 
 export default async function handler(req, res) {
@@ -213,4 +216,45 @@ async function manejarClientesDisenos(req, res) {
   }
 
   return res.status(405).json({ error: 'Method not allowed' });
+}
+
+// Integracion de solo lectura para Jarvis (o cualquier cliente servidor-a-
+// servidor futuro) -- no hay sesion de usuario de por medio (ver
+// requiereSecretoJarvis en _lib/auth.js), asi que a proposito esta acotada a
+// GET y a estas 3 consultas fijas: nada de escritura ni control de maquina.
+// El cliente (Jarvis, un iPhone Shortcut corriendo contra un backend, etc.)
+// nunca habla con Supabase directo -- solo con este endpoint.
+const CONSULTAS_JARVIS = new Set(['pedidos_hoy', 'siat_1', 'inventario_cinta']);
+
+async function manejarJarvis(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  if (!requiereSecretoJarvis(req)) return res.status(401).json({ error: 'No autorizado' });
+
+  const consulta = req.query.consulta;
+  if (!CONSULTAS_JARVIS.has(consulta)) {
+    return res.status(400).json({ error: `consulta inválida, usa una de: ${[...CONSULTAS_JARVIS].join(', ')}` });
+  }
+
+  const hoy = hoyMexico();
+
+  if (consulta === 'pedidos_hoy') {
+    const { data, error } = await supabase.from('pedidos').select('num, cliente, tipo, medida, cajas, status, maq, created');
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ ok: true, fecha: hoy, ...resumenPedidosHoy(data, hoy) });
+  }
+
+  if (consulta === 'siat_1') {
+    const [pedidosRes, prodRes] = await Promise.all([
+      supabase.from('pedidos').select('num, cliente, tipo, medida, cajas, status, maq, fecha_inicio, inicio_ts, fin_ts'),
+      supabase.from('prod_diaria').select('num_pedido, cajas_dia, fecha, created'),
+    ]);
+    if (pedidosRes.error) return res.status(500).json({ error: pedidosRes.error.message });
+    if (prodRes.error) return res.status(500).json({ error: prodRes.error.message });
+    return res.status(200).json({ ok: true, ...resumenSiat1(pedidosRes.data, prodRes.data, hoy, META_CAJAS) });
+  }
+
+  // consulta === 'inventario_cinta'
+  const { data, error } = await supabase.from('materiales').select('categoria, match_valor, nombre, stock, unidad, stock_min').eq('categoria', 'rollo_mp');
+  if (error) return res.status(500).json({ error: error.message });
+  return res.status(200).json({ ok: true, ...resumenInventarioCinta(data) });
 }
