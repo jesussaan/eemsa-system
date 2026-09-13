@@ -59,7 +59,14 @@ export const siguienteNumPedido = (pedidos) => {
   }, 0);
   return String(max + 1);
 };
-export const today = () => new Date().toISOString().slice(0, 10);
+// Fecha de hoy en hora de Mexico (America/Mexico_City), NO UTC -- antes esto
+// era new Date().toISOString().slice(0,10), que da la fecha en UTC sin
+// importar donde corra. Como CDMX es UTC-6 sin horario de verano desde 2022,
+// a partir de las 6pm hora local esto ya marcaba el dia siguiente -- en
+// pedidos.created, fallas.fecha, prod_diaria.fecha, "pedidos de hoy" de
+// Jarvis, etc. Intl.DateTimeFormat con esa timeZone da directo YYYY-MM-DD
+// (locale en-CA) sin tener que sumar/restar horas a mano.
+export const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(new Date());
 export const fmt = (n) => Number(n).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export const diasHabiles = (desde, hasta) => {

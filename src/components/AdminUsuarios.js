@@ -11,6 +11,7 @@ const MODOS = [
   { id: "cotizador", label: "Cotizador" },
   { id: "inventario", label: "Inventario" },
   { id: "jarvis", label: "Jarvis" },
+  { id: "direccion", label: "Dirección (resumen ejecutivo en Jarvis)" },
 ];
 
 export default function AdminUsuarios({ onSalir }) {

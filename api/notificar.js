@@ -91,6 +91,30 @@ export default async function handler(req, res) {
       ${filas}
       <div class="pie">EEMSA System · ${new Date().toLocaleString('es-MX')}</div>
     </div>`;
+  } else if (tipo === 'inventario_critico') {
+    subject = `📦 ${datos.materiales.length} material(es) en stock crítico — EEMSA`;
+    const filas = datos.materiales.map(m =>
+      `<div class="fila"><span class="lbl">${escapeHtml(m.nombre)}</span><span class="val" style="color:#ff4d4d">${m.stock} / mín. ${m.stock_min}</span></div>`
+    ).join('');
+    html = `<style>${estilos}</style>
+    <div class="card">
+      <div class="titulo">📦 Inventario crítico</div>
+      ${filas}
+      <div class="pie">EEMSA System · ${new Date().toLocaleString('es-MX')}</div>
+    </div>`;
+
+  } else if (tipo === 'produccion_sin_registrar') {
+    subject = `🏭 Producción sin registrar (${datos.fecha}) — EEMSA`;
+    const filas = datos.pedidos.map(p =>
+      `<div class="fila"><span class="lbl">${escapeHtml(p.maq)}</span><span class="val">#${escapeHtml(p.num)} — ${escapeHtml(p.cliente)}</span></div>`
+    ).join('');
+    html = `<style>${estilos}</style>
+    <div class="card">
+      <div class="titulo">🏭 Producción sin registrar el ${escapeHtml(datos.fecha)}</div>
+      ${filas}
+      <div class="pie">Estas máquinas tenían un pedido en proceso pero nadie anotó cajas ese día. EEMSA System · ${new Date().toLocaleString('es-MX')}</div>
+    </div>`;
+
   } else {
     return res.status(400).json({ error: 'tipo desconocido' });
   }

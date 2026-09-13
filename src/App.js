@@ -31,6 +31,7 @@ const PizarraOperador = lazy(() => import("./components/PizarraOperador"));
 const PizarraRebobinado = lazy(() => import("./components/PizarraRebobinado"));
 const AdminUsuarios = lazy(() => import("./components/AdminUsuarios"));
 const Jarvis = lazy(() => import("./components/Jarvis"));
+const CommandCenter = lazy(() => import("./components/CommandCenter"));
 
 const PantallaCargando = () => (
   <div className="loading-screen">
@@ -126,6 +127,9 @@ export default function App() {
   // operador lo escanee cuantas veces quiera sin necesitar cuenta.
   const pizarraMatch = window.location.pathname.match(/^\/pizarra\/?$/);
   const pizarraRebobMatch = window.location.pathname.match(/^\/pizarra-rebobinado\/?$/);
+  // Command Center: mismo criterio que /pizarra -- publica, sin login,
+  // pensada para dejarse fija en una TV de la planta (ver CommandCenter.js).
+  const commandCenterMatch = window.location.pathname.match(/^\/command-center\/?$/);
   return (
     <>
       <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 1000, display: "flex", flexDirection: "column" }}>
@@ -141,6 +145,8 @@ export default function App() {
         ? <Suspense fallback={<PantallaCargando />}><PizarraOperador /></Suspense>
         : pizarraRebobMatch
         ? <Suspense fallback={<PantallaCargando />}><PizarraRebobinado /></Suspense>
+        : commandCenterMatch
+        ? <Suspense fallback={<PantallaCargando />}><CommandCenter /></Suspense>
         : <EemsaApp />}
     </>
   );
@@ -423,6 +429,7 @@ function EemsaApp() {
   if (modo === "jarvis") return (
     <Suspense fallback={<PantallaCargando />}>
       <Jarvis
+        perfil={perfil}
         onSalir={() => setModo(null)}
         onIrAlPanel={() => setModo((perfil.esAdmin || perfil.modos.includes("supervisor")) ? "supervisor" : null)}
       />

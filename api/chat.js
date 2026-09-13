@@ -22,7 +22,11 @@ const supabaseAdmin = createClient(
 );
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
-const today = () => new Date().toISOString().slice(0, 10);
+// Antes: new Date().toISOString().slice(0,10) -- daba la fecha en UTC, no en
+// hora de Mexico (ver el comentario largo sobre esto en src/lib/utils.js).
+// hoyMexico ya esta importada arriba para la rama de Jarvis; se reusa aqui
+// tal cual para el resto del archivo (OCR, herramientas de escritura).
+const today = hoyMexico;
 
 const TOOLS = [
   {

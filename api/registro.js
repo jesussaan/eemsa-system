@@ -2,7 +2,11 @@ import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import { requiereModo, requiereAlgunModo, requiereSecretoJarvis } from './_lib/auth.js';
 import { uid, today } from '../src/lib/utils.js';
-import { hoyMexico, resumenPedidosHoy, resumenSiat1, resumenInventarioCinta } from '../src/lib/jarvis.js';
+import {
+  hoyMexico, resumenPedidosHoy, resumenSiat1, resumenInventarioCinta,
+  tieneAccesoModulo, resumenProduccionTodas, resumenAgenda, resumenReportes,
+} from '../src/lib/jarvis.js';
+import { detectarInventarioCritico } from '../src/lib/alertas.js';
 import { META_CAJAS } from '../src/lib/constants.js';
 
 const supabase = createClient(
@@ -281,9 +285,56 @@ async function manejarJarvis(req, res) {
 // secreto de servidor-a-servidor. A proposito nunca lee ni compara
 // JARVIS_API_SECRET en esta rama -- ese secreto es solo para integraciones
 // externas sin sesion, no para el navegador.
+// Consultas estructuradas extra para el widget "Mi resumen" (dashboard por
+// rol) dentro de Jarvis.js -- a diferencia de las 3 originales
+// (CONSULTAS_JARVIS), estas SI exigen el modo dueño del modulo
+// (tieneAccesoModulo, igual que en api/chat.js) porque no todas son para
+// cualquiera con acceso a Jarvis. Nunca pasan por Claude: son datos
+// estructurados para tarjetas, no prosa.
+const CONSULTAS_DASHBOARD = new Set(['produccion_todas', 'inventario_critico', 'reportes_mes', 'agenda_urgente']);
+
+async function responderConsultaDashboard(req, res, consulta, usuario) {
+  const modulo = { produccion_todas: 'produccion', inventario_critico: 'inventario', reportes_mes: 'reportes', agenda_urgente: 'agenda' }[consulta];
+  if (!tieneAccesoModulo(modulo, usuario)) return res.status(401).json({ error: 'No autorizado para ese módulo' });
+
+  const hoy = hoyMexico();
+  if (consulta === 'produccion_todas') {
+    const [pedidosRes, prodRes] = await Promise.all([
+      supabase.from('pedidos').select('num, cliente, tipo, medida, cajas, status, maq, fecha_inicio, inicio_ts, fin_ts'),
+      supabase.from('prod_diaria').select('num_pedido, cajas_dia, fecha, created'),
+    ]);
+    if (pedidosRes.error) return res.status(500).json({ error: pedidosRes.error.message });
+    if (prodRes.error) return res.status(500).json({ error: prodRes.error.message });
+    return res.status(200).json({ ok: true, ...resumenProduccionTodas(pedidosRes.data, prodRes.data, hoy, META_CAJAS) });
+  }
+
+  if (consulta === 'inventario_critico') {
+    const { data, error } = await supabase.from('materiales').select('nombre, categoria, stock, stock_min');
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ ok: true, materiales: detectarInventarioCritico(data) });
+  }
+
+  if (consulta === 'agenda_urgente') {
+    const { data, error } = await supabase.from('pedidos').select('num, cliente, status, fecha_estimada');
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ ok: true, ...resumenAgenda(data, hoy) });
+  }
+
+  // consulta === 'reportes_mes'
+  const [pedidosRes, prodRes] = await Promise.all([
+    supabase.from('pedidos').select('status, fecha_termino, piezas_prod, merma'),
+    supabase.from('prod_diaria').select('fecha, cajas_dia'),
+  ]);
+  if (pedidosRes.error) return res.status(500).json({ error: pedidosRes.error.message });
+  if (prodRes.error) return res.status(500).json({ error: prodRes.error.message });
+  return res.status(200).json({ ok: true, ...resumenReportes(pedidosRes.data, prodRes.data, hoy) });
+}
+
 async function manejarJarvisApp(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-  if (!(await requiereAlgunModo(req, ['jarvis']))) return res.status(401).json({ error: 'No autorizado' });
+  const usuario = await requiereAlgunModo(req, ['jarvis']);
+  if (!usuario) return res.status(401).json({ error: 'No autorizado' });
+  if (CONSULTAS_DASHBOARD.has(req.query.consulta)) return responderConsultaDashboard(req, res, req.query.consulta, usuario);
   return responderConsultaJarvis(req, res);
 }
 

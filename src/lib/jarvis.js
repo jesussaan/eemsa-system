@@ -85,6 +85,11 @@ const redondear = (n) => Number(Number(n || 0).toFixed(2));
 // Jarvis puede preguntar, sin candado extra (asi ya funcionaban pedidos_hoy/
 // siat_1 desde el principio). "supervisor" o esAdmin siempre pasan todo,
 // igual que en el resto de la app (ver requiereAlgunModo en api/_lib/auth.js).
+// "direccion" es un modo angosto a proposito -- ve el resumen ejecutivo
+// (Costos, Reportes) pero NO el detalle operativo (Inventario, Agenda,
+// Compras, Refacciones), a diferencia de "supervisor" que ve todo. Pensado
+// para el dashboard por rol de Jarvis (ver Jarvis.js "Mi resumen"), no da
+// acceso a ninguna pantalla nueva fuera de Jarvis.
 export const MODULOS_JARVIS = {
   pedidos: [],
   produccion: [],
@@ -93,8 +98,8 @@ export const MODULOS_JARVIS = {
   clientes: ['ventas'],
   compras: ['emilio'],
   refacciones: ['supervisor'],
-  costos: ['supervisor'],
-  reportes: ['supervisor'],
+  costos: ['supervisor', 'direccion'],
+  reportes: ['supervisor', 'direccion'],
 };
 
 export const tieneAccesoModulo = (modulo, usuario) => {

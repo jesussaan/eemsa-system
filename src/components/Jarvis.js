@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { authHeaders } from "../lib/auth";
+import { tieneAccesoModulo } from "../lib/jarvis";
 import { IcoMic } from "./Icons";
 
 // Pantalla de solo lectura, pensada para consultarse rapido desde el celular.
@@ -71,7 +72,8 @@ const formatearInventarioCinta = (d) => {
 // carga -- null cuando ya se confirmo que no existe.
 const RecognitionCtor = typeof window !== "undefined" ? (window.SpeechRecognition || window.webkitSpeechRecognition || null) : null;
 
-export default function Jarvis({ onSalir, onIrAlPanel }) {
+export default function Jarvis({ onSalir, onIrAlPanel, perfil }) {
+  const [resumen, setResumen] = useState({}); // { produccion, inventario_critico, agenda, reportes }
   const [historial, setHistorial] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -92,6 +94,27 @@ export default function Jarvis({ onSalir, onIrAlPanel }) {
   const puedeEscuchar = !!RecognitionCtor;
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [historial, loading]);
+
+  // "Mi resumen" -- dashboard por rol: solo pide (y solo muestra) las
+  // tarjetas para las que este usuario de verdad tiene el modo dueño del
+  // modulo (tieneAccesoModulo, la misma regla que ya aplica el servidor en
+  // api/registro.js -- aqui nomas evita pedir algo que de todos modos va a
+  // regresar 401). Operador ve Produccion; Inventario ve + esa tarjeta;
+  // Supervisor ve todo; Direccion ve solo Reportes (resumen ejecutivo, sin
+  // detalle operativo).
+  useEffect(() => {
+    if (!perfil) return;
+    const usuario = { modos: perfil.modos || [], esAdmin: !!perfil.esAdmin };
+    const consultas = ["produccion_todas", "inventario_critico", "agenda_urgente", "reportes_mes"]
+      .filter(c => tieneAccesoModulo({ produccion_todas: "produccion", inventario_critico: "inventario", agenda_urgente: "agenda", reportes_mes: "reportes" }[c], usuario));
+    consultas.forEach(async (c) => {
+      try {
+        const res = await fetch(`/api/registro?tabla=jarvis-app&consulta=${c}`, { headers: authHeaders() });
+        const data = await res.json();
+        if (res.ok) setResumen(r => ({ ...r, [c]: data }));
+      } catch { /* una tarjeta que falla no debe tumbar las demas */ }
+    });
+  }, [perfil]);
 
   // getVoices() puede llegar vacio la primera vez (carga async, sobre todo
   // en Safari) -- se reintenta con onvoiceschanged. Se prefiere es-MX, si no
@@ -246,6 +269,43 @@ export default function Jarvis({ onSalir, onIrAlPanel }) {
       <main style={{ flex: 1, padding: "16px 16px 82px", maxWidth: 640, margin: "0 auto", width: "100%" }}>
         <h2 className="sec-title"><Ico icon={IcoMic} /> Jarvis</h2>
         <p className="muted" style={{ marginBottom: 12 }}>Preguntas rápidas de solo lectura — nada de esto cambia datos ni controla una máquina.</p>
+
+        {(resumen.produccion_todas || resumen.inventario_critico || resumen.agenda_urgente || resumen.reportes_mes) && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, marginBottom: 16 }}>
+            {resumen.produccion_todas?.maquinas?.map(m => (
+              <div key={m.maquina} style={{ background: "var(--surface)", border: "1px solid var(--border, #2a2d3a)", borderRadius: 10, padding: 10 }}>
+                <div style={{ fontSize: 10, color: "#666", fontWeight: 700 }}>{m.maquina}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}>{m.pedido_activo ? `#${m.pedido_activo.num} ${m.pedido_activo.cliente}` : "Libre"}</div>
+                <div className="muted" style={{ fontSize: 11 }}>{fmtStock(m.cajas_hoy)}{m.meta_cajas ? `/${m.meta_cajas}` : ""} cajas hoy</div>
+              </div>
+            ))}
+            {resumen.inventario_critico && (
+              <div style={{ background: "var(--surface)", border: "1px solid var(--border, #2a2d3a)", borderRadius: 10, padding: 10 }}>
+                <div style={{ fontSize: 10, color: "#666", fontWeight: 700 }}>📦 INVENTARIO CRÍTICO</div>
+                <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2, color: resumen.inventario_critico.materiales.length ? "#ff4d4d" : undefined }}>
+                  {resumen.inventario_critico.materiales.length}
+                </div>
+                <div className="muted" style={{ fontSize: 11 }}>{resumen.inventario_critico.materiales.slice(0, 2).map(m => m.nombre).join(", ") || "todo en orden"}</div>
+              </div>
+            )}
+            {resumen.agenda_urgente && (
+              <div style={{ background: "var(--surface)", border: "1px solid var(--border, #2a2d3a)", borderRadius: 10, padding: 10 }}>
+                <div style={{ fontSize: 10, color: "#666", fontWeight: 700 }}>📅 ATRASADOS</div>
+                <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2, color: resumen.agenda_urgente.atrasados.length ? "#ff4d4d" : undefined }}>
+                  {resumen.agenda_urgente.atrasados.length}
+                </div>
+                <div className="muted" style={{ fontSize: 11 }}>{resumen.agenda_urgente.proximos.length} próximos</div>
+              </div>
+            )}
+            {resumen.reportes_mes && (
+              <div style={{ background: "var(--surface)", border: "1px solid var(--border, #2a2d3a)", borderRadius: 10, padding: 10 }}>
+                <div style={{ fontSize: 10, color: "#666", fontWeight: 700 }}>📊 MES ({resumen.reportes_mes.mes})</div>
+                <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>{fmtStock(resumen.reportes_mes.cajas_producidas_mes)} cajas</div>
+                <div className="muted" style={{ fontSize: 11 }}>Merma {resumen.reportes_mes.merma_pct_mes ?? "—"}% · {resumen.reportes_mes.pedidos_terminados_mes} terminados</div>
+              </div>
+            )}
+          </div>
+        )}
 
         {puedeEscuchar ? (
           <button

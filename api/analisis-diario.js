@@ -1,12 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 import { REBOB_CLIENTE } from '../src/lib/constants.js';
+import { hoyMexico } from '../src/lib/jarvis.js';
+import { detectarPedidosUrgentes, detectarInventarioCritico, detectarProduccionSinRegistrar } from '../src/lib/alertas.js';
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
   process.env.REACT_APP_SUPABASE_KEY
 );
 
-const today = () => new Date().toISOString().slice(0, 10);
+// Antes: new Date().toISOString().slice(0,10) -- UTC, no hora de Mexico (ver
+// el comentario largo sobre esto en src/lib/utils.js).
+const today = hoyMexico;
 const diasEntre = (a, b) => Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 86400000);
 const mediana = (arr) => {
   const s = [...arr].sort((a, b) => a - b);
@@ -83,8 +87,45 @@ export default async function handler(req, res) {
 
   try {
     const hoy = today();
-    const { data: pedidos, error } = await supabase.from('pedidos').select('*').order('created', { ascending: false }).limit(1000);
-    if (error) return res.status(500).json({ error: error.message });
+    const ayer = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(new Date(Date.now() - 86400000));
+    const [pedidosRes, materialesRes, prodRes] = await Promise.all([
+      supabase.from('pedidos').select('*').order('created', { ascending: false }).limit(1000),
+      supabase.from('materiales').select('nombre, categoria, stock, stock_min'),
+      supabase.from('prod_diaria').select('num_pedido, fecha'),
+    ]);
+    if (pedidosRes.error) return res.status(500).json({ error: pedidosRes.error.message });
+    if (materialesRes.error) return res.status(500).json({ error: materialesRes.error.message });
+    if (prodRes.error) return res.status(500).json({ error: prodRes.error.message });
+    const pedidos = pedidosRes.data;
+
+    // Alertas de regla dura (pedidos urgentes, inventario critico, produccion
+    // sin registrar) -- se mandan SIEMPRE que haya hallazgos, sin pasar por
+    // Claude ni competir por los "3 mas importantes" de mas abajo. Esas 3
+    // son heuristicas blandas (inactividad/merma/tiempo) que si conviene
+    // que la IA filtre; estas son reglas de negocio fijas, no opiniones.
+    const urgentes = detectarPedidosUrgentes(pedidos, hoy);
+    const critico = detectarInventarioCritico(materialesRes.data);
+    const sinRegistrar = detectarProduccionSinRegistrar(pedidos, prodRes.data, ayer);
+    const notifPromesas = [];
+    if (urgentes.length) {
+      notifPromesas.push(fetch(`https://${req.headers.host}/api/notificar`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Chat-Secret': process.env.CHAT_API_SECRET },
+        body: JSON.stringify({ tipo: 'pedidos_vencidos', datos: { pedidos: urgentes.map(p => ({ num: p.num, cliente: p.cliente, dias: -p.dias_vencido })) } }),
+      }));
+    }
+    if (critico.length) {
+      notifPromesas.push(fetch(`https://${req.headers.host}/api/notificar`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Chat-Secret': process.env.CHAT_API_SECRET },
+        body: JSON.stringify({ tipo: 'inventario_critico', datos: { materiales: critico } }),
+      }));
+    }
+    if (sinRegistrar.length) {
+      notifPromesas.push(fetch(`https://${req.headers.host}/api/notificar`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Chat-Secret': process.env.CHAT_API_SECRET },
+        body: JSON.stringify({ tipo: 'produccion_sin_registrar', datos: { pedidos: sinRegistrar, fecha: ayer } }),
+      }));
+    }
+    await Promise.allSettled(notifPromesas);
 
     const candidatos = [
       ...candidatosInactividad(pedidos, hoy),
@@ -93,7 +134,10 @@ export default async function handler(req, res) {
     ];
 
     if (candidatos.length === 0) {
-      return res.status(200).json({ ok: true, enviado: false, motivo: 'sin hallazgos' });
+      return res.status(200).json({
+        ok: true, enviado: false, motivo: 'sin hallazgos de IA',
+        alertas_regla: { urgentes: urgentes.length, critico: critico.length, sinRegistrar: sinRegistrar.length },
+      });
     }
 
     const systemPrompt = `Eres el asistente de producción de EEMSA (empresa de conversión/impresión de cinta adhesiva en rollos). Te doy una lista de hallazgos ya detectados automáticamente sobre el negocio. Tu trabajo es elegir como máximo 3 -- los más importantes y accionables para hoy -- y redactar cada uno en una sola frase natural en español de México, directa, como si le avisaras a un colega. No inventes datos que no estén en la lista. Si ninguno amerita aviso, responde con una lista vacía.
@@ -124,7 +168,10 @@ Responde ÚNICAMENTE JSON válido con este formato, sin texto ni markdown extra:
       body: JSON.stringify({ tipo: 'analisis_diario', datos: { insights } }),
     });
 
-    return res.status(200).json({ ok: true, enviado: true, insights: insights.length });
+    return res.status(200).json({
+      ok: true, enviado: true, insights: insights.length,
+      alertas_regla: { urgentes: urgentes.length, critico: critico.length, sinRegistrar: sinRegistrar.length },
+    });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }

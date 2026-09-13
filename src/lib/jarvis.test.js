@@ -130,6 +130,15 @@ describe('tieneAccesoModulo -- lo mas critico de la ampliacion a 9 modulos', () 
   test('sin usuario (no autenticado) no hay acceso a nada', () => {
     expect(tieneAccesoModulo('pedidos', null)).toBe(false);
   });
+
+  test('direccion ve Costos/Reportes (resumen ejecutivo) pero NO detalle operativo', () => {
+    const direccion = { modos: ['jarvis', 'direccion'], esAdmin: false };
+    expect(tieneAccesoModulo('costos', direccion)).toBe(true);
+    expect(tieneAccesoModulo('reportes', direccion)).toBe(true);
+    expect(tieneAccesoModulo('inventario', direccion)).toBe(false);
+    expect(tieneAccesoModulo('agenda', direccion)).toBe(false);
+    expect(tieneAccesoModulo('compras', direccion)).toBe(false);
+  });
 });
 
 describe('detectarModulos', () => {
