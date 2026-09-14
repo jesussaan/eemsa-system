@@ -192,8 +192,24 @@ export default function Jarvis({ perfil }) {
 
   const detenerEscucha = () => { recognitionRef.current?.stop(); setEscuchando(false); };
 
+  // Safari/iOS solo deja sonar speechSynthesis si el primer speak() de la
+  // sesion ocurre sincrono dentro de un toque real del usuario -- la
+  // respuesta de verdad llega mas tarde, despues del fetch a la API (ya
+  // fuera de ese toque), y ahi Safari la deja muda sin avisar. Con un
+  // speak() de "calentamiento" (inaudible) aqui mismo, dentro del toque del
+  // boton, el resto de la sesion queda desbloqueado y sí suena la respuesta
+  // real. No hace falta en Chrome/Android, pero tampoco estorba ahí.
+  const desbloquearVoz = () => {
+    if (!puedeHablar) return;
+    window.speechSynthesis.cancel();
+    const previo = new window.SpeechSynthesisUtterance(" ");
+    previo.volume = 0;
+    window.speechSynthesis.speak(previo);
+  };
+
   const alTocarBoton = () => {
     if (loading) return;
+    desbloquearVoz();
     if (puedeEscuchar) { escuchando ? detenerEscucha() : escuchar(); return; }
     // Sin SpeechRecognition (Safari/iOS y algunos otros navegadores): se
     // enfoca un campo mínimo para que el propio teclado ofrezca su
