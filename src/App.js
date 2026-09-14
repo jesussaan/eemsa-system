@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import "./App.css";
 import { supabase } from "./lib/supabase";
 import { initAuth, authHeaders, cerrarSesion } from "./lib/auth";
@@ -6,7 +6,7 @@ import NotifBell from "./components/NotifBell";
 import Login from "./components/Login";
 import ConfirmModal from "./components/ConfirmModal";
 import ThemeToggle from "./components/ThemeToggle";
-import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoOperador, IcoVentas, IcoEmilio, IcoCotizador, IcoSpinner, IcoRoll, IcoBox, IcoMic } from "./components/Icons";
+import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoOperador, IcoVentas, IcoEmilio, IcoCotizador, IcoSpinner, IcoRoll, IcoBox } from "./components/Icons";
 import { REBOB_CLIENTE } from "./lib/constants";
 
 // Cada pantalla se carga solo cuando se visita, en vez de todas juntas en el
@@ -109,7 +109,6 @@ const MODOS_DISPONIBLES = [
   { id: "emilio",     Icon: IcoEmilio,    lbl: "Modo Emilio",     cls: "mode-btn-emi", grupo: "admin" },
   { id: "supervisor", Icon: IcoDash,      lbl: "Modo Supervisor", cls: "mode-btn-sup", grupo: "admin" },
   { id: "inventario", Icon: IcoBox,       lbl: "Inventario",      cls: "mode-btn-inv", grupo: "admin" },
-  { id: "jarvis",     Icon: IcoMic,       lbl: "Jarvis",          cls: "mode-btn-jar", grupo: "admin" },
 ];
 // Orden fijo en que aparecen los grupos en la pantalla de seleccion de modo.
 const GRUPOS_MODO = [
@@ -199,24 +198,6 @@ function EemsaApp() {
     const valido = modo === "usuarios" ? perfil.esAdmin : (perfil.esAdmin || perfil.modos.includes(modo));
     if (!valido) setModo(null);
   }, [perfil, modo]);
-
-  // En iPhone, entrar directo a Jarvis al iniciar sesion (no en computadora,
-  // que sigue mandando al menu/Dashboard normal). Se evalua UNA sola vez por
-  // login real (autoAbiertoRef guarda el id del usuario ya evaluado), no en
-  // cada cambio de "modo" -- si no, tocar "Salir" en Jarvis (que limpia modo
-  // a null) te regresaria a Jarvis solo en vez de dejarte ver el menu. Si ya
-  // habia un modo recordado de una sesion anterior, se respeta ese en vez de
-  // forzar Jarvis.
-  const autoAbiertoRef = useRef(null);
-  useEffect(() => {
-    if (!perfil || !sesion) return;
-    if (autoAbiertoRef.current === sesion.user.id) return;
-    autoAbiertoRef.current = sesion.user.id;
-    if (modo) return;
-    const esIphone = /iPhone/i.test(navigator.userAgent);
-    const tieneJarvis = perfil.esAdmin || perfil.modos?.includes("jarvis");
-    if (esIphone && tieneJarvis) setModo("jarvis");
-  }, [perfil, sesion, modo]);
 
   useEffect(() => {
     if (modo) localStorage.setItem("eemsa_modo", modo);
@@ -318,7 +299,12 @@ function EemsaApp() {
 
   const modosVisibles = perfil.esAdmin ? MODOS_DISPONIBLES : MODOS_DISPONIBLES.filter(m => perfil.modos.includes(m.id));
 
-  if (!modo) return (
+  // Se arma en `pantalla` (en vez de retornar temprano en cada rama) para
+  // poder montar el botón flotante de Jarvis una sola vez, al final, encima
+  // de cualquier pantalla del sistema (ver src/components/Jarvis.js).
+  let pantalla;
+
+  if (!modo) pantalla = (
     <div className="mode-screen">
       <div className="mode-glow" aria-hidden="true" />
       <ThemeToggle style={{ position: "absolute", top: 16, right: 16, zIndex: 2 }} />
@@ -366,13 +352,13 @@ function EemsaApp() {
     </div>
   );
 
-  if (modo === "usuarios") return (
+  if (modo === "usuarios") pantalla = (
     <Suspense fallback={<PantallaCargando />}>
       <AdminUsuarios onSalir={() => setModo(null)} />
     </Suspense>
   );
 
-  if (modo === "operador") return (
+  if (modo === "operador") pantalla = (
     <Suspense fallback={<PantallaCargando />}>
       <ModoOperador
         pedidos={pedidos} setPedidos={setPedidos}
@@ -384,7 +370,7 @@ function EemsaApp() {
     </Suspense>
   );
 
-  if (modo === "ventas") return (
+  if (modo === "ventas") pantalla = (
     <Suspense fallback={<PantallaCargando />}>
       <ModoVentas
         pedidos={pedidos} setPedidos={setPedidos}
@@ -394,7 +380,7 @@ function EemsaApp() {
     </Suspense>
   );
 
-  if (modo === "rebobinado") return (
+  if (modo === "rebobinado") pantalla = (
     <Suspense fallback={<PantallaCargando />}>
       <Rebobinado
         pedidos={pedidos} setPedidos={setPedidos}
@@ -404,7 +390,7 @@ function EemsaApp() {
     </Suspense>
   );
 
-  if (modo === "emilio") return (
+  if (modo === "emilio") pantalla = (
     <Suspense fallback={<PantallaCargando />}>
       <ModoEmilio
         pedidos={pedidos} setPedidos={setPedidos}
@@ -414,30 +400,20 @@ function EemsaApp() {
     </Suspense>
   );
 
-  if (modo === "cotizador") return (
+  if (modo === "cotizador") pantalla = (
     <Suspense fallback={<PantallaCargando />}>
       <Cotizador onSalir={() => setModo(null)} />
     </Suspense>
   );
 
-  if (modo === "inventario") return (
+  if (modo === "inventario") pantalla = (
     <Suspense fallback={<PantallaCargando />}>
       <Inventario materiales={materiales} setMateriales={setMateriales} tarimas={tarimas} setTarimas={setTarimas} pedidos={pedidos} listaMateriales={listaMateriales} setListaMateriales={setListaMateriales} onSalir={() => setModo(null)} />
     </Suspense>
   );
 
-  if (modo === "jarvis") return (
-    <Suspense fallback={<PantallaCargando />}>
-      <Jarvis
-        perfil={perfil}
-        onSalir={() => setModo(null)}
-        onIrAlPanel={() => setModo((perfil.esAdmin || perfil.modos.includes("supervisor")) ? "supervisor" : null)}
-      />
-    </Suspense>
-  );
-
-  // modo === "supervisor"
-  return (
+  // Ningún otro modo coincidió: pantalla de Supervisor (dashboard con tabs).
+  if (!pantalla) pantalla = (
     <div className="app">
       <header className="header">
         <img src="/logo192.png" alt="EEMSA" style={{ height: 40, width: "auto" }} />
@@ -486,5 +462,16 @@ function EemsaApp() {
         })}
       </nav>
     </div>
+  );
+
+  // Botón flotante de Jarvis: disponible en cualquier pantalla del sistema
+  // (no en login/carga/errores de perfil, que terminan en un return antes de
+  // este punto) -- el propio componente decide si mostrarse según el modo
+  // "jarvis" del usuario (ver src/components/Jarvis.js).
+  return (
+    <>
+      {pantalla}
+      <Jarvis perfil={perfil} />
+    </>
   );
 }
