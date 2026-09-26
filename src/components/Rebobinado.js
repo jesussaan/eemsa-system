@@ -13,6 +13,16 @@ const Ico = ({ icon: I, size = 13 }) => <span style={{ display: "inline-flex", f
 // default (el primero de la lista) -- se marcan pendiente hasta que se
 // tocan de verdad, igual que en Cotizador/CalculadoraProduccion, para no
 // dejar la primera opcion puesta sin querer.
+// Folios ya planeados/en proceso con una medida retirada de REBOB_LARGOS_PIEZA
+// (ej. 147m) siguen trayendo ese valor en largoPieza -- esta funcion la
+// vuelve a meter en las opciones SOLO para ese corte, para no dejar el
+// <select disabled> mostrando un valor sin texto. No aparece en formularios
+// nuevos porque ahi largoPieza nunca cae en un valor ya retirado.
+const opcionesLargoPieza = (valorActual) => {
+  const n = Number(valorActual);
+  return REBOB_LARGOS_PIEZA.includes(n) ? REBOB_LARGOS_PIEZA : [...REBOB_LARGOS_PIEZA, n].sort((a, b) => a - b);
+};
+
 const corteInicial = () => ({
   id: uid(), ancho: REBOB_ANCHOS[0], largoPieza: REBOB_LARGOS_PIEZA[0], cajasCompletas: "", piezasSueltas: "", merma: "", anchoTocado: false, largoPiezaTocado: false,
   // "Cajas completas" ya no se escribe a mano -- se cuenta por camas (capas
@@ -778,7 +788,7 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
                 <select disabled={!!grupoActivo} className={c.anchoTocado ? 'campo-listo' : 'campo-pendiente'} value={c.ancho} onChange={e => { updCorte(c.id, "ancho", e.target.value); updCorte(c.id, "anchoTocado", true); }} onClick={() => updCorte(c.id, "anchoTocado", true)}>{REBOB_ANCHOS.map(a => <option key={a} value={a}>{a}</option>)}</select>
               </div>
               <div className="field"><label>Largo de pieza (m){grupoActivo ? " (planeado)" : ""}</label>
-                <select disabled={!!grupoActivo} className={c.largoPiezaTocado ? 'campo-listo' : 'campo-pendiente'} value={c.largoPieza} onChange={e => { updCorte(c.id, "largoPieza", e.target.value); updCorte(c.id, "largoPiezaTocado", true); }} onClick={() => updCorte(c.id, "largoPiezaTocado", true)}>{REBOB_LARGOS_PIEZA.map(l => <option key={l} value={l}>{l}m</option>)}</select>
+                <select disabled={!!grupoActivo} className={c.largoPiezaTocado ? 'campo-listo' : 'campo-pendiente'} value={c.largoPieza} onChange={e => { updCorte(c.id, "largoPieza", e.target.value); updCorte(c.id, "largoPiezaTocado", true); }} onClick={() => updCorte(c.id, "largoPiezaTocado", true)}>{opcionesLargoPieza(c.largoPieza).map(l => <option key={l} value={l}>{l}m</option>)}</select>
               </div>
               <div className="field full">
                 <label>Conteo por camas <span style={{ color: "#666", fontWeight: 400 }}>({REBOB_CAJAS_POR_CAMA}/cama · {calc.piezasPorCaja} pzas/caja)</span></label>

@@ -32,7 +32,12 @@ export const REBOB_MATERIALES = ["Transparente", "Canela"];
 export const REBOB_LARGO_JUMBO_M = 8000;
 export const REBOB_PIEZAS_POR_VUELTA = { '2"': 33, '3"': 22 };
 export const REBOB_ANCHOS = Object.keys(REBOB_PIEZAS_POR_VUELTA);
-export const REBOB_LARGOS_PIEZA = [46, 96, 146, 147, 914];
+// 147 se quito de aqui (2026-09-26): ya no se ofrece para planear/cortar
+// jumbos nuevos, pero folios ya planeados/en proceso con esa medida (folio
+// #18/#19 al momento de este cambio) siguen existiendo -- ver
+// opcionesLargoPieza en Rebobinado.js, que la re-agrega SOLO para el corte
+// que ya la trae guardada, sin ofrecerla en ningun formulario nuevo.
+export const REBOB_LARGOS_PIEZA = [46, 96, 146, 914];
 export const REBOB_PIEZAS_POR_CAJA = { '2"': 36, '3"': 24 };
 // Excepciones por combinacion ancho+largo -- la pieza de 3" x 914m es mucho
 // mas grande/pesada que las de 96/147m, asi que en su caja fisica caben
