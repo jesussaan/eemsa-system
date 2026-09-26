@@ -32,7 +32,7 @@ export const REBOB_MATERIALES = ["Transparente", "Canela"];
 export const REBOB_LARGO_JUMBO_M = 8000;
 export const REBOB_PIEZAS_POR_VUELTA = { '2"': 33, '3"': 22 };
 export const REBOB_ANCHOS = Object.keys(REBOB_PIEZAS_POR_VUELTA);
-export const REBOB_LARGOS_PIEZA = [96, 147, 914];
+export const REBOB_LARGOS_PIEZA = [46, 96, 146, 147, 914];
 export const REBOB_PIEZAS_POR_CAJA = { '2"': 36, '3"': 24 };
 // Excepciones por combinacion ancho+largo -- la pieza de 3" x 914m es mucho
 // mas grande/pesada que las de 96/147m, asi que en su caja fisica caben
