@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_MP_ROLLO_PRECIO } from '../lib/constants';
 import { calcularProduccion, MP_ANCHO, MP_LARGO, PORTALICHES, rollosPorCaja, anchoDePedido, largoDePedido, disenoEsImagen } from '../lib/produccion';
-import { coberturaDeImagen } from '../lib/imagenCobertura';
+import { coberturaDeImagen, cargarMuestraImagen, coberturaPorDosColores, colorEnPixel } from '../lib/imagenCobertura';
 import { horasEfectivas, JORNADA_HORAS } from '../lib/horario';
 
 export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial, onConfirmar, inline, sugerido, clicheActivoInfo }) {
@@ -76,6 +76,57 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
     } finally {
       (esColor2 ? setAnalizandoImg2 : setAnalizandoImg)(false);
     }
+  };
+
+  // Cuando las 2 tintas se imprimen a partir de UN solo diseno/foto (no hay
+  // una imagen aparte por color) -- subir la misma foto dos veces le daria
+  // identica cobertura a ambos colores, que casi nunca es correcto. Aqui se
+  // sube una sola vez y el operador toca sobre la foto un punto de cada
+  // tinta; cada pixel de tinta de la imagen se reparte al color muestreado
+  // mas cercano (ver coberturaPorDosColores en lib/imagenCobertura.js).
+  const [unaFotoDosColores, setUnaFotoDosColores] = useState(false);
+  const [muestraUnaFoto, setMuestraUnaFoto] = useState(null); // {imageData, w, h, previewUrl}
+  const [colorA, setColorA] = useState(null);
+  const [colorB, setColorB] = useState(null);
+  const [analizandoUna, setAnalizandoUna] = useState(false);
+  const [errorUna, setErrorUna] = useState('');
+
+  const reiniciarUnaFoto = () => {
+    setMuestraUnaFoto(null); setColorA(null); setColorB(null); setErrorUna('');
+    setDiseno(''); setDiseno2('');
+  };
+  const toggleModoFoto = () => {
+    setUnaFotoDosColores(v => !v);
+    reiniciarUnaFoto();
+  };
+  const subirFotoUnica = async (file) => {
+    setAnalizandoUna(true); setErrorUna('');
+    setColorA(null); setColorB(null); setDiseno(''); setDiseno2('');
+    try {
+      const m = await cargarMuestraImagen(file);
+      setMuestraUnaFoto(m);
+    } catch (e) {
+      setErrorUna(e.message || 'No se pudo analizar la imagen');
+    } finally {
+      setAnalizandoUna(false);
+    }
+  };
+  // Convierte el punto donde se toco la foto (en pantalla) a coordenadas del
+  // canvas de muestreo -- el <img> de preview es el mismo canvas ya
+  // renderizado como dataURL, solo se ve mas grande/chico segun la pantalla.
+  const tocarPuntoFoto = (e) => {
+    if (!muestraUnaFoto || colorB) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const escalaX = muestraUnaFoto.w / rect.width;
+    const escalaY = muestraUnaFoto.h / rect.height;
+    const x = Math.min(muestraUnaFoto.w - 1, Math.max(0, Math.floor((e.clientX - rect.left) * escalaX)));
+    const y = Math.min(muestraUnaFoto.h - 1, Math.max(0, Math.floor((e.clientY - rect.top) * escalaY)));
+    const color = colorEnPixel(muestraUnaFoto.imageData, x, y);
+    if (!colorA) { setColorA(color); return; }
+    setColorB(color);
+    const { cobertura1, cobertura2 } = coberturaPorDosColores(muestraUnaFoto.imageData, colorA, color);
+    setDiseno(`img:${(cobertura1 * 100).toFixed(1)}`);
+    setDiseno2(`img:${(cobertura2 * 100).toFixed(1)}`);
   };
 
   // Datos reales (flujo finalizar) -- se captura "cajas producidas" y las
@@ -217,7 +268,59 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
           <AvisoSugerido visible={!clicheNA && portacliheIgualSugerido} />
         </div>
 
-        {!clicheNA && (
+        {tieneColor2 && !clicheNA && (
+          <div className="field full">
+            <button type="button" onClick={toggleModoFoto}
+              style={{ background: 'transparent', border: 'none', color: '#c9922a', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0 }}>
+              {unaFotoDosColores ? '↩ Usar una foto por color (2 fotos)' : `📷 ¿${pedidoInicial.color} y ${pedidoInicial.color2} están en el mismo diseño? Usa una sola foto`}
+            </button>
+          </div>
+        )}
+
+        {tieneColor2 && !clicheNA && unaFotoDosColores && (
+          <div className="field full" style={{ background: '#0d0f14', borderRadius: 10, padding: 12, border: '1px solid #2a2d3a' }}>
+            <label>Diseño (foto) — {pedidoInicial.color} + {pedidoInicial.color2} *</label>
+            {!muestraUnaFoto ? (
+              <label className="campo-pendiente" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 8, padding: '14px 12px', cursor: analizandoUna ? 'default' : 'pointer', fontWeight: 700, fontSize: 13 }}>
+                <input type="file" accept="image/*" disabled={analizandoUna} style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) subirFotoUnica(f); e.target.value = ''; }} />
+                {analizandoUna ? '⏳ Cargando…' : '📷 Sube la foto del diseño'}
+              </label>
+            ) : (
+              <>
+                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, color: !colorA ? '#c9922a' : !colorB ? '#c9922a' : '#4be87a' }}>
+                  {!colorA ? `👉 Toca en la foto un punto de la tinta "${pedidoInicial.color}"`
+                    : !colorB ? `👉 Ahora toca un punto de la tinta "${pedidoInicial.color2}"`
+                    : '✓ Cobertura calculada'}
+                </div>
+                <img src={muestraUnaFoto.previewUrl} alt="Diseño" onClick={tocarPuntoFoto}
+                  style={{ width: '100%', maxWidth: 320, borderRadius: 8, cursor: colorB ? 'default' : 'crosshair', display: 'block', border: '1px solid #2a2d3a' }} />
+                <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11, color: '#9aa0bc' }}>
+                  {colorA && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ width: 12, height: 12, borderRadius: '50%', background: `rgb(${colorA.r},${colorA.g},${colorA.b})`, border: '1px solid #444' }} />
+                      {pedidoInicial.color}
+                    </span>
+                  )}
+                  {colorB && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ width: 12, height: 12, borderRadius: '50%', background: `rgb(${colorB.r},${colorB.g},${colorB.b})`, border: '1px solid #444' }} />
+                      {pedidoInicial.color2}
+                    </span>
+                  )}
+                </div>
+                {disenoEsImagen(diseno) && disenoEsImagen(diseno2) && (
+                  <div style={{ marginTop: 8, fontSize: 14, fontWeight: 700 }}>
+                    {pedidoInicial.color}: {diseno.slice(4)}% · {pedidoInicial.color2}: {diseno2.slice(4)}%
+                  </div>
+                )}
+                <button type="button" onClick={reiniciarUnaFoto} style={{ marginTop: 8, background: 'transparent', border: 'none', color: '#ff4d4d', cursor: 'pointer', fontSize: 11, padding: 0 }}>✕ Quitar foto / volver a tocar</button>
+              </>
+            )}
+            {errorUna && <div style={{ fontSize: 11, color: '#ff4d4d', marginTop: 4 }}>{errorUna}</div>}
+          </div>
+        )}
+
+        {!clicheNA && !(tieneColor2 && unaFotoDosColores) && (
           <div className="field full">
             <label>Diseño (foto) *</label>
             {disenoEsImagen(diseno) ? (
@@ -267,21 +370,30 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
                 </select>
                 <AvisoSugerido visible={portaliche2IgualSugerido} />
               </div>
-              <div className="field full"><label>Diseño (foto) *</label>
-                {disenoEsImagen(diseno2) ? (
-                  <div className="campo-listo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderRadius: 8, padding: '10px 12px' }}>
-                    <span style={{ fontSize: 14, fontWeight: 700 }}>📷 {diseno2.slice(4)}% de cobertura</span>
-                    <button type="button" onClick={() => setDiseno2('')} style={{ background: 'transparent', border: 'none', color: '#ff4d4d', cursor: 'pointer', fontSize: 12 }}>✕ Quitar</button>
+              {unaFotoDosColores ? (
+                <div className="field full">
+                  <label>Diseño (foto)</label>
+                  <div className="campo-pendiente" style={{ borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#9aa0bc' }}>
+                    {disenoEsImagen(diseno2) ? `📷 Calculado con la foto de arriba: ${diseno2.slice(4)}% de cobertura` : 'Toca los 2 colores en la foto de arriba ↑'}
                   </div>
-                ) : (
-                  <label className="campo-pendiente" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 8, padding: '14px 12px', cursor: analizandoImg2 ? 'default' : 'pointer', fontWeight: 700, fontSize: 13 }}>
-                    <input type="file" accept="image/*" disabled={analizandoImg2} style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) analizarImagenDiseno(f, true); e.target.value = ''; }} />
-                    {analizandoImg2 ? '⏳ Calculando…' : '📷 Sube la foto del diseño'}
-                  </label>
-                )}
-                <AvisoSugerido visible={diseno2IgualSugerido} />
-                {errorImg2 && <div style={{ fontSize: 11, color: '#ff4d4d', marginTop: 4 }}>{errorImg2}</div>}
-              </div>
+                </div>
+              ) : (
+                <div className="field full"><label>Diseño (foto) *</label>
+                  {disenoEsImagen(diseno2) ? (
+                    <div className="campo-listo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderRadius: 8, padding: '10px 12px' }}>
+                      <span style={{ fontSize: 14, fontWeight: 700 }}>📷 {diseno2.slice(4)}% de cobertura</span>
+                      <button type="button" onClick={() => setDiseno2('')} style={{ background: 'transparent', border: 'none', color: '#ff4d4d', cursor: 'pointer', fontSize: 12 }}>✕ Quitar</button>
+                    </div>
+                  ) : (
+                    <label className="campo-pendiente" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 8, padding: '14px 12px', cursor: analizandoImg2 ? 'default' : 'pointer', fontWeight: 700, fontSize: 13 }}>
+                      <input type="file" accept="image/*" disabled={analizandoImg2} style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) analizarImagenDiseno(f, true); e.target.value = ''; }} />
+                      {analizandoImg2 ? '⏳ Calculando…' : '📷 Sube la foto del diseño'}
+                    </label>
+                  )}
+                  <AvisoSugerido visible={diseno2IgualSugerido} />
+                  {errorImg2 && <div style={{ fontSize: 11, color: '#ff4d4d', marginTop: 4 }}>{errorImg2}</div>}
+                </div>
+              )}
             </div>
           </div>
         )}
