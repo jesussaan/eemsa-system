@@ -55,17 +55,32 @@ export function coberturaDeImagen(file) {
   });
 }
 
+// "Tono" de un pixel/color: su proporcion r:g:b, sin importar que tan
+// oscuro/diluido salio -- una tinta negra pura (20,20,20) y el borde
+// antialiased de ese mismo trazo (200,200,200, mucho mas claro por mezclarse
+// con el fondo) dan el MISMO tono (1,1,1) porque sus 3 canales siguen
+// parejos entre si. Comparar por distancia RGB cruda en vez de esto hacia
+// que esos bordes grisaceos del negro (que en brillo quedan a medio camino
+// entre blanco y negro) terminaran mas cerca de un cafe/marron -- tambien
+// oscuro -- que del negro real, inflando la cobertura del color equivocado.
+const tonoDe = (r, g, b) => {
+  const l = (r + g + b) / 3;
+  return l < 1 ? [0, 0, 0] : [r / l, g / l, b / l];
+};
+const distTono2 = (t, u) => (t[0] - u[0]) ** 2 + (t[1] - u[1]) ** 2 + (t[2] - u[2]) ** 2;
+
 // Para un pedido de 2 tintas donde el diseno de ambas viene en la MISMA foto
 // (no hay una imagen aparte por color) -- ver CalculadoraProduccion.js,
 // "una sola foto para las 2 tintas". En vez de subir la misma foto dos veces
 // (lo que daria identica cobertura a los dos colores, incorrecto), se sube
 // una vez y el operador toca sobre la foto un punto de cada tinta; cada
-// pixel de tinta se cuenta para el color muestreado mas cercano (distancia
-// euclidiana en RGB). El fondo (pixeles claros, mismo umbral que arriba) no
+// pixel de tinta se cuenta para el color muestreado de tono mas parecido
+// (ver tonoDe arriba). El fondo (pixeles claros, mismo umbral que arriba) no
 // cuenta para ninguno de los dos, igual que en coberturaDeImagen.
 export function coberturaPorDosColores(imageData, colorA, colorB) {
   const { data } = imageData;
-  const dist2 = (r, g, b, c) => (r - c.r) ** 2 + (g - c.g) ** 2 + (b - c.b) ** 2;
+  const tonoA = tonoDe(colorA.r, colorA.g, colorA.b);
+  const tonoB = tonoDe(colorB.r, colorB.g, colorB.b);
   let a = 0, b = 0, total = 0;
   for (let i = 0; i < data.length; i += 4) {
     const alpha = data[i + 3];
@@ -74,7 +89,8 @@ export function coberturaPorDosColores(imageData, colorA, colorB) {
     const r = data[i], g = data[i + 1], bl = data[i + 2];
     const brillo = (r + g + bl) / 3;
     if (brillo >= UMBRAL_BRILLO) continue; // fondo -- no es tinta de ninguno de los dos colores
-    if (dist2(r, g, bl, colorA) <= dist2(r, g, bl, colorB)) a++; else b++;
+    const tono = tonoDe(r, g, bl);
+    if (distTono2(tono, tonoA) <= distTono2(tono, tonoB)) a++; else b++;
   }
   return total > 0 ? { cobertura1: a / total, cobertura2: b / total } : { cobertura1: 0, cobertura2: 0 };
 }
