@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { REBOB_CLIENTE, REBOB_PIEZAS_POR_VUELTA } from "../lib/constants";
+import { REBOB_CLIENTE, REBOB_PIEZAS_POR_VUELTA, REBOB_PAROS_MAQUINA } from "../lib/constants";
 
 // fmt() de lib/utils.js siempre fuerza 2 decimales (pensado para dinero) --
 // cajas/piezas son unidades enteras, se ven mal como "76.00" en numeros
@@ -78,10 +78,19 @@ export default function PizarraRebobinado() {
     return ppv > 0 ? Math.round((Number(p.piezas_prod) || 0) / ppv) : 0;
   };
 
-  // Solo para mostrar en la pizarra -- el largo real (96/147) es el que se
-  // usa para calcular vueltas/piezas en todos lados, esto nomas redondea
-  // como se le conoce de palabra en planta ("la 100", "la 150").
-  const REDONDEO_LARGO_PIZARRA = { "96": "100", "147": "150" };
+  // A que numero parar el contador de la rebobinadora para esta medida (ver
+  // REBOB_PAROS_MAQUINA) -- null si todavia no se ha capturado esa
+  // calibracion para este largo.
+  const paroDeMedida = (p) => {
+    const largo = String(p.medida || "").split(" x ")[1]?.replace(/m$/i, "");
+    return REBOB_PAROS_MAQUINA[largo] || null;
+  };
+
+  // Solo para mostrar en la pizarra -- el largo real (46/96/146/147/196) es
+  // el que se usa para calcular vueltas/piezas en todos lados, esto nomas
+  // redondea como se le conoce de palabra en planta ("la 50", "la 100",
+  // "la 150", "la 200").
+  const REDONDEO_LARGO_PIZARRA = { "46": "50", "96": "100", "146": "150", "147": "150", "196": "200" };
   const medidaBonita = (medida) => {
     const [ancho, largoConM] = String(medida || "").split(" x ");
     const largo = (largoConM || "").replace(/m$/i, "");
@@ -99,27 +108,44 @@ export default function PizarraRebobinado() {
 
   const card = { background: "#181b24", borderRadius: 14, padding: 18, marginBottom: 14 };
 
+  const lbl = { fontSize: 14, color: "#9aa0bc", marginLeft: 5, textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 };
+
   const Medidas = ({ g, color }) => (
     <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-      {g.map(p => (
-        <div key={p.id} style={{ background: "#0d0f14", borderRadius: 10, padding: "10px 12px" }}>
-          <div style={{ color: "#c9922a", fontSize: 20, fontWeight: 800, marginBottom: 8 }}>{medidaBonita(p.medida)}</div>
-          <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
-            <div>
-              <span style={{ fontSize: 24, fontWeight: 900, color }}>{vueltasDe(p)}</span>
-              <span style={{ fontSize: 11, color: "#666", marginLeft: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>vueltas</span>
+      {g.map(p => {
+        const paro = paroDeMedida(p);
+        return (
+          <div key={p.id} style={{ background: "#0d0f14", borderRadius: 10, padding: "10px 12px" }}>
+            <div style={{ color: "#c9922a", fontSize: 20, fontWeight: 800, marginBottom: 8 }}>{medidaBonita(p.medida)}</div>
+            <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+              <div>
+                <span style={{ fontSize: 24, fontWeight: 900, color }}>{vueltasDe(p)}</span>
+                <span style={lbl}>vueltas</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 24, fontWeight: 900, color: "#e0e0e0" }}>{fmtEntero(p.cajas)}</span>
+                <span style={lbl}>cajas</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 24, fontWeight: 900, color: "#e0e0e0" }}>{fmtEntero(p.piezas_prod)}</span>
+                <span style={lbl}>piezas</span>
+              </div>
             </div>
-            <div>
-              <span style={{ fontSize: 24, fontWeight: 900, color: "#e0e0e0" }}>{fmtEntero(p.cajas)}</span>
-              <span style={{ fontSize: 11, color: "#666", marginLeft: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>cajas</span>
-            </div>
-            <div>
-              <span style={{ fontSize: 24, fontWeight: 900, color: "#e0e0e0" }}>{fmtEntero(p.piezas_prod)}</span>
-              <span style={{ fontSize: 11, color: "#666", marginLeft: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>piezas</span>
-            </div>
+            {paro && (
+              <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 10, paddingTop: 10, borderTop: "1px solid #23262f" }}>
+                <div>
+                  <span style={{ fontSize: 24, fontWeight: 900, color: "#ff9900" }}>{paro.set1}</span>
+                  <span style={lbl}>set 1</span>
+                </div>
+                <div>
+                  <span style={{ fontSize: 24, fontWeight: 900, color: "#ff9900" }}>{paro.set2}</span>
+                  <span style={lbl}>set 2 · final</span>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 

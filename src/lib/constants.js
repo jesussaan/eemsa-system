@@ -38,6 +38,21 @@ export const REBOB_ANCHOS = Object.keys(REBOB_PIEZAS_POR_VUELTA);
 // opcionesLargoPieza en Rebobinado.js, que la re-agrega SOLO para el corte
 // que ya la trae guardada, sin ofrecerla en ningun formulario nuevo.
 export const REBOB_LARGOS_PIEZA = [46, 96, 146, 196, 914];
+// A que numero hay que parar el contador de la rebobinadora para que el
+// corte real le atine al largo de pieza nominal -- el contador de la
+// maquina no es 1:1 con metros reales, y ese ajuste cambia segun el largo
+// que se este cortando. "Set 1" = primer paro, "Set 2" = paro final (que
+// coincide con el largo nominal). Se usa solo para MOSTRARSELO al operador
+// en la Pizarra en vivo (PizarraRebobinado.js); no afecta ningun calculo de
+// piezas/cajas/tinta. Los largos que no aparecen aqui todavia no tienen
+// esta calibracion capturada -- se les agrega su fila conforme se vayan
+// midiendo en planta.
+export const REBOB_PAROS_MAQUINA = {
+  '46':  { set1: 42,  set2: 46 },
+  '96':  { set1: 92,  set2: 96 },
+  '146': { set1: 142, set2: 146 },
+  '196': { set1: 192, set2: 196 },
+};
 export const REBOB_PIEZAS_POR_CAJA = { '2"': 36, '3"': 24 };
 // Excepciones por combinacion ancho+largo -- la pieza de 3" x 914m es mucho
 // mas grande/pesada que las de 96/147m, asi que en su caja fisica caben
