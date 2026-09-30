@@ -109,6 +109,15 @@ export default function PizarraRebobinado() {
   const card = { background: "#181b24", borderRadius: 14, padding: 18, marginBottom: 14 };
 
   const lbl = { fontSize: 14, color: "#9aa0bc", marginLeft: 5, textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700 };
+  // Badge de Set 1/Set 2 junto al titulo de la medida -- colores fuertes y
+  // distintos entre si (rojo/verde) para que no se confundan entre ellos ni
+  // con las demas stats (vueltas/cajas/piezas, cada una con su propio color).
+  const badgeSet = (bg, border, txt, label, valor) => (
+    <span style={{ display: "inline-flex", alignItems: "baseline", gap: 5, background: bg, border: `1px solid ${border}`, color: txt, borderRadius: 8, padding: "3px 10px" }}>
+      <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".04em" }}>{label}</span>
+      <span style={{ fontSize: 18, fontWeight: 900 }}>{valor}</span>
+    </span>
+  );
 
   const Medidas = ({ g, color }) => (
     <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
@@ -116,33 +125,29 @@ export default function PizarraRebobinado() {
         const paro = paroDeMedida(p);
         return (
           <div key={p.id} style={{ background: "#0d0f14", borderRadius: 10, padding: "10px 12px" }}>
-            <div style={{ color: "#c9922a", fontSize: 20, fontWeight: 800, marginBottom: 8 }}>{medidaBonita(p.medida)}</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+              <div style={{ color: "#c9922a", fontSize: 20, fontWeight: 800 }}>{medidaBonita(p.medida)}</div>
+              {paro && (
+                <div style={{ display: "flex", gap: 6 }}>
+                  {badgeSet("rgba(232,75,75,0.15)", "#e84b4b", "#ff9c9c", "SET 1", paro.set1)}
+                  {badgeSet("rgba(75,232,122,0.15)", "#4be87a", "#8ef0ac", "SET 2 · FINAL", paro.set2)}
+                </div>
+              )}
+            </div>
             <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
               <div>
                 <span style={{ fontSize: 24, fontWeight: 900, color }}>{vueltasDe(p)}</span>
                 <span style={lbl}>vueltas</span>
               </div>
               <div>
-                <span style={{ fontSize: 24, fontWeight: 900, color: "#e0e0e0" }}>{fmtEntero(p.cajas)}</span>
+                <span style={{ fontSize: 24, fontWeight: 900, color: "#4b8fe8" }}>{fmtEntero(p.cajas)}</span>
                 <span style={lbl}>cajas</span>
               </div>
               <div>
-                <span style={{ fontSize: 24, fontWeight: 900, color: "#e0e0e0" }}>{fmtEntero(p.piezas_prod)}</span>
+                <span style={{ fontSize: 24, fontWeight: 900, color: "#e8b84b" }}>{fmtEntero(p.piezas_prod)}</span>
                 <span style={lbl}>piezas</span>
               </div>
             </div>
-            {paro && (
-              <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 10, paddingTop: 10, borderTop: "1px solid #23262f" }}>
-                <div>
-                  <span style={{ fontSize: 24, fontWeight: 900, color: "#ff9900" }}>{paro.set1}</span>
-                  <span style={lbl}>set 1</span>
-                </div>
-                <div>
-                  <span style={{ fontSize: 24, fontWeight: 900, color: "#ff9900" }}>{paro.set2}</span>
-                  <span style={lbl}>set 2 · final</span>
-                </div>
-              </div>
-            )}
           </div>
         );
       })}
