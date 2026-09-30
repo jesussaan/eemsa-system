@@ -71,34 +71,73 @@ const distTono2 = (t, u) => (t[0] - u[0]) ** 2 + (t[1] - u[1]) ** 2 + (t[2] - u[
 
 // Para un pedido de 2 tintas donde el diseno de ambas viene en la MISMA foto
 // (no hay una imagen aparte por color) -- ver CalculadoraProduccion.js,
-// "una sola foto para las 2 tintas". En vez de subir la misma foto dos veces
-// (lo que daria identica cobertura a los dos colores, incorrecto), se sube
-// una vez y el operador toca sobre la foto un punto de cada tinta; cada
-// pixel de tinta se cuenta para el color muestreado de tono mas parecido
-// (ver tonoDe arriba). El fondo (pixeles claros, mismo umbral que arriba) no
-// cuenta para ninguno de los dos, igual que en coberturaDeImagen.
-export function coberturaPorDosColores(imageData, colorA, colorB) {
+// "una sola foto para las 2 tintas". Pedirle al operador que toque un punto
+// EXACTO de cada tinta en la foto resulto impractico (foto chica, colores
+// parecidos a simple vista -- ej. negro vs cafe oscuro) -- en vez de eso,
+// aqui se detectan solos los 2 colores agrupando todos los pixeles de tinta
+// en 2 grupos por tono (k-means con k=2, ver tonoDe/distTono2 arriba); el
+// operador solo confirma cual de los 2 colores encontrados es cual tinta
+// tocando un circulo grande, sin tener que apuntarle a nada en la foto.
+export function detectarDosColores(imageData) {
   const { data } = imageData;
-  const tonoA = tonoDe(colorA.r, colorA.g, colorA.b);
-  const tonoB = tonoDe(colorB.r, colorB.g, colorB.b);
-  let a = 0, b = 0, total = 0;
+  const puntos = [];
+  let totalTodos = 0;
   for (let i = 0; i < data.length; i += 4) {
     const alpha = data[i + 3];
     if (alpha < 10) continue;
-    total++;
-    const r = data[i], g = data[i + 1], bl = data[i + 2];
-    const brillo = (r + g + bl) / 3;
-    if (brillo >= UMBRAL_BRILLO) continue; // fondo -- no es tinta de ninguno de los dos colores
-    const tono = tonoDe(r, g, bl);
-    if (distTono2(tono, tonoA) <= distTono2(tono, tonoB)) a++; else b++;
+    totalTodos++;
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    const brillo = (r + g + b) / 3;
+    if (brillo >= UMBRAL_BRILLO) continue; // fondo -- no es tinta
+    puntos.push({ r, g, b, t: tonoDe(r, g, b) });
   }
-  return total > 0 ? { cobertura1: a / total, cobertura2: b / total } : { cobertura1: 0, cobertura2: 0 };
-}
+  if (totalTodos === 0 || puntos.length < 2) return null; // no hay suficiente tinta para separar 2 colores
 
-export function colorEnPixel(imageData, x, y) {
-  const { data, width } = imageData;
-  const i = (y * width + x) * 4;
-  return { r: data[i], g: data[i + 1], b: data[i + 2] };
+  // Semillas: el pixel mas oscuro y el de tono mas distinto a ese -- evita
+  // que las 2 semillas arranquen parecidas y kmeans no separe nada.
+  let semillaA = puntos[0];
+  for (const p of puntos) if ((p.r + p.g + p.b) < (semillaA.r + semillaA.g + semillaA.b)) semillaA = p;
+  let semillaB = puntos[0], mejorDist = -1;
+  for (const p of puntos) {
+    const d = distTono2(p.t, semillaA.t);
+    if (d > mejorDist) { mejorDist = d; semillaB = p; }
+  }
+
+  let centroA = semillaA.t, centroB = semillaB.t;
+  const asign = new Array(puntos.length).fill(0);
+  for (let iter = 0; iter < 6; iter++) {
+    const sumA = [0, 0, 0], sumB = [0, 0, 0];
+    let nA = 0, nB = 0;
+    for (let i = 0; i < puntos.length; i++) {
+      const t = puntos[i].t;
+      const grupo = distTono2(t, centroA) <= distTono2(t, centroB) ? 0 : 1;
+      asign[i] = grupo;
+      const s = grupo === 0 ? sumA : sumB;
+      s[0] += t[0]; s[1] += t[1]; s[2] += t[2];
+      if (grupo === 0) nA++; else nB++;
+    }
+    if (nA > 0) centroA = [sumA[0] / nA, sumA[1] / nA, sumA[2] / nA];
+    if (nB > 0) centroB = [sumB[0] / nB, sumB[1] / nB, sumB[2] / nB];
+  }
+
+  const idxsA = [], idxsB = [];
+  for (let i = 0; i < asign.length; i++) (asign[i] === 0 ? idxsA : idxsB).push(i);
+  if (idxsA.length === 0 || idxsB.length === 0) return null; // el diseno resulto de un solo color
+
+  // Color representativo de cada grupo para el circulo que ve el operador --
+  // promedio del RGB real (no del tono) de sus pixeles.
+  const promedioRGB = (idxs) => {
+    const s = [0, 0, 0];
+    idxs.forEach(i => { s[0] += puntos[i].r; s[1] += puntos[i].g; s[2] += puntos[i].b; });
+    return { r: Math.round(s[0] / idxs.length), g: Math.round(s[1] / idxs.length), b: Math.round(s[2] / idxs.length) };
+  };
+
+  return {
+    colorA: promedioRGB(idxsA),
+    colorB: promedioRGB(idxsB),
+    cobertura1: idxsA.length / totalTodos,
+    cobertura2: idxsB.length / totalTodos,
+  };
 }
 
 export { cargarMuestraImagen };

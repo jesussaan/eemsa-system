@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_MP_ROLLO_PRECIO } from '../lib/constants';
 import { calcularProduccion, MP_ANCHO, MP_LARGO, PORTALICHES, rollosPorCaja, anchoDePedido, largoDePedido, disenoEsImagen } from '../lib/produccion';
-import { coberturaDeImagen, cargarMuestraImagen, coberturaPorDosColores, colorEnPixel } from '../lib/imagenCobertura';
+import { coberturaDeImagen, cargarMuestraImagen, detectarDosColores } from '../lib/imagenCobertura';
 import { horasEfectivas, JORNADA_HORAS } from '../lib/horario';
 
 export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial, onConfirmar, inline, sugerido, clicheActivoInfo }) {
@@ -80,19 +80,22 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
 
   // Cuando las 2 tintas se imprimen a partir de UN solo diseno/foto (no hay
   // una imagen aparte por color) -- subir la misma foto dos veces le daria
-  // identica cobertura a ambos colores, que casi nunca es correcto. Aqui se
-  // sube una sola vez y el operador toca sobre la foto un punto de cada
-  // tinta; cada pixel de tinta de la imagen se reparte al color muestreado
-  // mas cercano (ver coberturaPorDosColores en lib/imagenCobertura.js).
+  // identica cobertura a ambos colores, que casi nunca es correcto. Pedirle
+  // al operador que toque un punto EXACTO de cada tinta resulto impractico
+  // (foto chica, colores parecidos a simple vista -- ej. negro vs cafe
+  // oscuro: "se me hace imposible picarle"). En vez de eso, los 2 colores se
+  // detectan solos (ver detectarDosColores en lib/imagenCobertura.js) y el
+  // operador solo confirma cual circulo es cual tinta -- un toque grande,
+  // no un punto preciso.
   const [unaFotoDosColores, setUnaFotoDosColores] = useState(false);
   const [muestraUnaFoto, setMuestraUnaFoto] = useState(null); // {imageData, w, h, previewUrl}
-  const [colorA, setColorA] = useState(null);
-  const [colorB, setColorB] = useState(null);
+  const [deteccion, setDeteccion] = useState(null); // {colorA, colorB, cobertura1, cobertura2}
+  const [asignacion, setAsignacion] = useState(null); // 'A' | 'B' -- cual circulo es pedidoInicial.color
   const [analizandoUna, setAnalizandoUna] = useState(false);
   const [errorUna, setErrorUna] = useState('');
 
   const reiniciarUnaFoto = () => {
-    setMuestraUnaFoto(null); setColorA(null); setColorB(null); setErrorUna('');
+    setMuestraUnaFoto(null); setDeteccion(null); setAsignacion(null); setErrorUna('');
     setDiseno(''); setDiseno2('');
   };
   const toggleModoFoto = () => {
@@ -101,32 +104,28 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   };
   const subirFotoUnica = async (file) => {
     setAnalizandoUna(true); setErrorUna('');
-    setColorA(null); setColorB(null); setDiseno(''); setDiseno2('');
+    setDeteccion(null); setAsignacion(null); setDiseno(''); setDiseno2('');
     try {
       const m = await cargarMuestraImagen(file);
+      const det = detectarDosColores(m.imageData);
+      if (!det) {
+        setErrorUna('No se lograron distinguir 2 colores en esta foto -- prueba con el modo de 2 fotos separadas.');
+        setMuestraUnaFoto(null);
+        return;
+      }
       setMuestraUnaFoto(m);
+      setDeteccion(det);
     } catch (e) {
       setErrorUna(e.message || 'No se pudo analizar la imagen');
     } finally {
       setAnalizandoUna(false);
     }
   };
-  // Convierte el punto donde se toco la foto (en pantalla) a coordenadas del
-  // canvas de muestreo -- el <img> de preview es el mismo canvas ya
-  // renderizado como dataURL, solo se ve mas grande/chico segun la pantalla.
-  const tocarPuntoFoto = (e) => {
-    if (!muestraUnaFoto || colorB) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const escalaX = muestraUnaFoto.w / rect.width;
-    const escalaY = muestraUnaFoto.h / rect.height;
-    const x = Math.min(muestraUnaFoto.w - 1, Math.max(0, Math.floor((e.clientX - rect.left) * escalaX)));
-    const y = Math.min(muestraUnaFoto.h - 1, Math.max(0, Math.floor((e.clientY - rect.top) * escalaY)));
-    const color = colorEnPixel(muestraUnaFoto.imageData, x, y);
-    if (!colorA) { setColorA(color); return; }
-    setColorB(color);
-    const { cobertura1, cobertura2 } = coberturaPorDosColores(muestraUnaFoto.imageData, colorA, color);
-    setDiseno(`img:${(cobertura1 * 100).toFixed(1)}`);
-    setDiseno2(`img:${(cobertura2 * 100).toFixed(1)}`);
+  const elegirColor = (letra) => {
+    setAsignacion(letra);
+    const [pct1, pct2] = letra === 'A' ? [deteccion.cobertura1, deteccion.cobertura2] : [deteccion.cobertura2, deteccion.cobertura1];
+    setDiseno(`img:${(pct1 * 100).toFixed(1)}`);
+    setDiseno2(`img:${(pct2 * 100).toFixed(1)}`);
   };
 
   // Datos reales (flujo finalizar) -- se captura "cajas producidas" y las
@@ -283,37 +282,33 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             {!muestraUnaFoto ? (
               <label className="campo-pendiente" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 8, padding: '14px 12px', cursor: analizandoUna ? 'default' : 'pointer', fontWeight: 700, fontSize: 13 }}>
                 <input type="file" accept="image/*" disabled={analizandoUna} style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) subirFotoUnica(f); e.target.value = ''; }} />
-                {analizandoUna ? '⏳ Cargando…' : '📷 Sube la foto del diseño'}
+                {analizandoUna ? '⏳ Buscando los 2 colores…' : '📷 Sube la foto del diseño'}
               </label>
             ) : (
               <>
-                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, color: !colorA ? '#c9922a' : !colorB ? '#c9922a' : '#4be87a' }}>
-                  {!colorA ? `👉 Toca en la foto un punto de la tinta "${pedidoInicial.color}"`
-                    : !colorB ? `👉 Ahora toca un punto de la tinta "${pedidoInicial.color2}"`
-                    : '✓ Cobertura calculada'}
-                </div>
-                <img src={muestraUnaFoto.previewUrl} alt="Diseño" onClick={tocarPuntoFoto}
-                  style={{ width: '100%', maxWidth: 320, borderRadius: 8, cursor: colorB ? 'default' : 'crosshair', display: 'block', border: '1px solid #2a2d3a' }} />
-                <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11, color: '#9aa0bc' }}>
-                  {colorA && (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ width: 12, height: 12, borderRadius: '50%', background: `rgb(${colorA.r},${colorA.g},${colorA.b})`, border: '1px solid #444' }} />
-                      {pedidoInicial.color}
-                    </span>
-                  )}
-                  {colorB && (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ width: 12, height: 12, borderRadius: '50%', background: `rgb(${colorB.r},${colorB.g},${colorB.b})`, border: '1px solid #444' }} />
-                      {pedidoInicial.color2}
-                    </span>
-                  )}
-                </div>
-                {disenoEsImagen(diseno) && disenoEsImagen(diseno2) && (
-                  <div style={{ marginTop: 8, fontSize: 14, fontWeight: 700 }}>
-                    {pedidoInicial.color}: {diseno.slice(4)}% · {pedidoInicial.color2}: {diseno2.slice(4)}%
+                <img src={muestraUnaFoto.previewUrl} alt="Diseño" style={{ width: '100%', maxWidth: 320, borderRadius: 8, display: 'block', border: '1px solid #2a2d3a', marginBottom: 10 }} />
+                {!asignacion ? (
+                  <>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: '#c9922a' }}>
+                      👉 Toca el círculo que sea la tinta "{pedidoInicial.color}"
+                    </div>
+                    <div style={{ display: 'flex', gap: 14 }}>
+                      <button type="button" onClick={() => elegirColor('A')} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, background: 'transparent', border: '2px solid #2a2d3a', borderRadius: 10, padding: 10, cursor: 'pointer' }}>
+                        <span style={{ width: 56, height: 56, borderRadius: '50%', background: `rgb(${deteccion.colorA.r},${deteccion.colorA.g},${deteccion.colorA.b})`, border: '2px solid #444' }} />
+                        <span style={{ fontSize: 11, color: '#9aa0bc' }}>Es este</span>
+                      </button>
+                      <button type="button" onClick={() => elegirColor('B')} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, background: 'transparent', border: '2px solid #2a2d3a', borderRadius: 10, padding: 10, cursor: 'pointer' }}>
+                        <span style={{ width: 56, height: 56, borderRadius: '50%', background: `rgb(${deteccion.colorB.r},${deteccion.colorB.g},${deteccion.colorB.b})`, border: '2px solid #444' }} />
+                        <span style={{ fontSize: 11, color: '#9aa0bc' }}>Es este</span>
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#4be87a' }}>
+                    ✓ {pedidoInicial.color}: {diseno.slice(4)}% · {pedidoInicial.color2}: {diseno2.slice(4)}%
                   </div>
                 )}
-                <button type="button" onClick={reiniciarUnaFoto} style={{ marginTop: 8, background: 'transparent', border: 'none', color: '#ff4d4d', cursor: 'pointer', fontSize: 11, padding: 0 }}>✕ Quitar foto / volver a tocar</button>
+                <button type="button" onClick={reiniciarUnaFoto} style={{ marginTop: 10, background: 'transparent', border: 'none', color: '#ff4d4d', cursor: 'pointer', fontSize: 11, padding: 0 }}>✕ Quitar foto / volver a intentar</button>
               </>
             )}
             {errorUna && <div style={{ fontSize: 11, color: '#ff4d4d', marginTop: 4 }}>{errorUna}</div>}
