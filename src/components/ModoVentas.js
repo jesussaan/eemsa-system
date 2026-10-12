@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { authHeaders } from "../lib/auth";
-import { today, uid, siguienteNumPedido, unificarPorTexto, normalizarMedida, cargarBorrador, guardarBorrador } from "../lib/utils";
+import { today, uid, siguienteNumPedido, unificarPorTexto, normalizarMedida, cargarBorrador, guardarBorrador, ultimoPedidoDeCliente } from "../lib/utils";
 import { rollosPorCaja } from "../lib/produccion";
 import { TIPOS, REBOB_CLIENTE } from "../lib/constants";
 import { sendWhatsApp, mensajePedidoNuevo } from "../utils/whatsapp";
@@ -70,6 +70,31 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
     }
     return nf;
   });
+
+  // Al escribir/elegir un cliente que ya existe, se llena con lo de su
+  // ultimo pedido (tipo, medida, cajas, tintas) -- mismo criterio que
+  // Pedidos.js: solo si Medida sigue vacia o trae lo que se autolleno antes.
+  const [medidaAutollenada, setMedidaAutollenada] = useState(null);
+  const cambiarCliente = (v) => {
+    const ult = ultimoPedidoDeCliente(pedidos.filter(p => p.cliente !== REBOB_CLIENTE), v);
+    const puedeLlenar = !form.medida || form.medida === medidaAutollenada;
+    if (!ult || !puedeLlenar) { upd("cliente", v); return; }
+    const tipo = ult.tipo || "Blanca";
+    const medida = ult.medida || "";
+    const rollosCaja = String(rollosPorCaja(anchoDeMedida(medida), tipo === "Engomado"));
+    const cajas = ult.cajas != null ? String(ult.cajas) : "";
+    setForm(f => ({
+      ...f,
+      cliente: v, tipo, medida, cajas,
+      rollos_caja: rollosCaja,
+      rollos_totales: cajas ? String(Number(cajas) * Number(rollosCaja)) : "",
+      tinta_tipo: ult.tinta_tipo || ult.color || "",
+      color2: ult.color2 || "",
+    }));
+    setTipoTocado(true);
+    setMedidaAutollenada(medida);
+    showToast(`📋 Llenado con el último pedido de ${ult.cliente} (#${ult.num}) — revísalo`);
+  };
 
 
   const mesStr  = `${mes.y}-${String(mes.m+1).padStart(2,"0")}`;
@@ -263,7 +288,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
                 <div style={{ gridColumn:"1/-1" }}>
                   <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Cliente *</label>
-                  <input value={form.cliente} onChange={e=>upd("cliente",e.target.value)} placeholder="Nombre del cliente" style={{ ...inputStyle, ...campoEstilo(form.cliente) }} list="clientes-list-ventas" />
+                  <input value={form.cliente} onChange={e=>cambiarCliente(e.target.value)} placeholder="Nombre del cliente" style={{ ...inputStyle, ...campoEstilo(form.cliente) }} list="clientes-list-ventas" />
                   <datalist id="clientes-list-ventas">{clientesSugeridos.map(c => <option key={c} value={c} />)}</datalist>
                 </div>
 

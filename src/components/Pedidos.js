@@ -3,7 +3,7 @@ import ClicheImg from './ClicheImg';
 import CalculadoraProduccion from './CalculadoraProduccion';
 import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
-import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada, unificarPorTexto, normalizarMedida } from '../lib/utils';
+import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada, unificarPorTexto, normalizarMedida, ultimoPedidoDeCliente } from '../lib/utils';
 import { rollosPorCaja, anchoDePedido, largoDePedido } from '../lib/produccion';
 import { horasEfectivasPedido, JORNADA_HORAS } from '../lib/horario';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT, REBOB_CLIENTE } from '../lib/constants';
@@ -118,6 +118,35 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
     }
     return nf;
   });
+
+  // Al escribir/elegir un cliente que ya existe, se llena el formulario con
+  // lo de su ultimo pedido (tipo, medida, cajas, colores) -- los clientes
+  // frecuentes piden casi siempre lo mismo. Solo si Medida sigue vacia o
+  // trae lo que se autolleno antes (por si cambian de cliente), para no
+  // pisar algo que ya escribieron a mano.
+  const autollenadoRef = useRef(null);
+  const cambiarCliente = (v) => {
+    const ult = ultimoPedidoDeCliente(pedidos, v);
+    const puedeLlenar = !form.medida || form.medida === autollenadoRef.current;
+    if (!ult || !puedeLlenar) { upd("cliente", v); return; }
+    const tipo = ult.tipo || "Blanca";
+    const base = { ...form, cliente: v, tipo, medida: ult.medida || "", ancho: "", largo: "" };
+    const rollosCaja = String(rollosPorCaja(anchoDePedido(base), tipo === "Engomado"));
+    const cajas = ult.cajas != null ? String(ult.cajas) : "";
+    setForm({
+      ...base,
+      ancho: String(anchoDePedido(base) || ""),
+      largo: String(largoDePedido(base) || ""),
+      cajas,
+      rollos_caja: rollosCaja,
+      rollos_totales: cajas ? String(Number(cajas) * Number(rollosCaja)) : "",
+      color: ult.color || ult.tinta_tipo || "",
+      color2: ult.color2 || "",
+      color_cinta: ult.color_cinta || "",
+    });
+    autollenadoRef.current = ult.medida || "";
+    showToast(`📋 Llenado con el último pedido de ${ult.cliente} (#${ult.num}) — revísalo`);
+  };
 
   const clonarPedido = (p) => {
     const tipo  = p.tipo || "Blanca";
@@ -465,7 +494,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
       )}
       <div className="form-grid">
         <div className="field"><label>Cliente *</label>
-          <input className={form.cliente ? 'campo-listo' : 'campo-pendiente'} value={form.cliente} onChange={e => upd("cliente", e.target.value)} placeholder="MAFENSA, ARIAT…" list="clientes-list" />
+          <input className={form.cliente ? 'campo-listo' : 'campo-pendiente'} value={form.cliente} onChange={e => cambiarCliente(e.target.value)} placeholder="MAFENSA, ARIAT…" list="clientes-list" />
           <datalist id="clientes-list">{clientesSugeridos.map(c => <option key={c} value={c} />)}</datalist>
         </div>
         <div className="field"><label>No. Pedido * <span style={{ color: "#666", fontWeight: 400 }}>(sugerido)</span></label><input value={form.num} onChange={e => upd("num", e.target.value)} placeholder="84, 85…" /></div>

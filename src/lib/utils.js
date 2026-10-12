@@ -59,6 +59,22 @@ export const siguienteNumPedido = (pedidos) => {
   }, 0);
   return String(max + 1);
 };
+
+// El pedido mas reciente de un cliente (ignorando may/min y espacios) -- para
+// autollenar el formulario de pedido nuevo con lo que ese cliente pide siempre
+// (ARIAT casi siempre es Canela 3"x100, 10 cajas, negro) en vez de teclearlo
+// de nuevo cada vez y equivocarse. null si el cliente no tiene pedidos.
+export const ultimoPedidoDeCliente = (pedidos, cliente) => {
+  const buscado = String(cliente ?? '').trim().toLowerCase();
+  if (!buscado) return null;
+  const delCliente = pedidos.filter(p => String(p.cliente ?? '').trim().toLowerCase() === buscado);
+  if (!delCliente.length) return null;
+  return delCliente.reduce((a, b) => {
+    const fa = a.fecha_solicitud || '', fb = b.fecha_solicitud || '';
+    if (fa !== fb) return fb > fa ? b : a;
+    return (parseInt(b.num, 10) || 0) > (parseInt(a.num, 10) || 0) ? b : a;
+  });
+};
 // Fecha de hoy en hora de Mexico (America/Mexico_City), NO UTC -- antes esto
 // era new Date().toISOString().slice(0,10), que da la fecha en UTC sin
 // importar donde corra. Como CDMX es UTC-6 sin horario de verano desde 2022,
