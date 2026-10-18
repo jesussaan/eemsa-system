@@ -206,11 +206,9 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
   const conFecha   = pedActivos.filter(p => p.fecha_estimada).sort((a,b) => a.fecha_estimada.localeCompare(b.fecha_estimada));
   const proximos   = conFecha.filter(p => p.fecha_estimada >= hoy).slice(0, 10);
 
-  // El calendario tiene dos vistas: "produccion" pone cada pedido el dia en
-  // que sale de la maquina segun el programa (cambia solo si se reacomoda la
-  // cola en Modo Operador); "entrega" lo pone en la fecha prometida al cliente.
-  const [vistaCal, setVistaCal] = useState("produccion");
-  const fechaDeVista = p => vistaCal === "produccion" ? (cola[p.id]?.fechaFin || null) : p.fecha_estimada;
+  // El calendario pone cada pedido el dia en que sale de la maquina segun el
+  // programa de produccion -- se reacomoda solo si cambia el orden de la cola.
+  const fechaDeVista = p => cola[p.id]?.fechaFin || null;
   const porDia = d => {
     const k = `${mesStr}-${String(d).padStart(2,"0")}`;
     return pedActivos.filter(p => fechaDeVista(p) === k);
@@ -314,15 +312,8 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
               </div>
             </div>
 
-            {/* Calendario: por dia de produccion o por fecha de entrega */}
-            <div style={{ display:"flex", gap:6, marginBottom:8 }}>
-              {[["produccion", "🏭 Producción", "día en que sale de la máquina"], ["entrega", "🚚 Entregas", "fecha prometida al cliente"]].map(([k, lbl, desc]) => (
-                <button key={k} type="button" onClick={() => { setVistaCal(k); setDiaSel(null); }} title={desc} style={{ flex:1, padding:"9px 8px", borderRadius:10, cursor:"pointer", fontSize:13, fontWeight:800, border: vistaCal === k ? "1.5px solid var(--accent)" : "1px solid var(--border-light)", background: vistaCal === k ? "var(--accent-dim)" : "transparent", color: vistaCal === k ? "var(--accent)" : "var(--text-2)" }}>{lbl}</button>
-              ))}
-            </div>
-            <div style={{ fontSize:11, color:"var(--muted)", marginBottom:8 }}>
-              {vistaCal === "produccion" ? "Cada pedido en el día que sale de la máquina. Se reacomoda solo cuando cambia el orden de producción." : "Cada pedido en la fecha de entrega prometida al cliente."}
-            </div>
+            {/* Calendario: dia en que sale cada pedido de la maquina */}
+            <div style={{ fontSize:11, color:"var(--muted)", marginBottom:8 }}>🏭 Cada pedido en el día que sale de la máquina. Se reacomoda solo cuando cambia el orden de producción.</div>
             <CalendarGrid
               mes={mes} setMes={setMesYLimpiar}
               diaSel={diaSel} onSelectDia={(d) => setDiaSel(d)}
@@ -339,7 +330,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
                   {diaSel} de {MESES[mes.m]} {mes.y}
                 </div>
                 {selPeds.length === 0
-                  ? <p style={{ color:"var(--muted)", fontSize:13, margin:0 }}>{vistaCal === "produccion" ? "No sale ningún pedido este día." : "Sin entregas programadas para este día."}</p>
+                  ? <p style={{ color:"var(--muted)", fontSize:13, margin:0 }}>No sale ningún pedido este día.</p>
                   : selPeds.map(p => {
                       const cc = chipColor(p);
                       return (
