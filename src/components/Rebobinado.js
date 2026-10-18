@@ -680,9 +680,11 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
         <div style={{ display: "grid", gap: 12, marginBottom: 14 }}>
           {gruposPlaneados.map((g, i) => {
             const enProceso = g[0].status === "proceso";
+            // "Siguiente" = el primero de la cola que todavia no se esta cortando.
+            const idxSiguiente = gruposPlaneados.findIndex(x => x[0].status !== "proceso");
             const estado = enProceso
               ? { txt: "Cortando", color: "var(--teal)", fondo: "var(--teal-dim)" }
-              : i === 0
+              : i === idxSiguiente
                 ? { txt: "Siguiente", color: "var(--accent)", fondo: "var(--accent-dim)" }
                 : { txt: "En cola", color: "var(--text-2)", fondo: "var(--bg)" };
             const tarima = tarimas.find(x => x.id === g[0].tarima_jumbo_id);
@@ -720,10 +722,12 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginBottom: mixto ? 10 : 12 }}>
                   {g.map((p, j) => (
-                    <div key={p.id} style={{ background: "var(--bg)", border: "1px solid var(--border)", borderTop: mixto ? `3px solid ${PALETA_MEDIDAS[j % PALETA_MEDIDAS.length]}` : "1px solid var(--border)", borderRadius: 10, padding: "10px 12px" }}>
-                      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: "var(--accent)", lineHeight: 1.1 }}>{p.medida}</div>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: "var(--teal)", marginTop: 4 }}>{ent(vueltasDe(p))} vueltas</div>
-                      <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 2 }}>{ent(p.cajas)} cajas · {ent(p.piezas_prod)} pzas</div>
+                    <div key={p.id} style={{ background: "var(--bg)", border: "1px solid var(--border)", borderTop: mixto ? `3px solid ${PALETA_MEDIDAS[j % PALETA_MEDIDAS.length]}` : "1px solid var(--border)", borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 24, fontWeight: 800, color: "var(--accent)", lineHeight: 1.1 }}>{p.medida}</div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: "var(--teal)" }}>{ent(vueltasDe(p))} vueltas</div>
+                        <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 2 }}>{ent(p.cajas)} cajas · {ent(p.piezas_prod)} pzas</div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -731,7 +735,7 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
                 {mixto && <div style={{ marginBottom: 12 }}>{barraJumbo(segmentos)}</div>}
 
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => cargarPlanParaCortar(g)}>✂️ Cortar este jumbo</button>
+                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => cargarPlanParaCortar(g)}>{enProceso ? "▶ Continuar corte" : "✂️ Cortar este jumbo"}</button>
                   <button onClick={() => cancelarPlan(g)} style={{ background: "transparent", border: "1px solid var(--border-light)", borderRadius: 10, color: "var(--red)", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: "10px 12px" }}>Cancelar plan</button>
                 </div>
               </div>
@@ -764,7 +768,7 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
                   const activo = t.material_id === planeandoMaterialId;
                   const { material, adhesivo } = materialAdhesivoDe(t.material);
                   return (
-                    <button key={t.material_id} type="button" onClick={() => abrirPlaneacion(t.material_id)} style={{ textAlign: "left", cursor: "pointer", borderRadius: 12, padding: "10px 12px", background: activo ? "var(--teal-dim)" : "var(--bg)", border: `1.5px solid ${activo ? "var(--teal)" : "var(--border)"}`, color: "var(--text)" }}>
+                    <button key={t.material_id} type="button" onClick={() => abrirPlaneacion(t.material_id)} style={{ textAlign: "left", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "flex-start", borderRadius: 12, padding: "10px 12px", background: activo ? "var(--teal-dim)" : "var(--bg)", border: `1.5px solid ${activo ? "var(--teal)" : "var(--border)"}`, color: "var(--text)" }}>
                       <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 6 }}>{t.material?.nombre || "Jumbo"}</div>
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         {chipMaterial(material)}
