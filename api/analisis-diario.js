@@ -5,7 +5,7 @@ import { detectarPedidosUrgentes, detectarInventarioCritico, detectarProduccionS
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
-  process.env.REACT_APP_SUPABASE_KEY
+  process.env.SUPABASE_SERVICE_KEY
 );
 
 // Antes: new Date().toISOString().slice(0,10) -- UTC, no hora de Mexico (ver

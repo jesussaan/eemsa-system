@@ -1,4 +1,4 @@
-import { unificarPorTexto, normalizarMedida } from './utils';
+import { unificarPorTexto, normalizarMedida, ultimoPedidoDeCliente, avisoMedidaCliente } from './utils';
 
 describe('unificarPorTexto', () => {
   test('valor nuevo que no existe se guarda tal cual', () => {
@@ -41,5 +41,42 @@ describe('normalizarMedida', () => {
     expect(normalizarMedida('100')).toBe('100');
     expect(normalizarMedida('')).toBe('');
     expect(normalizarMedida('a granel')).toBe('a granel');
+  });
+});
+
+describe('ultimoPedidoDeCliente', () => {
+  const pedidos = [
+    { num: '140', cliente: 'ARIAT', fecha_solicitud: '2026-08-25' },
+    { num: '151', cliente: 'ARIAT', fecha_solicitud: '2026-09-25' },
+    { num: '150', cliente: 'MAFENSA', fecha_solicitud: '2026-09-30' },
+  ];
+
+  test('regresa el mas reciente del cliente, sin importar may/min ni espacios', () => {
+    expect(ultimoPedidoDeCliente(pedidos, ' ariat ').num).toBe('151');
+  });
+
+  test('cliente sin pedidos regresa null', () => {
+    expect(ultimoPedidoDeCliente(pedidos, 'NUEVO')).toBeNull();
+  });
+});
+
+describe('avisoMedidaCliente', () => {
+  const ariat = [
+    { num: '131', cliente: 'ARIAT', medida: '3"x100', fecha_solicitud: '2026-08-07' },
+    { num: '140', cliente: 'ARIAT', medida: '3"x100', fecha_solicitud: '2026-08-25' },
+    { num: '151', cliente: 'ARIAT', medida: '3"x100', fecha_solicitud: '2026-09-25' },
+  ];
+
+  test('avisa si la medida nunca aparece en sus ultimos pedidos', () => {
+    expect(avisoMedidaCliente(ariat, 'ARIAT', '2x100')).toEqual({ habitual: '3"x100', veces: 3, total: 3 });
+  });
+
+  test('no avisa si ya la ha pedido, escrita de cualquier forma', () => {
+    expect(avisoMedidaCliente(ariat, 'ARIAT', '3 X 100')).toBeNull();
+  });
+
+  test('no avisa a media escritura ni con clientes de menos de 2 pedidos', () => {
+    expect(avisoMedidaCliente(ariat, 'ARIAT', '2')).toBeNull();
+    expect(avisoMedidaCliente(ariat.slice(0, 1), 'ARIAT', '2x100')).toBeNull();
   });
 });

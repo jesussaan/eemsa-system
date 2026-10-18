@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { alertaEntrega } from "../lib/utils";
-import { REBOB_CLIENTE } from "../lib/constants";
+import { REBOB_CLIENTE, PEDIDOS_COLUMNAS_PUBLICAS } from "../lib/constants";
 
 // Publica (sin login): pedidos ya tiene lectura abierta a la anon key (ver
 // supabase_pedidos_fallas_security.sql, policy "anon_select"), la misma key
@@ -64,7 +64,7 @@ export default function PizarraOperador() {
     // -- los jumbos que se planean en Modo Rebobinado tambien usan status
     // "anotado"/"proceso" (ver Rebobinado.js), asi que se excluyen aqui
     // para que no se mezclen con los pedidos reales.
-    const { data } = await supabase.from("pedidos").select("*").in("status", ["anotado", "proceso"]).neq("cliente", REBOB_CLIENTE);
+    const { data } = await supabase.from("pedidos").select(PEDIDOS_COLUMNAS_PUBLICAS).in("status", ["anotado", "proceso"]).neq("cliente", REBOB_CLIENTE);
     setPedidos(data || []);
     setCargado(true);
   };
@@ -79,7 +79,10 @@ export default function PizarraOperador() {
     const canal = supabase.channel("rt_pizarra_operador")
       .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, () => cargar())
       .subscribe();
-    return () => supabase.removeChannel(canal);
+    // Respaldo por si el tiempo real deja de avisar a la anon key (pedidos
+    // solo le deja leer algunas columnas, ver PEDIDOS_COLUMNAS_PUBLICAS).
+    const t = setInterval(cargar, 60000);
+    return () => { supabase.removeChannel(canal); clearInterval(t); };
   }, []);
 
   const pedidosEnProceso = pedidos.filter(p => p.status === "proceso");

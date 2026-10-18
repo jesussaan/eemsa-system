@@ -12,9 +12,12 @@ jobs:
       - name: Crear carpeta de backup
         run: mkdir -p backup
 
+      # La anon key ya no puede leer select=* de pedidos (costo_pieza,
+      # precio_pieza y margen_pct quedaron fuera, ver supabase_seguridad_fase1.sql)
+      # -- misma lista que PEDIDOS_COLUMNAS_PUBLICAS en src/lib/constants.js.
       - name: Exportar pedidos
         run: |
-          curl -s "${{ secrets.SUPABASE_URL }}/rest/v1/pedidos?select=*" \
+          curl -s "${{ secrets.SUPABASE_URL }}/rest/v1/pedidos?select=id,cliente,num,tipo,medida,cajas,rollos_caja,rollos_totales,ancho,largo,color,maq,op,fecha_solicitud,fecha_inicio,fecha_termino,piezas_prod,merma,merma_pct,notas,status,created,rollos_usados,tinta_tipo,tinta_kg,alcohol_litros,notas_consumo,cliche_url,color_cinta,foto_producto_url,fecha_estimada,orden,fecha_original,inicio_ts,fin_ts,stickyback,color2,tinta_kg2,diseno,portaliche,diseno2,portaliche2,folio_rebobinado,cliche_id,tarima_jumbo_id,pausas" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
             -o backup/pedidos.json

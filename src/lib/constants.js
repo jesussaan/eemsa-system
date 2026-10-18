@@ -22,6 +22,12 @@ export const META_CAJAS = 12;
 export const META_MERMA_PCT = 3;
 export const UMBRAL_MERMA = 3;
 
+// Columnas de pedidos que la anon key (pizarras publicas, sin login) SI
+// puede leer -- todas menos costo_pieza, precio_pieza y margen_pct (ver
+// supabase_seguridad_fase1.sql). Con select("*") la anon key ya no puede
+// leer pedidos: Postgres niega el * en cuanto falta permiso a una columna.
+export const PEDIDOS_COLUMNAS_PUBLICAS = "id, cliente, num, tipo, medida, cajas, rollos_caja, rollos_totales, ancho, largo, color, maq, op, fecha_solicitud, fecha_inicio, fecha_termino, piezas_prod, merma, merma_pct, notas, status, created, rollos_usados, tinta_tipo, tinta_kg, alcohol_litros, notas_consumo, cliche_url, color_cinta, foto_producto_url, fecha_estimada, orden, fecha_original, inicio_ts, fin_ts, stickyback, color2, tinta_kg2, diseno, portaliche, diseno2, portaliche2, folio_rebobinado, cliche_id, tarima_jumbo_id, pausas";
+
 // Rebobinado de stock: jumbos de 1615mm x 8000m que se cortan en rollos angostos.
 export const REBOB_CLIENTE = "Stock · Rebobinado";
 export const REBOB_COLOR = "#3ecfc0";

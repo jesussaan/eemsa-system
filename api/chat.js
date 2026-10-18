@@ -396,7 +396,7 @@ async function manejarJarvisIA(req, res, messages, usuario) {
   // autorizados de ESTA pregunta -- no las 9 tablas siempre.
   const [pedidosRes, prodRes, materialesRes, listaMatRes, proveedoresRes, refaccionesRes, quejasRes] = await Promise.all([
     (necesita('pedidos') || necesita('produccion') || necesita('clientes') || necesita('agenda') || necesita('costos') || necesita('reportes'))
-      ? supabase.from('pedidos').select('num, cliente, tipo, medida, cajas, status, maq, created, fecha_estimada, fecha_inicio, fecha_termino, inicio_ts, fin_ts, piezas_prod, merma, costo_pieza').order('created', { ascending: false }).limit(300)
+      ? supabaseAdmin.from('pedidos').select('num, cliente, tipo, medida, cajas, status, maq, created, fecha_estimada, fecha_inicio, fecha_termino, inicio_ts, fin_ts, piezas_prod, merma, costo_pieza').order('created', { ascending: false }).limit(300)
       : { data: null },
     (necesita('produccion') || necesita('reportes')) ? supabase.from('prod_diaria').select('num_pedido, cajas_dia, fecha, created') : { data: null },
     necesita('inventario') ? supabase.from('materiales').select('categoria, match_valor, nombre, stock, unidad, stock_min') : { data: null },
@@ -561,7 +561,7 @@ export default async function handler(req, res) {
 
     // Contexto de datos actuales
     const [pedidos, fallas, refacciones, prodDiaria] = await Promise.all([
-      supabase.from('pedidos').select('*').order('created', { ascending: false }).limit(30),
+      supabaseAdmin.from('pedidos').select('*').order('created', { ascending: false }).limit(30),
       supabase.from('fallas').select('*').order('created', { ascending: false }).limit(20),
       supabase.from('refacciones').select('*').order('created', { ascending: false }).limit(30),
       supabase.from('prod_diaria').select('*').order('fecha', { ascending: false }).limit(14),

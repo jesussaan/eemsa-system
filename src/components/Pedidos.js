@@ -3,7 +3,7 @@ import ClicheImg from './ClicheImg';
 import CalculadoraProduccion from './CalculadoraProduccion';
 import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
-import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada, unificarPorTexto, normalizarMedida, ultimoPedidoDeCliente } from '../lib/utils';
+import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada, unificarPorTexto, normalizarMedida, ultimoPedidoDeCliente, avisoMedidaCliente } from '../lib/utils';
 import { rollosPorCaja, anchoDePedido, largoDePedido } from '../lib/produccion';
 import { horasEfectivasPedido, JORNADA_HORAS } from '../lib/horario';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT, REBOB_CLIENTE } from '../lib/constants';
@@ -125,6 +125,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   // trae lo que se autolleno antes (por si cambian de cliente), para no
   // pisar algo que ya escribieron a mano.
   const autollenadoRef = useRef(null);
+  const avisoMedida = avisoMedidaCliente(pedidos, form.cliente, form.medida);
   const cambiarCliente = (v) => {
     const ult = ultimoPedidoDeCliente(pedidos, v);
     const puedeLlenar = !form.medida || form.medida === autollenadoRef.current;
@@ -499,7 +500,9 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
         </div>
         <div className="field"><label>No. Pedido * <span style={{ color: "#666", fontWeight: 400 }}>(sugerido)</span></label><input value={form.num} onChange={e => upd("num", e.target.value)} placeholder="84, 85…" /></div>
         <div className="field"><label>Tipo cinta</label><select value={form.tipo} onChange={e => upd("tipo", e.target.value)}>{TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
-        <div className="field"><label>Medida *</label><input className={form.medida ? 'campo-listo' : 'campo-pendiente'} value={form.medida} onChange={e => upd("medida", e.target.value)} placeholder='2"x100' /></div>
+        <div className="field"><label>Medida *</label><input className={form.medida ? 'campo-listo' : 'campo-pendiente'} value={form.medida} onChange={e => upd("medida", e.target.value)} placeholder='2"x100' />
+          {avisoMedida && <div style={{ fontSize: 12, color: "#ff9900", marginTop: 4, fontWeight: 600 }}>⚠ {form.cliente.trim()} no ha pedido esta medida en sus últimos {avisoMedida.total} pedidos — normalmente pide {avisoMedida.habitual}</div>}
+        </div>
         <div className="field"><label>Cajas solicitadas *</label><input className={form.cajas ? 'campo-listo' : 'campo-pendiente'} type="number" value={form.cajas} onChange={e => upd("cajas", e.target.value)} placeholder="50" /></div>
         <div className="field"><label>Rollos por caja <span style={{ color: "#666", fontWeight: 400 }}>(automático de tipo + medida)</span></label><input type="number" readOnly value={form.rollos_caja} placeholder="36" style={{ background: "#1a2744", color: "#c9922a" }} /></div>
         <div className="field"><label>Rollos / piezas totales <span style={{ color: "#666", fontWeight: 400 }}>(automático)</span></label><input type="number" readOnly value={form.rollos_totales} placeholder="Cajas × Rollos/caja" style={{ background: "#1a2744", color: "#c9922a" }} /></div>

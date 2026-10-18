@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { REBOB_CLIENTE, REBOB_PIEZAS_POR_VUELTA, REBOB_PAROS_MAQUINA } from "../lib/constants";
+import { REBOB_CLIENTE, REBOB_PIEZAS_POR_VUELTA, REBOB_PAROS_MAQUINA, PEDIDOS_COLUMNAS_PUBLICAS } from "../lib/constants";
 
 // fmt() de lib/utils.js siempre fuerza 2 decimales (pensado para dinero) --
 // cajas/piezas son unidades enteras, se ven mal como "76.00" en numeros
@@ -40,7 +40,7 @@ export default function PizarraRebobinado() {
 
   const cargar = async () => {
     const [{ data: p }, { data: t }] = await Promise.all([
-      supabase.from("pedidos").select("*").eq("cliente", REBOB_CLIENTE).in("status", ["anotado", "proceso"]),
+      supabase.from("pedidos").select(PEDIDOS_COLUMNAS_PUBLICAS).eq("cliente", REBOB_CLIENTE).in("status", ["anotado", "proceso"]),
       supabase.from("tarimas").select("*"),
     ]);
     setPedidos(p || []);
@@ -54,7 +54,10 @@ export default function PizarraRebobinado() {
     const canal = supabase.channel("rt_pizarra_rebobinado")
       .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, () => cargar())
       .subscribe();
-    return () => supabase.removeChannel(canal);
+    // Respaldo por si el tiempo real deja de avisar a la anon key (pedidos
+    // solo le deja leer algunas columnas, ver PEDIDOS_COLUMNAS_PUBLICAS).
+    const t = setInterval(cargar, 60000);
+    return () => { supabase.removeChannel(canal); clearInterval(t); };
   }, []);
 
   const grupos = Object.values(

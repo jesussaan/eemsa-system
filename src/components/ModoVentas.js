@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { authHeaders } from "../lib/auth";
-import { today, uid, siguienteNumPedido, unificarPorTexto, normalizarMedida, cargarBorrador, guardarBorrador, ultimoPedidoDeCliente } from "../lib/utils";
+import { today, uid, siguienteNumPedido, unificarPorTexto, normalizarMedida, cargarBorrador, guardarBorrador, ultimoPedidoDeCliente, avisoMedidaCliente } from "../lib/utils";
 import { rollosPorCaja } from "../lib/produccion";
 import { TIPOS, REBOB_CLIENTE } from "../lib/constants";
 import { sendWhatsApp, mensajePedidoNuevo } from "../utils/whatsapp";
@@ -75,6 +75,8 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
   // ultimo pedido (tipo, medida, cajas, tintas) -- mismo criterio que
   // Pedidos.js: solo si Medida sigue vacia o trae lo que se autolleno antes.
   const [medidaAutollenada, setMedidaAutollenada] = useState(null);
+  const avisoMedida = avisoMedidaCliente(pedidos.filter(p => p.cliente !== REBOB_CLIENTE), form.cliente, form.medida);
+  const textoAvisoMedida = avisoMedida && `${form.cliente.trim()} no ha pedido esta medida en sus últimos ${avisoMedida.total} pedidos — normalmente pide ${avisoMedida.habitual}`;
   const cambiarCliente = (v) => {
     const ult = ultimoPedidoDeCliente(pedidos.filter(p => p.cliente !== REBOB_CLIENTE), v);
     const puedeLlenar = !form.medida || form.medida === medidaAutollenada;
@@ -317,6 +319,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
                 <div>
                   <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Medida *</label>
                   <input value={form.medida} onChange={e=>upd("medida",e.target.value)} placeholder="Ej: 2x100" style={{ ...inputStyle, ...campoEstilo(form.medida) }} />
+                  {textoAvisoMedida && <div style={{ fontSize:12, color:"var(--orange, #ff9900)", marginTop:5, fontWeight:600 }}>⚠ {textoAvisoMedida}</div>}
                 </div>
 
                 <div>
@@ -374,6 +377,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
               return (
                 <div>
                   <div style={{ fontSize:11, color:"var(--green)", fontWeight:700, letterSpacing:1, marginBottom:14, textTransform:"uppercase" }}>Revisa antes de guardar</div>
+                  {textoAvisoMedida && <div style={{ padding:"10px 12px", marginBottom:12, borderRadius:8, border:"1px solid #ff9900", background:"#ff990018", color:"#ff9900", fontSize:13, fontWeight:700 }}>⚠ {textoAvisoMedida}. ¿Seguro que es {normalizarMedida(form.medida)}?</div>}
                   <div style={{ display:"grid", gap:8, marginBottom:14 }}>
                     {filas.map(([lbl, val]) => (
                       <div key={lbl} style={{ display:"flex", justifyContent:"space-between", padding:"9px 12px", background:"var(--surface)", borderRadius:8, fontSize:13 }}>

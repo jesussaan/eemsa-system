@@ -64,16 +64,42 @@ export const siguienteNumPedido = (pedidos) => {
 // autollenar el formulario de pedido nuevo con lo que ese cliente pide siempre
 // (ARIAT casi siempre es Canela 3"x100, 10 cajas, negro) en vez de teclearlo
 // de nuevo cada vez y equivocarse. null si el cliente no tiene pedidos.
-export const ultimoPedidoDeCliente = (pedidos, cliente) => {
+// Pedidos de un cliente (ignorando may/min y espacios), del mas reciente al
+// mas viejo: por fecha_solicitud y, si empatan, por numero de pedido.
+const pedidosRecientesDeCliente = (pedidos, cliente) => {
   const buscado = String(cliente ?? '').trim().toLowerCase();
-  if (!buscado) return null;
-  const delCliente = pedidos.filter(p => String(p.cliente ?? '').trim().toLowerCase() === buscado);
-  if (!delCliente.length) return null;
-  return delCliente.reduce((a, b) => {
-    const fa = a.fecha_solicitud || '', fb = b.fecha_solicitud || '';
-    if (fa !== fb) return fb > fa ? b : a;
-    return (parseInt(b.num, 10) || 0) > (parseInt(a.num, 10) || 0) ? b : a;
+  if (!buscado) return [];
+  return pedidos
+    .filter(p => String(p.cliente ?? '').trim().toLowerCase() === buscado)
+    .sort((a, b) => {
+      const fa = a.fecha_solicitud || '', fb = b.fecha_solicitud || '';
+      if (fa !== fb) return fb.localeCompare(fa);
+      return (parseInt(b.num, 10) || 0) - (parseInt(a.num, 10) || 0);
+    });
+};
+
+export const ultimoPedidoDeCliente = (pedidos, cliente) =>
+  pedidosRecientesDeCliente(pedidos, cliente)[0] || null;
+
+// Aviso cuando la medida que se esta capturando NO aparece en ninguno de los
+// ultimos pedidos de ese cliente (ej. ARIAT con 2"x100 cuando siempre pide
+// 3"x100). Solo avisa, no bloquea: a veces si piden una medida nueva. Pide
+// al menos 2 pedidos previos para no avisar con un cliente casi nuevo, y que
+// la medida ya tenga sus dos numeros para no avisar a media escritura de "2".
+// Devuelve { habitual, veces, total } con la medida que mas pide, o null.
+export const avisoMedidaCliente = (pedidos, cliente, medida, ultimos = 10) => {
+  const m = normalizarMedida(medida);
+  if (!/^\d+(\.\d+)?"x\d+/.test(m)) return null;
+  const recientes = pedidosRecientesDeCliente(pedidos, cliente).slice(0, ultimos);
+  if (recientes.length < 2) return null;
+  const conteo = {};
+  recientes.forEach(p => {
+    const k = normalizarMedida(p.medida);
+    if (k) conteo[k] = (conteo[k] || 0) + 1;
   });
+  if (conteo[m]) return null;
+  const [habitual, veces] = Object.entries(conteo).sort((a, b) => b[1] - a[1])[0] || [];
+  return habitual ? { habitual, veces, total: recientes.length } : null;
 };
 // Fecha de hoy en hora de Mexico (America/Mexico_City), NO UTC -- antes esto
 // era new Date().toISOString().slice(0,10), que da la fecha en UTC sin
