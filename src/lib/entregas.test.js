@@ -1,4 +1,4 @@
-import { tasasProduccion, simularCola, fechaEntregaSugerida, compararPorEntrega, programarProduccion } from './entregas';
+import { tasasProduccion, simularCola, fechaEntregaSugerida, compararPorEntrega, programarProduccion, impactoPedidoNuevo } from './entregas';
 import { sumarHorasHabiles, sumarDiasHabiles, fechaLocalISO } from './horario';
 
 // Lunes 19 oct 2026, 8:00 (hora local)
@@ -97,5 +97,33 @@ describe('acomodo manual', () => {
   test('lo acomodado a mano va primero y el resto sigue de claro a intenso', () => {
     const r = programarProduccion([ped('blanco', 'Blanco', null), ped('negro', 'Negro', 0), ped('amarillo', 'Amarillo', null)], TASA_FIJA, LUNES_8AM);
     expect(r.anotadosEnOrden.map(p => p.id)).toEqual(['negro', 'blanco', 'amarillo']);
+  });
+});
+
+describe('impactoPedidoNuevo (pedido urgente)', () => {
+  const ped = (id, color, cajas, fecha_estimada) => ({ id, num: id, cliente: id.toUpperCase(), status: 'anotado', medida: '2"x100', cajas, color, fecha_estimada, fecha_solicitud: '2026-10-18' });
+
+  test('el urgente alcanza y los que se recorren siguen llegando', () => {
+    // a: 15 cajas (10h, sale martes) con entrega lejana; urgente para el lunes
+    const r = impactoPedidoNuevo([ped('a', 'Blanco', 15, '2026-10-30')], { medida: '2"x100', cajas: 3, color: 'Negro', fecha_estimada: '2026-10-19' }, TASA_FIJA, LUNES_8AM);
+    expect(r.nuevo.enRiesgo).toBe(false);
+    expect(r.nuevo.fechaFin).toBe('2026-10-19');
+    expect(r.recorridos.map(x => x.pedido.id)).toEqual(['a']);
+    expect(r.atrasados).toEqual([]);
+  });
+
+  test('avisa a quien se atrasa por el urgente', () => {
+    // a: 28 cajas (~18.7h) sale el martes en la tarde, justo para su entrega del martes;
+    // el urgente (3 cajas = 2h) lo empuja al miercoles
+    const r = impactoPedidoNuevo([ped('a', 'Blanco', 28, '2026-10-20')], { medida: '2"x100', cajas: 3, color: 'Negro', fecha_estimada: '2026-10-19' }, TASA_FIJA, LUNES_8AM);
+    expect(r.nuevo.enRiesgo).toBe(false);
+    expect(r.atrasados.map(x => x.pedido.id)).toEqual(['a']);
+  });
+
+  test('si no alcanza ni siendo el primero, dice lo mas pronto posible', () => {
+    // 30 cajas = 20h: lo mas pronto es el miercoles aunque se pida para el lunes
+    const r = impactoPedidoNuevo([], { medida: '2"x100', cajas: 30, fecha_estimada: '2026-10-19' }, TASA_FIJA, LUNES_8AM);
+    expect(r.nuevo.enRiesgo).toBe(true);
+    expect(r.masPronto).toBe('2026-10-21');
   });
 });

@@ -4,6 +4,7 @@ import { alertaEntrega } from "../lib/utils";
 import { REBOB_CLIENTE, PEDIDOS_COLUMNAS_PUBLICAS } from "../lib/constants";
 import { tasasProduccion, programarProduccion } from "../lib/entregas";
 import { chipColor } from "../lib/colores";
+import BadgeUrgente from "./BadgeUrgente";
 
 // Publica (sin login): pedidos ya tiene lectura abierta a la anon key (ver
 // supabase_pedidos_fallas_security.sql, policy "anon_select"), la misma key
@@ -109,7 +110,7 @@ export default function PizarraOperador() {
               return (
                 <div key={p.id} style={{ ...card, borderLeft: `4px solid ${al ? al.borde : "#4b8fe8"}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 4 }}>{p.cliente}</div>
+                    <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 4 }}>{p.cliente}<BadgeUrgente pedido={p} /></div>
                     {al && <span style={{ fontSize: 12, fontWeight: 700, color: al.color, whiteSpace: "nowrap" }}>{al.txt}</span>}
                   </div>
                   <div style={{ color: "#c9922a", fontSize: 23, fontWeight: 800, marginBottom: 6 }}>{p.medida}</div>
@@ -134,7 +135,7 @@ export default function PizarraOperador() {
                   <div style={{ color: "#ff9900", fontWeight: 800, fontSize: 20, minWidth: 24, textAlign: "center" }}>{i + 1}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                      <div style={{ fontSize: 16, fontWeight: 700 }}>{p.cliente}</div>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>{p.cliente}<BadgeUrgente pedido={p} /></div>
                       {al && <span style={{ fontSize: 11, fontWeight: 700, color: al.color, whiteSpace: "nowrap", marginLeft: 6 }}>{al.txt}</span>}
                     </div>
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 14, alignItems: "center" }}>

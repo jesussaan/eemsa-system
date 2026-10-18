@@ -28,7 +28,7 @@ const CAMPOS_CREAR = [
   'ancho', 'largo', 'color', 'color2', 'color_cinta', 'tinta_tipo',
   'maq', 'op', 'fecha_solicitud', 'fecha_estimada', 'fecha_inicio', 'fecha_termino',
   'piezas_prod', 'merma', 'merma_pct', 'rollos_usados', 'notas', 'status',
-  'cliche_url', 'folio_rebobinado', 'orden', 'tarima_jumbo_id',
+  'cliche_url', 'folio_rebobinado', 'orden', 'tarima_jumbo_id', 'prioridad',
 ];
 
 export default async function handler(req, res) {

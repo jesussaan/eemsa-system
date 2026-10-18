@@ -2,12 +2,14 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { authHeaders } from "../lib/auth";
 import { today, uid, siguienteNumPedido, unificarPorTexto, normalizarMedida, cargarBorrador, guardarBorrador, ultimoPedidoDeCliente, avisoMedidaCliente, avisoCajasCliente, avisoTintaCliente, avisoTipoCliente } from "../lib/utils";
 import { rollosPorCaja } from "../lib/produccion";
-import { tasasProduccion, programarProduccion, fechaEntregaSugerida, fechaCorta, esManual } from "../lib/entregas";
+import { tasasProduccion, programarProduccion, fechaEntregaSugerida, fechaCorta, esManual, impactoPedidoNuevo } from "../lib/entregas";
+import { sendPush } from "../lib/push";
 import { chipColor as hexDeTinta } from "../lib/colores";
 import { TIPOS, REBOB_CLIENTE } from "../lib/constants";
 import { sendWhatsApp, mensajePedidoNuevo } from "../utils/whatsapp";
 import Clientes from "./Clientes";
 import CalendarGrid from "./CalendarGrid";
+import BadgeUrgente from "./BadgeUrgente";
 
 // La Medida se escribe como "2x100" -- las pulgadas son el numero inicial.
 const anchoDeMedida = (medida) => (String(medida).match(/^\s*(\d+(\.\d+)?)/) || [])[1] || '';
@@ -161,7 +163,46 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
   const fechaSugerida = fechaEntregaSugerida(pedidos, { medida: normalizarMedida(form.medida), cajas: form.cajas, color: form.tinta_tipo, color2: form.color2 }, tasas);
   // Ventas puede cambiarla (cliente que la necesita antes); si no la toca,
   // se queda la calculada y se va actualizando sola con medida/cajas.
-  const fechaEntrega = form.fecha_estimada_manual || fechaSugerida || "";
+  // Urgente: el cliente dice para cuando lo necesita (no se usa la calculada).
+  const fechaEntrega = form.urgente ? (form.fecha_estimada_manual || "") : (form.fecha_estimada_manual || fechaSugerida || "");
+  // "¿Que pasa si lo meto?" -- cuando es urgente o se pidio antes de lo
+  // calculado: simula el programa con y sin este pedido (lib/entregas.js).
+  const pideAntes = !!form.fecha_estimada_manual && (form.urgente || (!!fechaSugerida && form.fecha_estimada_manual < fechaSugerida));
+  const impacto = pideAntes
+    ? impactoPedidoNuevo(pedidos, { medida: normalizarMedida(form.medida), cajas: form.cajas, color: form.tinta_tipo, color2: form.color2, fecha_estimada: form.fecha_estimada_manual }, tasas)
+    : null;
+  const panelImpacto = () => {
+    if (!impacto) return null;
+    const { nuevo, masPronto, recorridos, atrasados } = impacto;
+    const fila = { fontSize:12, color:"var(--text-2)", padding:"3px 0" };
+    const tono = nuevo.enRiesgo ? "var(--red)" : atrasados.length ? "#ff9900" : "var(--green)";
+    return (
+      <div style={{ marginTop:8, borderRadius:10, padding:"10px 12px", border:"1.5px solid " + tono, background: nuevo.enRiesgo ? "var(--red-dim)" : atrasados.length ? "rgba(255,153,0,0.08)" : "var(--green-dim)" }}>
+        {nuevo.enRiesgo ? (
+          <div style={{ fontSize:13, fontWeight:800, color:"var(--red)" }}>
+            ❌ No alcanza para el {fechaCorta(form.fecha_estimada_manual)}: aunque vaya primero, lo más pronto que sale es el {fechaCorta(masPronto)}.
+            {masPronto && <div><button type="button" onClick={() => upd("fecha_estimada_manual", masPronto)} style={{ marginTop:6, background:"var(--red)", color:"#fff", border:"none", borderRadius:6, padding:"5px 10px", fontSize:12, fontWeight:700, cursor:"pointer" }}>Prometer el {fechaCorta(masPronto)}</button></div>}
+          </div>
+        ) : (
+          <div style={{ fontSize:13, fontWeight:800, color:"var(--green)" }}>✓ Sí alcanza: sale el {fechaCorta(nuevo.fechaFin)} (lugar {nuevo.posicion} en la cola).</div>
+        )}
+        {atrasados.length > 0 && (
+          <div style={{ marginTop:8 }}>
+            <div style={{ fontSize:12, fontWeight:800, color:"#ff9900" }}>⚠ Se atrasarían {atrasados.length} pedido{atrasados.length === 1 ? "" : "s"} — avísales a esos clientes:</div>
+            {atrasados.map(x => <div key={x.pedido.id} style={fila}>#{x.pedido.num} {x.pedido.cliente} — prometido {fechaCorta(x.pedido.fecha_estimada)}, saldría {fechaCorta(x.despues)}</div>)}
+          </div>
+        )}
+        {recorridos.length > 0 && (
+          <div style={{ marginTop:8 }}>
+            <div style={{ fontSize:12, fontWeight:700, color:"var(--text-2)" }}>Se recorren (pero aún llegan a tiempo):</div>
+            {recorridos.slice(0, 5).map(x => <div key={x.pedido.id} style={fila}>#{x.pedido.num} {x.pedido.cliente} — sale {fechaCorta(x.despues)}{x.despues !== x.antes ? " en vez de " + fechaCorta(x.antes) : " (unas horas después)"}</div>)}
+            {recorridos.length > 5 && <div style={fila}>y {recorridos.length - 5} más</div>}
+          </div>
+        )}
+        {!nuevo.enRiesgo && atrasados.length === 0 && recorridos.length === 0 && <div style={fila}>No mueve a ningún otro pedido.</div>}
+      </div>
+    );
+  };
   const conFecha   = pedActivos.filter(p => p.fecha_estimada).sort((a,b) => a.fecha_estimada.localeCompare(b.fecha_estimada));
   const proximos   = conFecha.filter(p => p.fecha_estimada >= hoy).slice(0, 10);
 
@@ -178,6 +219,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
   };
 
   const abrirRevision = () => {
+    if (form.urgente && !form.fecha_estimada_manual) { showToast("⚠ Pon para cuándo lo necesita el cliente"); return; }
     if (!form.cliente.trim()) { showToast("⚠ Escribe el nombre del cliente"); return; }
     if (!form.medida.trim())  { showToast("⚠ Escribe la medida"); return; }
     if (!form.cajas)          { showToast("⚠ Escribe el número de cajas"); return; }
@@ -204,6 +246,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
       color2:          unificarPorTexto(form.color2, tintasSugeridas) || null,
       fecha_solicitud: form.fecha_solicitud || hoy,
       fecha_estimada:  fechaEntrega || null,
+      prioridad:       form.urgente ? "urgente" : null,
       notas:           form.notas.trim() || null,
       status:          "anotado",
       maq:             "SIAT L36 #1",
@@ -218,6 +261,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
     setTipoTocado(false);
     setRevisando(false);
     sendWhatsApp(mensajePedidoNuevo(guardado));
+    if (guardado.prioridad === "urgente") sendPush("⚡ Pedido urgente", `#${guardado.num} ${guardado.cliente} — para el ${fechaCorta(guardado.fecha_estimada)}`);
     showToast("✅ Pedido registrado correctamente");
     setTab("agenda");
     setSaving(false);
@@ -310,7 +354,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
                     <div key={p.id} style={{ background:"var(--surface)", borderLeft:`3px solid ${cc}`, borderRadius:"0 10px 10px 0", padding:"10px 14px", marginBottom:6 }}>
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                         <div>
-                          <strong style={{ color:"var(--text)", fontSize:14 }}>{p.num}</strong>
+                          <strong style={{ color:"var(--text)", fontSize:14 }}>{p.num}</strong><BadgeUrgente pedido={p} />
                           <span style={{ color:"var(--text-2)", fontSize:13 }}> — {p.cliente}</span>
                         </div>
                         <div style={{ textAlign:"right", flexShrink:0, marginLeft:8 }}>
@@ -340,7 +384,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
                       <div style={{ minWidth:26, textAlign:"center", fontWeight:800, color: p.status === "proceso" ? "#4b8fe8" : "var(--accent)", fontSize:15 }}>{p.status === "proceso" ? "▶" : (esManual(p) ? "📌" : "") + (i + 1 - enMaquina.length)}</div>
                       <span title={tinta || "Sin tinta"} style={{ width:14, height:14, borderRadius:"50%", flexShrink:0, background: hex || "transparent", border: hex ? "1px solid rgba(0,0,0,.35)" : "2px dashed var(--muted)" }} />
                       <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:13, color:"var(--text)", fontWeight:700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.num} — {p.cliente}</div>
+                        <div style={{ fontSize:13, color:"var(--text)", fontWeight:700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.num} — {p.cliente}<BadgeUrgente pedido={p} /></div>
                         <div style={{ fontSize:11, color:"var(--muted)" }}>{p.medida} · {p.cajas} cajas{tinta ? ` · ${tinta}` : ""}{p.color2 ? ` + ${p.color2}` : ""}</div>
                         {plan?.enRiesgo && <div style={{ fontSize:11, color:"#ff9900", fontWeight:700 }}>⚠ No alcanza su entrega</div>}
                       </div>
@@ -389,18 +433,25 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
                 </div>
 
                 <div style={{ gridColumn:"1/-1" }}>
-                  <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>🚚 Entrega estimada <span style={{ color:"var(--muted)", fontWeight:400 }}>(se calcula sola)</span></label>
-                  <input type="date" value={fechaEntrega} onChange={e=>upd("fecha_estimada_manual",e.target.value)} style={{ ...inputStyle, ...(fechaEntrega ? { borderColor:"var(--green)" } : {}) }} />
-                  {!fechaSugerida && !form.fecha_estimada_manual && (
+                  <button type="button" onClick={() => setForm(f => ({ ...f, urgente: !f.urgente, fecha_estimada_manual: "" }))} style={{ width:"100%", marginBottom:10, padding:"10px 12px", borderRadius:10, cursor:"pointer", fontSize:14, fontWeight:800, border: form.urgente ? "1.5px solid var(--red)" : "1.5px dashed var(--border-light)", background: form.urgente ? "var(--red-dim)" : "transparent", color: form.urgente ? "var(--red)" : "var(--text-2)" }}>
+                    {form.urgente ? "⚡ URGENTE — toca para quitarlo" : "⚡ ¿Es urgente? Toca aquí"}
+                  </button>
+                  <label style={{ fontSize:12, color: form.urgente ? "var(--red)" : "var(--text-2)", display:"block", marginBottom:5, fontWeight: form.urgente ? 800 : 600 }}>
+                    {form.urgente ? "⚡ ¿Para cuándo lo necesita el cliente? *" : <>🚚 Entrega estimada <span style={{ color:"var(--muted)", fontWeight:400 }}>(se calcula sola)</span></>}
+                  </label>
+                  <input type="date" value={fechaEntrega} onChange={e=>upd("fecha_estimada_manual",e.target.value)} style={{ ...inputStyle, ...(fechaEntrega ? { borderColor: form.urgente ? "var(--red)" : "var(--green)" } : (form.urgente ? { borderColor:"var(--orange)" } : {})) }} />
+                  {form.urgente && fechaSugerida && <div style={{ fontSize:11, color:"var(--muted)", marginTop:5 }}>Sin urgencia saldría para el {fechaCorta(fechaSugerida)}.</div>}
+                  {panelImpacto()}
+                  {!form.urgente && !fechaSugerida && !form.fecha_estimada_manual && (
                     <div style={{ fontSize:11, color:"var(--muted)", marginTop:5 }}>Pon medida y cajas y se calcula con los pedidos en cola y lo que saca la máquina.</div>
                   )}
-                  {fechaSugerida && !form.fecha_estimada_manual && (
+                  {!form.urgente && fechaSugerida && !form.fecha_estimada_manual && (
                     <div style={{ fontSize:11, color:"var(--green)", marginTop:5, fontWeight:600 }}>✓ {fechaCorta(fechaSugerida)} — con los pedidos en cola y lo que saca la máquina, más 1 día de margen.</div>
                   )}
-                  {form.fecha_estimada_manual && fechaSugerida && form.fecha_estimada_manual !== fechaSugerida && (
-                    <div style={{ fontSize:11, color: form.fecha_estimada_manual < fechaSugerida ? "#ff9900" : "var(--text-2)", marginTop:5, fontWeight:600 }}>
+                  {!form.urgente && form.fecha_estimada_manual && fechaSugerida && form.fecha_estimada_manual !== fechaSugerida && (
+                    <div style={{ fontSize:11, color:"var(--text-2)", marginTop:5, fontWeight:600 }}>
                       {form.fecha_estimada_manual < fechaSugerida
-                        ? <>⚠ Es antes de lo calculado ({fechaCorta(fechaSugerida)}): se adelanta en la cola y puede retrasar otros pedidos. </>
+                        ? <>Es antes de lo calculado ({fechaCorta(fechaSugerida)}). </>
                         : <>Calculada: {fechaCorta(fechaSugerida)}. </>}
                       <button type="button" onClick={() => upd("fecha_estimada_manual", "")} style={{ background:"none", border:"none", color:"var(--accent)", cursor:"pointer", fontSize:11, fontWeight:700, padding:0, textDecoration:"underline" }}>Usar la calculada</button>
                     </div>
@@ -473,6 +524,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
                 ["No. Pedido", form.num.trim() || `V-${Date.now().toString().slice(-5)}`],
                 ["Fecha de solicitud", form.fecha_solicitud || hoy],
                 ["Entrega estimada", fechaEntrega ? fechaCorta(fechaEntrega) : "—"],
+                ...(form.urgente ? [["Prioridad", "⚡ URGENTE"]] : []),
                 ["Tipo de cinta", form.tipo],
                 ["Medida", normalizarMedida(form.medida)],
                 ["Cajas", form.cajas],
@@ -484,6 +536,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
               return (
                 <div>
                   <div style={{ fontSize:11, color:"var(--green)", fontWeight:700, letterSpacing:1, marginBottom:14, textTransform:"uppercase" }}>Revisa antes de guardar</div>
+                  {impacto && <div style={{ marginBottom:12 }}>{panelImpacto()}</div>}
                   {avisosPedido.length > 0 && (
                     <div style={{ padding:"10px 12px", marginBottom:12, borderRadius:8, border:"1px solid #ff9900", background:"#ff990018", color:"#ff9900", fontSize:13, fontWeight:700, display:"grid", gap:6 }}>
                       {avisosPedido.map(t => <div key={t}>⚠ {t}</div>)}

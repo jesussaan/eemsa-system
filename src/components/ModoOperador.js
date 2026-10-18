@@ -12,6 +12,7 @@ import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV, UMBRAL_MERMA, REBOB_CLIENTE } from '../lib/constants';
 import { tasasProduccion, programarProduccion, fechaCorta, esManual } from '../lib/entregas';
 import { chipColor } from '../lib/colores';
+import BadgeUrgente from './BadgeUrgente';
 import { sendWhatsApp } from '../utils/whatsapp';
 import { IcoOperador, IcoPalette, IcoRoll, IcoClipboard, IcoCamera, IcoCheck, IcoFal, IcoScan, IcoPause, IcoPlay } from './Icons';
 import NotifBell from './NotifBell';
@@ -579,7 +580,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
                 return (
                 <div key={p.id} onClick={() => seleccionarPedido(p)} style={{ ...card, borderLeft: `4px solid ${al ? al.borde : "var(--blue)"}`, background: al ? al.bg : card.background, cursor: "pointer" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ fontSize: 19, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>{p.cliente}</div>
+                    <div style={{ fontSize: 19, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>{p.cliente}<BadgeUrgente pedido={p} /></div>
                     {al && <span style={{ fontSize: 12, fontWeight: 700, color: al.color, whiteSpace: "nowrap" }}>{al.txt}</span>}
                   </div>
                   <div style={{ color: "var(--accent)", fontSize: 23, fontWeight: 800, marginBottom: 6 }}>{p.medida}</div>
@@ -622,7 +623,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text)" }}>{p.cliente}</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text)" }}>{p.cliente}<BadgeUrgente pedido={p} /></div>
                         {al && <span style={{ fontSize: 11, fontWeight: 700, color: al.color, whiteSpace: "nowrap", marginLeft: 6 }}>{al.txt}</span>}
                       </div>
                       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 15, alignItems: "center" }}>

@@ -174,3 +174,26 @@ export const fechaCorta = (iso) => {
   const d = new Date(`${iso}T12:00:00`);
   return d.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '');
 };
+
+// "¿Que pasa si meto este pedido?" -- simula el programa con y sin el pedido
+// nuevo (con la fecha que pide el cliente) y dice:
+//   nuevo      = como quedaria el nuevo { fechaFin, enRiesgo, posicion }
+//   masPronto  = lo mas pronto que podria salir si se pone primero (fechaFin)
+//   recorridos = pedidos que salen mas tarde que antes pero aun llegan a su fecha
+//   atrasados  = pedidos que antes alcanzaban su fecha y ahora ya no
+// Cada recorrido/atrasado: { pedido, antes, despues } (fechaFin de cada uno).
+export const impactoPedidoNuevo = (pedidos, nuevo, tasas, ahora = new Date()) => {
+  if (!(Number(nuevo.cajas) > 0) || !nuevo.medida) return null;
+  const temporal = { ...nuevo, id: '__nuevo__', status: 'anotado', fecha_solicitud: '9999-12-31', num: '999999999', cliente: nuevo.cliente || '__nuevo__', maq: nuevo.maq || MAQUINA_DEFAULT };
+  const antes = simularCola(pedidos, tasas, ahora);
+  const despues = simularCola([...pedidos, temporal], tasas, ahora);
+  const primero = simularCola([...pedidos, { ...temporal, fecha_estimada: '0000-00-00' }], tasas, ahora);
+  const recorridos = [], atrasados = [];
+  pedidos.forEach(p => {
+    const a = antes[p.id], d = despues[p.id];
+    if (!a || !d || d.fin <= a.fin) return;
+    const fila = { pedido: p, antes: a.fechaFin, despues: d.fechaFin };
+    if (d.enRiesgo && !a.enRiesgo) atrasados.push(fila); else recorridos.push(fila);
+  });
+  return { nuevo: despues.__nuevo__, masPronto: primero.__nuevo__?.fechaFin || null, recorridos, atrasados };
+};

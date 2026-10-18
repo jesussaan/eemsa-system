@@ -3,6 +3,7 @@ import { authHeaders } from "../lib/auth";
 import { today } from "../lib/utils";
 import { STATUS_PED, REBOB_CLIENTE } from "../lib/constants";
 import CalendarGrid from "./CalendarGrid";
+import BadgeUrgente from "./BadgeUrgente";
 import { tasasProduccion, simularCola, fechaCorta } from "../lib/entregas";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -187,7 +188,7 @@ export default function CalendarioEntregas({ pedidos: pedidosProp, setPedidos })
                 <div key={p.id} className="list-item" style={{ borderLeft:`3px solid ${c.border}` }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                     <div>
-                      <strong>{p.num}</strong> — {p.cliente}
+                      <strong>{p.num}</strong> — {p.cliente}<BadgeUrgente pedido={p} />
                       <span className={`badge ${p.status==="proceso"?"b-blue":"b-orange"}`}>{STATUS_PED[p.status]||p.status}</span>
                     </div>
                     <div style={{ textAlign:"right" }}>
