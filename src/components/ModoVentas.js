@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { authHeaders } from "../lib/auth";
 import { today, uid, siguienteNumPedido, unificarPorTexto, normalizarMedida, cargarBorrador, guardarBorrador, ultimoPedidoDeCliente, avisoMedidaCliente, avisoCajasCliente, avisoTintaCliente } from "../lib/utils";
 import { rollosPorCaja } from "../lib/produccion";
@@ -74,7 +74,9 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
   // Al escribir/elegir un cliente que ya existe, se llena con lo de su
   // ultimo pedido (tipo, medida, cajas, tintas) -- mismo criterio que
   // Pedidos.js: solo si Medida sigue vacia o trae lo que se autolleno antes.
-  const [medidaAutollenada, setMedidaAutollenada] = useState(null);
+  // Lo autollenado se guarda DENTRO del form (medida_autollenada) y no en un
+  // estado aparte, para que sobreviva en el borrador si se recarga la app --
+  // antes, tras recargar, cambiar de cliente ya no volvia a llenar.
   // Avisos (no bloquean) cuando medida, cajas o tinta no cuadran con lo que
   // ese cliente pide siempre -- ver avisoMedidaCliente y compania en utils.js.
   const pedidosDeClientes = pedidos.filter(p => p.cliente !== REBOB_CLIENTE);
@@ -89,7 +91,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
   const estiloAviso = { fontSize:12, color:"#ff9900", marginTop:5, fontWeight:600 };
   const cambiarCliente = (v) => {
     const ult = ultimoPedidoDeCliente(pedidos.filter(p => p.cliente !== REBOB_CLIENTE), v);
-    const puedeLlenar = !form.medida || form.medida === medidaAutollenada;
+    const puedeLlenar = !form.medida || form.medida === form.medida_autollenada;
     if (!ult || !puedeLlenar) { upd("cliente", v); return; }
     const tipo = ult.tipo || "Blanca";
     const medida = ult.medida || "";
@@ -102,11 +104,23 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
       rollos_totales: cajas ? String(Number(cajas) * Number(rollosCaja)) : "",
       tinta_tipo: ult.tinta_tipo || ult.color || "",
       color2: ult.color2 || "",
+      medida_autollenada: medida,
     }));
     setTipoTocado(true);
-    setMedidaAutollenada(medida);
     showToast(`📋 Llenado con el último pedido de ${ult.cliente} (#${ult.num}) — revísalo`);
   };
+
+  // Si se entra con un borrador que ya trae cliente pero nada mas (se
+  // escribio antes y se salio de la app), se llena al entrar -- escribir el
+  // cliente no vuelve a disparar el autollenado si el nombre ya esta puesto.
+  // Espera a que lleguen los pedidos y corre una sola vez.
+  const autollenadoAlEntrar = useRef(false);
+  useEffect(() => {
+    if (autollenadoAlEntrar.current || pedidos.length === 0) return;
+    autollenadoAlEntrar.current = true;
+    if (form.cliente.trim() && !form.medida) cambiarCliente(form.cliente);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedidos.length]);
 
 
   const mesStr  = `${mes.y}-${String(mes.m+1).padStart(2,"0")}`;
