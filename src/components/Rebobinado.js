@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { QRCodeSVG } from 'qrcode.react';
 import { authHeaders } from '../lib/auth';
-import { uid, today, fmt } from '../lib/utils';
+import { uid, today } from '../lib/utils';
 import { REBOB_CLIENTE, REBOB_COLOR, REBOB_OPERADOR_EQUIPO, REBOB_TIPOS, REBOB_MATERIALES, REBOB_ANCHOS, REBOB_LARGOS_PIEZA, REBOB_LARGO_JUMBO_M, REBOB_PIEZAS_POR_VUELTA, REBOB_CAJAS_POR_CAMA, calcularPiezasTeoricas, piezasPorCajaDe } from '../lib/constants';
 import { horasEfectivasPedido, JORNADA_HORAS } from '../lib/horario';
 import { confirmar } from '../lib/confirm';
@@ -78,6 +78,11 @@ const materialAdhesivoDe = (material) => {
   const adhesivo2 = REBOB_TIPOS.find(a => t.includes(a.toLowerCase()) || (a === 'Acrílico' && t.includes('acril'))) || REBOB_TIPOS[0];
   return { material: material2, adhesivo: adhesivo2 };
 };
+
+// Color real de cada rollo, para los chips de la cola/planeacion.
+const COLOR_MATERIAL_REBOB = { Transparente: "#a9dcf0", Canela: "#c68a4a", Blanca: "#ededed" };
+// Un color por medida en un rollo mixto (borde de su tarjeta + su tramo en la barra del jumbo).
+const PALETA_MEDIDAS = ["var(--teal)", "var(--accent)", "var(--violet)", "var(--blue)", "var(--green)"];
 
 export default function Rebobinado({ pedidos, setPedidos, tarimas = [], materiales = [], onSalir }) {
   const formInicial = {
@@ -572,6 +577,71 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
     showToast("✓ Corregido");
   };
 
+  // ── Piezas visuales de la cola y la planeacion de jumbos ────────────────
+  // Todo con las variables de App.css (--card, --bg, --teal...) para que se
+  // vea bien en tema oscuro y claro.
+  const ent = (n) => Math.round(Number(n) || 0).toLocaleString("es-MX");
+  const chip = (texto, color = "var(--text-2)") => (
+    <span style={{ fontSize: 12, fontWeight: 700, color, background: "var(--bg)", border: "1px solid var(--border-light)", borderRadius: 999, padding: "3px 10px", whiteSpace: "nowrap" }}>{texto}</span>
+  );
+  // El material del rollo con su color de verdad, para reconocerlo de un vistazo.
+  const chipMaterial = (material) => (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "var(--text)", background: "var(--bg)", border: "1px solid var(--border-light)", borderRadius: 999, padding: "3px 10px", whiteSpace: "nowrap" }}>
+      <span style={{ width: 10, height: 10, borderRadius: "50%", background: COLOR_MATERIAL_REBOB[material] || "var(--muted)", border: "1px solid rgba(0,0,0,.35)" }} />{material}
+    </span>
+  );
+  const pasoTitulo = (num, texto) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+      <span style={{ width: 22, height: 22, borderRadius: "50%", background: "var(--teal)", color: "#0b0d11", fontSize: 12, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>{num}</span>
+      <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text)" }}>{texto}</span>
+    </div>
+  );
+  // Botones en vez de select: se ven todas las opciones y se elige de un
+  // toque. Borde naranja = todavia no se confirma (mismo significado que
+  // campo-pendiente en el resto del sistema).
+  const opcionesPicker = (opciones, valor, tocado, alElegir, etiqueta) => (
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", padding: 4, borderRadius: 10, border: `1.5px solid ${tocado ? "var(--border)" : "var(--orange)"}`, background: "var(--card)" }}>
+      {opciones.map(o => {
+        const activo = String(o) === String(valor);
+        return (
+          <button key={o} type="button" onClick={() => alElegir(o)} style={{ flex: "1 0 auto", minWidth: 52, padding: "9px 12px", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 800, fontSize: 15, fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: ".03em", background: activo ? (tocado ? "var(--teal)" : "var(--orange-dim)") : "transparent", color: activo ? (tocado ? "#0b0d11" : "var(--orange)") : "var(--text-2)" }}>{etiqueta(o)}</button>
+        );
+      })}
+    </div>
+  );
+  const statTile = (etiqueta, valor, destacado = false) => (
+    <div style={{ flex: 1, background: "var(--card)", border: `1px solid ${destacado ? "var(--teal)" : "var(--border)"}`, borderRadius: 10, padding: "10px 6px", textAlign: "center" }}>
+      <div style={{ fontSize: 22, fontWeight: 900, color: destacado ? "var(--teal)" : "var(--text)", lineHeight: 1.1 }}>{valor}</div>
+      <div style={{ fontSize: 10, color: "var(--muted)", fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", marginTop: 4 }}>{etiqueta}</div>
+    </div>
+  );
+  // Barra de los 8000m del jumbo repartidos entre medidas (rollo mixto) --
+  // si se pasa, la barra se pinta en rojo y se dice.
+  const barraJumbo = (segmentos) => {
+    const total = segmentos.reduce((s, x) => s + x.metros, 0);
+    const pasa = total > REBOB_LARGO_JUMBO_M;
+    const escala = Math.max(total, REBOB_LARGO_JUMBO_M);
+    return (
+      <div>
+        <div style={{ display: "flex", height: 12, borderRadius: 999, overflow: "hidden", background: "var(--card)", border: `1px solid ${pasa ? "var(--red)" : "var(--border)"}` }}>
+          {segmentos.map((s, i) => s.metros > 0 && (
+            <div key={i} title={`${s.label}: ${ent(s.metros)} m`} style={{ width: `${(s.metros / escala) * 100}%`, background: PALETA_MEDIDAS[i % PALETA_MEDIDAS.length], borderRight: "2px solid var(--card)" }} />
+          ))}
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", fontSize: 11, marginTop: 6, color: pasa ? "var(--red)" : "var(--text-2)" }}>
+          <span>
+            {segmentos.map((s, i) => (
+              <span key={i} style={{ marginRight: 10, whiteSpace: "nowrap" }}>
+                <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: PALETA_MEDIDAS[i % PALETA_MEDIDAS.length], marginRight: 4 }} />{s.label}
+              </span>
+            ))}
+          </span>
+          <span><strong>{ent(total)}</strong> / {ent(REBOB_LARGO_JUMBO_M)} m{pasa ? " · te pasas del jumbo" : ""}</span>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--bg)" }}>
       <header style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--surface)", borderBottom: "2px solid var(--teal)", position: "sticky", top: 0, zIndex: 10 }}>
@@ -587,132 +657,193 @@ export default function Rebobinado({ pedidos, setPedidos, tarimas = [], material
       <main style={{ flex: 1, padding: "16px 16px 82px", maxWidth: 640, margin: "0 auto", width: "100%" }}>
       <h2 className="sec-title">Rebobinado</h2>
 
-      <h3 className="sub-title">Jumbos planeados <span style={{ color: "#666", fontWeight: 400, fontSize: 12 }}>({gruposPlaneados.length})</span></h3>
+      {(() => {
+        const totalCajasCola = gruposPlaneados.reduce((s, g) => s + g.reduce((t, p) => t + (Number(p.cajas) || 0), 0), 0);
+        const totalVueltasCola = gruposPlaneados.reduce((s, g) => s + g.reduce((t, p) => t + vueltasDe(p), 0), 0);
+        return (
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+            <h3 className="sub-title" style={{ margin: 0 }}>Cola de jumbos</h3>
+            {gruposPlaneados.length > 0 && (
+              <span style={{ fontSize: 12, color: "var(--text-2)" }}>
+                <strong style={{ color: "var(--teal)" }}>{gruposPlaneados.length}</strong> jumbo{gruposPlaneados.length === 1 ? "" : "s"} · <strong style={{ color: "var(--text)" }}>{ent(totalCajasCola)}</strong> cajas · <strong style={{ color: "var(--text)" }}>{ent(totalVueltasCola)}</strong> vueltas
+              </span>
+            )}
+          </div>
+        );
+      })()}
       {gruposPlaneados.length === 0 ? (
-        <p className="empty" style={{ marginBottom: 12 }}>Sin jumbos planeados todavía — planea uno abajo o registra libre como siempre.</p>
+        <div style={{ border: "1px dashed var(--border-light)", borderRadius: 14, padding: "22px 16px", textAlign: "center", marginBottom: 14, color: "var(--text-2)", fontSize: 13 }}>
+          <div style={{ fontSize: 26, marginBottom: 6 }}>🧻</div>
+          Sin jumbos planeados todavía — planea uno abajo o registra libre como siempre.
+        </div>
       ) : (
-        <div style={{ marginBottom: 14 }}>
-          {gruposPlaneados.map((g, i) => (
-            <div key={g[0].folio_rebobinado ?? g[0].id} style={{ background: "#1a1d26", borderRadius: 10, padding: 12, marginBottom: 8, display: "flex", gap: 10, alignItems: "stretch", border: g[0].status === "proceso" ? "1px solid var(--teal)" : "1px solid #2a2e3a" }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3 }}>
-                <div style={{ color: "var(--teal)", fontWeight: 800, fontSize: 15 }}>{i + 1}</div>
-                <button onClick={() => moverPlan(g[0].folio_rebobinado, -1)} disabled={i === 0} style={{ background: "#0d0f14", border: "1px solid #2a2e3a", borderRadius: 6, color: i === 0 ? "#333" : "#ccc", width: 24, height: 24, cursor: i === 0 ? "default" : "pointer", fontSize: 11 }}>▲</button>
-                <button onClick={() => moverPlan(g[0].folio_rebobinado, 1)} disabled={i === gruposPlaneados.length - 1} style={{ background: "#0d0f14", border: "1px solid #2a2e3a", borderRadius: 6, color: i === gruposPlaneados.length - 1 ? "#333" : "#ccc", width: 24, height: 24, cursor: i === gruposPlaneados.length - 1 ? "default" : "pointer", fontSize: 11 }}>▼</button>
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
-                  <strong style={{ fontSize: 14 }}>Folio #{g[0].folio_rebobinado} · {g[0].tipo} · {g[0].color}</strong>
-                  {(() => { const t = tarimas.find(x => x.id === g[0].tarima_jumbo_id); return t ? <span style={{ fontSize: 11, color: "#888" }}>Tarima #{t.numero ?? "?"}{t.lote ? ` · ${t.lote}` : ""}</span> : null; })()}
+        <div style={{ display: "grid", gap: 12, marginBottom: 14 }}>
+          {gruposPlaneados.map((g, i) => {
+            const enProceso = g[0].status === "proceso";
+            const estado = enProceso
+              ? { txt: "Cortando", color: "var(--teal)", fondo: "var(--teal-dim)" }
+              : i === 0
+                ? { txt: "Siguiente", color: "var(--accent)", fondo: "var(--accent-dim)" }
+                : { txt: "En cola", color: "var(--text-2)", fondo: "var(--bg)" };
+            const tarima = tarimas.find(x => x.id === g[0].tarima_jumbo_id);
+            const mixto = g.length > 1;
+            const segmentos = g.map(p => {
+              const { largoPieza } = parseMedidaRebob(p.medida);
+              return { label: p.medida, metros: vueltasDe(p) * (Number(largoPieza) || 0) };
+            });
+            const primero = i === 0, ultimo = i === gruposPlaneados.length - 1;
+            const btnMover = (deshabilitado) => ({ width: 30, height: 26, borderRadius: 8, border: "1px solid var(--border-light)", background: "var(--bg)", color: deshabilitado ? "var(--border-light)" : "var(--text-2)", cursor: deshabilitado ? "default" : "pointer", fontSize: 11 });
+            return (
+              <div key={g[0].folio_rebobinado ?? g[0].id} style={{ background: "var(--card)", border: `1px solid ${enProceso ? "var(--teal)" : "var(--border)"}`, borderLeft: `4px solid ${estado.color}`, borderRadius: 14, padding: 14, boxShadow: "var(--shadow-sm)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: "var(--teal-dim)", color: "var(--teal)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 14, flexShrink: 0 }}>{i + 1}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: "var(--text)", letterSpacing: ".02em", lineHeight: 1 }}>Folio #{g[0].folio_rebobinado}</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: estado.color, background: estado.fondo, border: `1px solid ${estado.color}`, borderRadius: 999, padding: "2px 9px", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                        {enProceso && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--teal)" }} />}{estado.txt}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <button title="Subir en la cola" onClick={() => moverPlan(g[0].folio_rebobinado, -1)} disabled={primero} style={btnMover(primero)}>▲</button>
+                    <button title="Bajar en la cola" onClick={() => moverPlan(g[0].folio_rebobinado, 1)} disabled={ultimo} style={btnMover(ultimo)}>▼</button>
+                  </div>
                 </div>
-                <div style={{ display: "grid", gap: 4, marginBottom: 8 }}>
-                  {g.map(p => (
-                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", background: "#0d0f14", borderRadius: 8, padding: "5px 10px" }}>
-                      <span className="badge b-accent" style={{ fontSize: 12 }}>{p.medida}</span>
-                      <span style={{ fontSize: 12, color: "var(--teal)", fontWeight: 700 }}>{vueltasDe(p)} vueltas</span>
-                      <span style={{ fontSize: 12, color: "#9aa0bc" }}>{fmt(p.cajas)} cajas · {fmt(p.piezas_prod)} pzas</span>
+
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+                  {chipMaterial(g[0].tipo)}
+                  {chip(g[0].color)}
+                  {tarima && chip(`Tarima #${tarima.numero ?? "?"}${tarima.lote ? ` · ${tarima.lote}` : ""}`)}
+                  {mixto && chip(`Rollo mixto · ${g.length} medidas`, "var(--teal)")}
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginBottom: mixto ? 10 : 12 }}>
+                  {g.map((p, j) => (
+                    <div key={p.id} style={{ background: "var(--bg)", border: "1px solid var(--border)", borderTop: mixto ? `3px solid ${PALETA_MEDIDAS[j % PALETA_MEDIDAS.length]}` : "1px solid var(--border)", borderRadius: 10, padding: "10px 12px" }}>
+                      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: "var(--accent)", lineHeight: 1.1 }}>{p.medida}</div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: "var(--teal)", marginTop: 4 }}>{ent(vueltasDe(p))} vueltas</div>
+                      <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 2 }}>{ent(p.cajas)} cajas · {ent(p.piezas_prod)} pzas</div>
                     </div>
                   ))}
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button className="btn btn-primary btn-sm" onClick={() => cargarPlanParaCortar(g)}>✂️ Cortar este jumbo</button>
-                  <button onClick={() => cancelarPlan(g)} style={{ background: "transparent", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: 12 }}>✕ Cancelar plan</button>
+
+                {mixto && <div style={{ marginBottom: 12 }}>{barraJumbo(segmentos)}</div>}
+
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => cargarPlanParaCortar(g)}>✂️ Cortar este jumbo</button>
+                  <button onClick={() => cancelarPlan(g)} style={{ background: "transparent", border: "1px solid var(--border-light)", borderRadius: 10, color: "var(--red)", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: "10px 12px" }}>Cancelar plan</button>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      <button className="btn btn-ghost btn-block" style={{ marginBottom: 20 }} onClick={() => planeandoMaterialId ? cerrarPlaneacion() : abrirPlaneacion(tiposJumboDisponibles[0]?.material_id || "elegir")}>
-        {planeandoMaterialId ? "✕ Cerrar planeación" : "+ Planear un jumbo"}
-      </button>
+      {!planeandoMaterialId && (
+        <button onClick={() => abrirPlaneacion(tiposJumboDisponibles[0]?.material_id || "elegir")} style={{ width: "100%", marginBottom: 20, padding: "14px 0", borderRadius: 14, border: "1.5px dashed var(--teal)", background: "var(--teal-dim)", color: "var(--teal)", fontWeight: 800, fontSize: 15, cursor: "pointer", fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: ".05em" }}>
+          + Planear un jumbo
+        </button>
+      )}
 
       {planeandoMaterialId && (
-        <div style={{ background: "#1a1d26", border: "1px solid var(--teal)", borderRadius: 10, padding: 14, marginBottom: 20 }}>
-          <h3 className="sub-title" style={{ marginTop: 0 }}>Planear jumbo</h3>
+        <div style={{ background: "var(--card)", border: "1px solid var(--teal)", borderRadius: 16, padding: 16, marginBottom: 20, boxShadow: "var(--shadow-md)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 20, fontWeight: 800, color: "var(--teal)", letterSpacing: ".05em" }}>PLANEAR JUMBO</span>
+            <button onClick={cerrarPlaneacion} title="Cerrar" style={{ background: "transparent", border: "none", color: "var(--text-2)", cursor: "pointer", fontSize: 18 }}>✕</button>
+          </div>
           {tiposJumboDisponibles.length === 0 ? (
-            <p className="empty">No hay jumbos disponibles en Inventario (categoría "Jumbo") sin planear todavía. Da uno de alta ahí primero.</p>
+            <div style={{ border: "1px dashed var(--border-light)", borderRadius: 12, padding: 16, textAlign: "center", color: "var(--text-2)", fontSize: 13 }}>
+              No hay jumbos disponibles en Inventario (categoría "Jumbo") sin planear todavía. Da uno de alta ahí primero.
+            </div>
           ) : (
             <>
-              <div className="field" style={{ marginBottom: 10 }}>
-                <label>¿Qué tipo de jumbo?</label>
-                <select className="campo-listo" value={planeandoMaterialId === "elegir" ? "" : planeandoMaterialId} onChange={e => abrirPlaneacion(e.target.value)}>
-                  <option value="" disabled>Elige un tipo…</option>
-                  {tiposJumboDisponibles.map(g => (
-                    <option key={g.material_id} value={g.material_id}>{g.material?.nombre || "Jumbo"} ({g.disponibles} disponible{g.disponibles === 1 ? "" : "s"})</option>
-                  ))}
-                </select>
+              {pasoTitulo("1", "¿Qué tipo de jumbo?")}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8, marginBottom: 16 }}>
+                {tiposJumboDisponibles.map(t => {
+                  const activo = t.material_id === planeandoMaterialId;
+                  const { material, adhesivo } = materialAdhesivoDe(t.material);
+                  return (
+                    <button key={t.material_id} type="button" onClick={() => abrirPlaneacion(t.material_id)} style={{ textAlign: "left", cursor: "pointer", borderRadius: 12, padding: "10px 12px", background: activo ? "var(--teal-dim)" : "var(--bg)", border: `1.5px solid ${activo ? "var(--teal)" : "var(--border)"}`, color: "var(--text)" }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 6 }}>{t.material?.nombre || "Jumbo"}</div>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        {chipMaterial(material)}
+                        {chip(adhesivo)}
+                      </div>
+                      <div style={{ fontSize: 12, color: activo ? "var(--teal)" : "var(--text-2)", fontWeight: 700, marginTop: 8 }}>{t.disponibles} disponible{t.disponibles === 1 ? "" : "s"}</div>
+                    </button>
+                  );
+                })}
               </div>
+
               {planeandoMaterialId !== "elegir" && (
                 <>
-                  <div className="form-grid" style={{ marginBottom: 10 }}>
-                    <div className="field"><label>Rollo (material)</label><input readOnly value={planMaterial} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
-                    <div className="field"><label>Adhesivo</label><input readOnly value={planAdhesivo} style={{ background: "#1a2744", color: "#c9922a" }} /></div>
+                  <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: -8, marginBottom: 16 }}>
+                    Rollo <strong style={{ color: "var(--text)" }}>{planMaterial}</strong> · Adhesivo <strong style={{ color: "var(--text)" }}>{planAdhesivo}</strong> <span style={{ color: "var(--muted)" }}>— automático según el tipo; se corrige en Inventario.</span>
                   </div>
-                  <div style={{ fontSize: 11, color: "#666", marginTop: -6, marginBottom: 10 }}>Automático, según el tipo de jumbo elegido — para corregirlo, ajusta el material/adhesivo de este jumbo en Inventario.</div>
-                  <label style={{ fontSize: 12, color: "#888" }}>¿A qué medida(s) lo vas a cortar?</label>
+
+                  {pasoTitulo("2", planCortes.length > 1 ? "¿A qué medidas lo vas a cortar?" : "¿A qué medida lo vas a cortar?")}
                   {(() => {
                     const mixtoPlan = planCortes.length > 1;
+                    const calculos = planCortes.map(c => ({ c, calc: calcPlanCorte(c, mixtoPlan) }));
+                    const anchosUnicos = [...new Set(planCortes.map(c => c.ancho))];
+                    const porAncho = mixtoPlan && anchosUnicos.length > 1 ? anchosUnicos.map(a => ({
+                      ancho: a,
+                      vueltas: calculos.filter(x => x.c.ancho === a).reduce((s, x) => s + x.calc.vueltas, 0),
+                    })) : null;
                     return (
                       <>
-                        {planCortes.map((c, i) => {
-                          const calc = calcPlanCorte(c, mixtoPlan);
-                          return (
-                            <div key={c.id} style={{ background: "#0d0f14", borderRadius: 8, padding: 10, marginTop: 8 }}>
-                              <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                                <div className="field" style={{ flex: 1 }}><label>Ancho</label>
-                                  <select className={c.anchoTocado ? 'campo-listo' : 'campo-pendiente'} value={c.ancho} onChange={e => { updPlanCorte(c.id, "ancho", e.target.value); updPlanCorte(c.id, "anchoTocado", true); }} onClick={() => updPlanCorte(c.id, "anchoTocado", true)}>{REBOB_ANCHOS.map(a => <option key={a} value={a}>{a}</option>)}</select>
-                                </div>
-                                <div className="field" style={{ flex: 1 }}><label>Largo pieza (m)</label>
-                                  <select className={c.largoPiezaTocado ? 'campo-listo' : 'campo-pendiente'} value={c.largoPieza} onChange={e => { updPlanCorte(c.id, "largoPieza", e.target.value); updPlanCorte(c.id, "largoPiezaTocado", true); }} onClick={() => updPlanCorte(c.id, "largoPiezaTocado", true)}>{REBOB_LARGOS_PIEZA.map(l => <option key={l} value={l}>{l}m</option>)}</select>
-                                </div>
-                                {mixtoPlan && (
-                                  <div className="field" style={{ flex: 1 }}><label>Cajas que quiero</label>
-                                    <input className={c.cajasDeseadas !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" min="0" value={c.cajasDeseadas} onChange={e => updPlanCorte(c.id, "cajasDeseadas", e.target.value)} placeholder="Ej: 50" />
-                                  </div>
+                        {calculos.map(({ c, calc }, idx) => (
+                          <div key={c.id} style={{ background: "var(--bg)", border: "1px solid var(--border)", borderTop: mixtoPlan ? `3px solid ${PALETA_MEDIDAS[idx % PALETA_MEDIDAS.length]}` : "1px solid var(--border)", borderRadius: 12, padding: 12, marginBottom: 10 }}>
+                            {mixtoPlan && (
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                                <span style={{ fontSize: 12, fontWeight: 800, color: "var(--text-2)", letterSpacing: ".06em", textTransform: "uppercase" }}>Medida {String.fromCharCode(65 + idx)}</span>
+                                <button onClick={() => quitarPlanCorte(c.id)} style={{ background: "transparent", border: "none", color: "var(--red)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✕ Quitar</button>
+                              </div>
+                            )}
+                            <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 5 }}>Ancho {!c.anchoTocado && <span style={{ color: "var(--orange)", textTransform: "none", letterSpacing: 0 }}>· toca para confirmar</span>}</div>
+                            {opcionesPicker(REBOB_ANCHOS, c.ancho, c.anchoTocado, a => { updPlanCorte(c.id, "ancho", a); updPlanCorte(c.id, "anchoTocado", true); }, a => a)}
+                            <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", margin: "10px 0 5px" }}>Largo de pieza {!c.largoPiezaTocado && <span style={{ color: "var(--orange)", textTransform: "none", letterSpacing: 0 }}>· toca para confirmar</span>}</div>
+                            {opcionesPicker(REBOB_LARGOS_PIEZA, c.largoPieza, c.largoPiezaTocado, l => { updPlanCorte(c.id, "largoPieza", l); updPlanCorte(c.id, "largoPiezaTocado", true); }, l => `${l}m`)}
+                            {mixtoPlan && (
+                              <div className="field" style={{ marginTop: 10, marginBottom: 0 }}>
+                                <label>Cajas que quiero</label>
+                                <input className={c.cajasDeseadas !== '' ? 'campo-listo' : 'campo-pendiente'} type="number" min="0" value={c.cajasDeseadas} onChange={e => updPlanCorte(c.id, "cajasDeseadas", e.target.value)} placeholder="Ej: 50" />
+                              </div>
+                            )}
+                            <div style={{ marginTop: 12 }}>
+                              {mixtoPlan && !(Number(c.cajasDeseadas) > 0)
+                                ? <div style={{ fontSize: 12, color: "var(--text-2)" }}>Pon cuántas cajas quieres de esta medida para calcular las vueltas.</div>
+                                : (
+                                  <>
+                                    {!mixtoPlan && <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 6 }}>Jumbo completo a esta medida</div>}
+                                    <div style={{ display: "flex", gap: 8 }}>
+                                      {statTile("Vueltas", ent(calc.vueltas), true)}
+                                      {statTile(mixtoPlan ? "Piezas" : "Piezas teóricas", ent(calc.piezas))}
+                                      {mixtoPlan ? statTile("Metros", ent(calc.metros)) : statTile("Cajas teóricas", ent(calc.cajas))}
+                                    </div>
+                                  </>
                                 )}
-                                {planCortes.length > 1 && <button onClick={() => quitarPlanCorte(c.id)} style={{ background: "transparent", border: "none", color: "#ff4d4d", cursor: "pointer", fontSize: 12, paddingBottom: 8 }}>✕</button>}
-                              </div>
-                              <div style={{ fontSize: 11, color: "#9aa0bc", marginTop: 6 }}>
-                                {mixtoPlan
-                                  ? (c.cajasDeseadas !== '' && c.cajasDeseadas !== '0'
-                                      ? <>Vueltas necesarias: <strong style={{ color: "var(--teal)" }}>{calc.vueltas}</strong> · {calc.piezas} pzas ({calc.metros}m del jumbo)</>
-                                      : "Pon cuántas cajas quieres de esta medida para calcular las vueltas")
-                                  : <>Jumbo completo a esta medida: <strong style={{ color: "var(--teal)" }}>{calc.vueltas} vueltas</strong> · {calc.piezas} pzas teóricas · {calc.cajas} cajas teóricas</>}
-                              </div>
                             </div>
-                          );
-                        })}
-                        {mixtoPlan && (() => {
-                          const calculos = planCortes.map(c => ({ c, calc: calcPlanCorte(c, true) }));
-                          const metrosTotales = calculos.reduce((s, x) => s + x.calc.metros, 0);
-                          const sobra = metrosTotales > REBOB_LARGO_JUMBO_M;
-                          // Vueltas/metros solo se juntan si todas las medidas
-                          // son del mismo ancho -- si cambia el ancho (2" vs
-                          // 3") cada vuelta de la rebobinadora rinde una
-                          // cantidad distinta de piezas, asi que sumarlas de
-                          // corrido no dice nada util; se desglosan por ancho.
-                          const anchosUnicos = [...new Set(planCortes.map(c => c.ancho))];
-                          const porAncho = anchosUnicos.length > 1 ? anchosUnicos.map(a => ({
-                            ancho: a,
-                            vueltas: calculos.filter(x => x.c.ancho === a).reduce((s, x) => s + x.calc.vueltas, 0),
-                            metros: calculos.filter(x => x.c.ancho === a).reduce((s, x) => s + x.calc.metros, 0),
-                          })) : null;
-                          return (
-                            <div style={{ fontSize: 12, marginTop: 10, textAlign: "right", color: sobra ? "var(--red)" : "#9aa0bc" }}>
-                              {porAncho && porAncho.map(x => (
-                                <div key={x.ancho}>{x.ancho}: <strong>{x.vueltas}</strong> vueltas · {x.metros}m</div>
-                              ))}
-                              Metros del jumbo usados: <strong>{metrosTotales}</strong> / {REBOB_LARGO_JUMBO_M}m{sobra ? " ⚠ te pasas del jumbo" : ""}
-                            </div>
-                          );
-                        })()}
+                          </div>
+                        ))}
+                        {mixtoPlan && (
+                          <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 12, padding: 12, marginBottom: 10 }}>
+                            <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 8 }}>Metros del jumbo</div>
+                            {barraJumbo(calculos.map(({ c, calc }) => ({ label: `${c.ancho} x ${c.largoPieza}m`, metros: calc.metros })))}
+                            {porAncho && (
+                              <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 8 }}>
+                                {porAncho.map(x => <span key={x.ancho} style={{ marginRight: 14 }}>{x.ancho}: <strong style={{ color: "var(--teal)" }}>{ent(x.vueltas)}</strong> vueltas</span>)}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </>
                     );
                   })()}
-                  <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={agregarPlanCorte}>+ Agregar otra medida (rollo mixto)</button>
-                  <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-                    <button className="btn btn-primary" onClick={guardarPlan} disabled={guardandoPlan}>{guardandoPlan ? "Guardando…" : "✓ Guardar plan"}</button>
+                  <button className="btn btn-ghost btn-sm" onClick={agregarPlanCorte}>+ Agregar otra medida (rollo mixto)</button>
+                  <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+                    <button className="btn btn-primary" style={{ flex: 1 }} onClick={guardarPlan} disabled={guardandoPlan}>{guardandoPlan ? "Guardando…" : "✓ Guardar plan"}</button>
                     <button className="btn btn-ghost" onClick={cerrarPlaneacion}>Cancelar</button>
                   </div>
                 </>
