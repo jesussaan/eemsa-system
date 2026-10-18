@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import ClicheImg from './ClicheImg';
 import CalculadoraProduccion from './CalculadoraProduccion';
 import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
 import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada, unificarPorTexto, normalizarMedida, ultimoPedidoDeCliente, avisoMedidaCliente, avisoCajasCliente, avisoTintaCliente, avisoTipoCliente } from '../lib/utils';
 import { rollosPorCaja, anchoDePedido, largoDePedido } from '../lib/produccion';
+import { tasasProduccion, fechaEntregaSugerida, fechaCorta } from '../lib/entregas';
 import { horasEfectivasPedido, JORNADA_HORAS } from '../lib/horario';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT, REBOB_CLIENTE } from '../lib/constants';
 import { sendWhatsApp, mensajePedidoNuevo } from '../utils/whatsapp';
@@ -125,6 +126,12 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   // trae lo que se autolleno antes (por si cambian de cliente), para no
   // pisar algo que ya escribieron a mano.
   const autollenadoRef = useRef(null);
+  // Fecha de entrega automatica para un pedido anotado (cola + lo que saca
+  // la maquina, ver lib/entregas.js) -- si no se escribe una a mano, se usa esta.
+  const tasasEntrega = useMemo(() => tasasProduccion(pedidosProp), [pedidosProp]);
+  const fechaSugerida = form.status === "anotado"
+    ? fechaEntregaSugerida(pedidos, { medida: normalizarMedida(form.medida), cajas: form.cajas, maq: form.maq, color: form.color, color2: form.color2 }, tasasEntrega)
+    : null;
   const avisoMedida = avisoMedidaCliente(pedidos, form.cliente, form.medida);
   const avisoCajas  = avisoCajasCliente(pedidos, form.cliente, form.cajas);
   const avisoTinta  = avisoTintaCliente(pedidos, form.cliente, form.color);
@@ -284,7 +291,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
     // que un pedido nuevo se vea "sin color" en algun lado por leer la
     // columna que no es.
     const colorFinal = unificarPorTexto(form.color, tintasSugeridas) || null;
-    const nuevo = { id: uid(), created: today(), cliente: unificarPorTexto(form.cliente, clientesSugeridos), num: form.num, tipo: form.tipo, medida: normalizarMedida(form.medida), cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(form.rollos_totales), ancho: form.ancho, largo: form.largo, color: colorFinal, tinta_tipo: colorFinal, color2: unificarPorTexto(form.color2, tintasSugeridas) || null, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
+    const nuevo = { id: uid(), created: today(), cliente: unificarPorTexto(form.cliente, clientesSugeridos), num: form.num, tipo: form.tipo, medida: normalizarMedida(form.medida), cajas: n(form.cajas), rollos_caja: n(form.rollos_caja), rollos_totales: n(form.rollos_totales), ancho: form.ancho, largo: form.largo, color: colorFinal, tinta_tipo: colorFinal, color2: unificarPorTexto(form.color2, tintasSugeridas) || null, color_cinta: form.color_cinta || null, maq: form.maq, op: form.op, fecha_solicitud: form.fecha_solicitud, fecha_estimada: form.fecha_estimada || fechaSugerida || null, fecha_inicio: form.fecha_inicio || null, fecha_termino: form.fecha_termino || null, piezas_prod: n(form.piezas_prod), merma: form.merma || null, merma_pct: form.merma_pct || null, notas: form.notas, status: form.status, cliche_url };
     try {
       const res = await fetch('/api/pedidos', { method: 'POST', headers: authHeaders(), body: JSON.stringify(nuevo) });
       const data = await res.json();
@@ -536,7 +543,10 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
         <div className="field"><label>Máquina</label><select value={form.maq} onChange={e => upd("maq", e.target.value)}>{MAQUINAS.map(m => <option key={m}>{m}</option>)}</select></div>
         <div className="field"><label>Operador</label><select value={form.op} onChange={e => upd("op", e.target.value)}>{OPERADORES.map(o => <option key={o}>{o}</option>)}</select></div>
         <div className="field"><label>Fecha solicitada *</label><input className={form.fecha_solicitud ? 'campo-listo' : 'campo-pendiente'} type="date" value={form.fecha_solicitud} onChange={e => upd("fecha_solicitud", e.target.value)} /></div>
-        <div className="field"><label>📅 Entrega estimada</label><input type="date" value={form.fecha_estimada} onChange={e => upd("fecha_estimada", e.target.value)} /></div>
+        <div className="field"><label>📅 Entrega estimada <span style={{ color: "#666", fontWeight: 400 }}>(se calcula sola)</span></label><input type="date" value={form.fecha_estimada || fechaSugerida || ""} onChange={e => upd("fecha_estimada", e.target.value)} />
+          {!form.fecha_estimada && fechaSugerida && <div style={{ fontSize: 11, color: "#4be87a", marginTop: 4 }}>✓ {fechaCorta(fechaSugerida)} — con la cola y lo que saca la máquina, +1 día de margen</div>}
+          {form.fecha_estimada && fechaSugerida && form.fecha_estimada < fechaSugerida && <div style={{ fontSize: 11, color: "#ff9900", marginTop: 4 }}>⚠ Antes de lo calculado ({fechaCorta(fechaSugerida)}): se adelanta en la cola</div>}
+        </div>
         <div className="field full"><label>Notas</label><textarea value={form.notas} onChange={e => upd("notas", e.target.value)} placeholder="Observaciones…" /></div>
       </div>
       <button className="btn btn-primary btn-block" onClick={save} disabled={loading}>{loading ? "Guardando…" : "📝 Anotar pedido"}</button>

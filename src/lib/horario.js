@@ -61,3 +61,42 @@ export const horasPausadas = (pausas, hasta = new Date()) => {
 // (costo fijo) y para el cronometro en pantalla, no horasEfectivas crudo.
 export const horasEfectivasPedido = (inicio, fin, pausas) =>
   Math.max(0, horasEfectivas(inicio, fin) - horasPausadas(pausas, fin));
+
+// Suma `horas` de trabajo a partir de `inicio`, saltandose las horas fuera
+// del horario de la planta (noches, domingos, sabado en la tarde) -- para
+// calcular cuando terminaria un pedido que dura N horas de maquina.
+export const sumarHorasHabiles = (inicio, horas) => {
+  let restante = Math.max(0, horas) * 60;
+  const cursor = new Date(inicio);
+  for (let i = 0; i < 3660; i++) {
+    const horario = HORARIO_SEMANA[cursor.getDay()];
+    if (horario) {
+      const ventanaIni = new Date(cursor); ventanaIni.setHours(horario.ini[0], horario.ini[1], 0, 0);
+      const ventanaFin = new Date(cursor); ventanaFin.setHours(horario.fin[0], horario.fin[1], 0, 0);
+      if (cursor < ventanaIni) cursor.setTime(ventanaIni.getTime());
+      if (cursor < ventanaFin) {
+        const disponible = (ventanaFin - cursor) / 60000;
+        if (restante <= disponible) return new Date(cursor.getTime() + restante * 60000);
+        restante -= disponible;
+      }
+    }
+    cursor.setDate(cursor.getDate() + 1);
+    cursor.setHours(0, 0, 0, 0);
+  }
+  return cursor;
+};
+
+// "YYYY-MM-DD" de una fecha en hora local (la del navegador = planta).
+export const fechaLocalISO = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// Fecha "YYYY-MM-DD" + n dias habiles (dias con horario: lunes a sabado).
+export const sumarDiasHabiles = (fecha, n) => {
+  const d = new Date(`${fecha}T12:00:00`);
+  let faltan = n;
+  while (faltan > 0) {
+    d.setDate(d.getDate() + 1);
+    if (HORARIO_SEMANA[d.getDay()]) faltan--;
+  }
+  return fechaLocalISO(d);
+};

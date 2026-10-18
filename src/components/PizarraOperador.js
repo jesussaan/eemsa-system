@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../lib/supabase";
 import { alertaEntrega } from "../lib/utils";
 import { REBOB_CLIENTE, PEDIDOS_COLUMNAS_PUBLICAS } from "../lib/constants";
+import { tasasProduccion, programarProduccion } from "../lib/entregas";
+import { chipColor } from "../lib/colores";
 
 // Publica (sin login): pedidos ya tiene lectura abierta a la anon key (ver
 // supabase_pedidos_fallas_security.sql, policy "anon_select"), la misma key
@@ -11,27 +13,6 @@ import { REBOB_CLIENTE, PEDIDOS_COLUMNAS_PUBLICAS } from "../lib/constants";
 // dia sin necesitar cuenta ni entrar a la app -- por eso no tiene login,
 // botones de accion, ni nada que pueda cambiar un pedido, solo lectura en
 // vivo (realtime) del mismo orden que ya se ve en Modo Operador.
-const COLOR_MAP = {
-  blanco: "#FFFFFF", blanca: "#FFFFFF",
-  negro: "#222222", negra: "#222222",
-  rojo: "#E63946", roja: "#E63946",
-  azul: "#4A90E2",
-  verde: "#3DAA5C",
-  amarillo: "#FFD700", amarilla: "#FFD700",
-  naranja: "#FF8C00",
-  morado: "#9B59B6", morada: "#9B59B6",
-  rosa: "#FF69B4",
-  café: "#795548", cafe: "#795548",
-  canela: "#C19A6B",
-  gris: "#9E9E9E", gris_claro: "#D3D3D3",
-  transparente: null,
-};
-const chipColor = (color) => {
-  if (!color) return null;
-  const key = color.toLowerCase().trim().replace(/\s+/g, "_");
-  for (const [k, v] of Object.entries(COLOR_MAP)) { if (key.includes(k)) return v; }
-  return "#c9922a";
-};
 const ColorChip = ({ color }) => {
   if (!color) return null;
   const bg = chipColor(color);
@@ -45,6 +26,9 @@ const ColorChip = ({ color }) => {
 
 export default function PizarraOperador() {
   const [pedidos, setPedidos] = useState([]);
+  // Pedidos ya terminados con sus tiempos -- solo para saber cuanto saca la
+  // maquina y armar el mismo programa que Modo Operador.
+  const [historial, setHistorial] = useState([]);
   const [cargado, setCargado] = useState(false);
   const [ahora, setAhora] = useState(new Date());
 
@@ -64,8 +48,12 @@ export default function PizarraOperador() {
     // -- los jumbos que se planean en Modo Rebobinado tambien usan status
     // "anotado"/"proceso" (ver Rebobinado.js), asi que se excluyen aqui
     // para que no se mezclen con los pedidos reales.
-    const { data } = await supabase.from("pedidos").select(PEDIDOS_COLUMNAS_PUBLICAS).in("status", ["anotado", "proceso"]).neq("cliente", REBOB_CLIENTE);
+    const [{ data }, { data: hechos }] = await Promise.all([
+      supabase.from("pedidos").select(PEDIDOS_COLUMNAS_PUBLICAS).in("status", ["anotado", "proceso"]).neq("cliente", REBOB_CLIENTE),
+      supabase.from("pedidos").select("cliente, status, medida, cajas, piezas_prod, rollos_caja, inicio_ts, fin_ts, pausas").eq("status", "terminado").not("fin_ts", "is", null).order("fin_ts", { ascending: false }).limit(300),
+    ]);
     setPedidos(data || []);
+    setHistorial(hechos || []);
     setCargado(true);
   };
 
@@ -86,9 +74,12 @@ export default function PizarraOperador() {
   }, []);
 
   const pedidosEnProceso = pedidos.filter(p => p.status === "proceso");
-  const pedidosAnotados = pedidos
-    .filter(p => p.status === "anotado")
-    .sort((a, b) => (a.orden ?? 9999) - (b.orden ?? 9999) || (a.fecha_solicitud || "").localeCompare(b.fecha_solicitud || ""));
+  // Mismo programa que Modo Operador: de tinta clara a intensa, sin que
+  // ningun pedido llegue tarde (lib/entregas.js).
+  const pedidosAnotados = useMemo(
+    () => programarProduccion(pedidos, tasasProduccion(historial)).anotadosEnOrden,
+    [pedidos, historial]
+  );
 
   const card = { background: "#181b24", borderRadius: 14, padding: 18, marginBottom: 14 };
 
@@ -133,7 +124,7 @@ export default function PizarraOperador() {
               );
             })}
 
-            <h2 style={{ color: "#ff9900", fontSize: 14, margin: "22px 0 10px", textTransform: "uppercase", letterSpacing: ".08em" }}>📋 Próximos anotados — orden de salida</h2>
+            <h2 style={{ color: "#ff9900", fontSize: 14, margin: "22px 0 10px", textTransform: "uppercase", letterSpacing: ".08em" }}>📋 Próximos — de color claro a intenso</h2>
             {pedidosAnotados.length === 0 ? (
               <p style={{ color: "#666", fontSize: 13 }}>Sin pedidos anotados en cola.</p>
             ) : pedidosAnotados.map((p, i) => {

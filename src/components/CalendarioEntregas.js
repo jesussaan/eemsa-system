@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { authHeaders } from "../lib/auth";
 import { today } from "../lib/utils";
 import { STATUS_PED, REBOB_CLIENTE } from "../lib/constants";
 import CalendarGrid from "./CalendarGrid";
+import { tasasProduccion, simularCola, fechaCorta } from "../lib/entregas";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
@@ -22,6 +23,12 @@ export default function CalendarioEntregas({ pedidos: pedidosProp, setPedidos })
   const mesStr  = `${mes.y}-${String(mes.m+1).padStart(2,"0")}`;
 
   const pedidosActivos = pedidos.filter(p => p.status !== "terminado");
+  // Cuando terminaria cada pedido con la cola y lo que saca la maquina, y si
+  // ya no alcanza su fecha (lib/entregas.js) -- tambien da la fecha
+  // calculada para los que no tienen.
+  const tasas = useMemo(() => tasasProduccion(pedidosProp), [pedidosProp]);
+  const cola  = useMemo(() => simularCola(pedidosProp, tasas), [pedidosProp, tasas]);
+  const fechaPara = p => fechaTemp[p.id] || cola[p.id]?.fechaSugerida || "";
   const sinFecha = pedidosActivos.filter(p => !p.fecha_estimada);
   const conFecha = pedidosActivos.filter(p => p.fecha_estimada).sort((a,b) => a.fecha_estimada.localeCompare(b.fecha_estimada));
   const proximos = conFecha.filter(p => p.fecha_estimada >= hoy).slice(0, 10);
@@ -189,6 +196,7 @@ export default function CalendarioEntregas({ pedidos: pedidosProp, setPedidos })
                     </div>
                   </div>
                   <div className="muted">{p.medida} · {p.cajas} cajas</div>
+                  {cola[p.id]?.enRiesgo && <div style={{ fontSize:12, color:"#ff9900", fontWeight:700, marginTop:4 }}>⚠ No alcanza: con la cola actual saldría el {fechaCorta(cola[p.id].fechaFin)}</div>}
                 </div>
               );
             })}
@@ -201,7 +209,7 @@ export default function CalendarioEntregas({ pedidos: pedidosProp, setPedidos })
         <>
           <h3 className="sub-title" style={{ marginTop:16 }}>Sin fecha de entrega ({sinFecha.length})</h3>
           <div style={{ background:"#13161e", borderRadius:10, padding:"10px 14px" }}>
-            <p style={{ fontSize:12, color:"#555", margin:"0 0 10px" }}>Ponle fecha directamente aquí, o toca un día del calendario y usa "+ Asignar pedido aquí".</p>
+            <p style={{ fontSize:12, color:"#555", margin:"0 0 10px" }}>Ya viene puesta la fecha calculada (cola + lo que saca la máquina) — confírmala con ✓ o cámbiala.</p>
             {sinFecha.map(p => (
               <div key={p.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"9px 0", borderBottom:"1px solid #1e2130", gap:8, flexWrap:"wrap" }}>
                 <div style={{ minWidth:0, flex:1 }}>
@@ -212,19 +220,19 @@ export default function CalendarioEntregas({ pedidos: pedidosProp, setPedidos })
                 <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0 }}>
                   <input
                     type="date"
-                    value={fechaTemp[p.id]||""}
+                    value={fechaPara(p)}
                     onChange={e => setFechaTemp(f=>({...f,[p.id]:e.target.value}))}
                     style={{ background:"#1a1d26", border:"1px solid #2a2d3a", borderRadius:6, color:"#e0e0e0", fontSize:12, padding:"5px 8px" }}
                   />
                   <button
-                    onClick={() => asignarFecha(p.id, fechaTemp[p.id])}
-                    disabled={!fechaTemp[p.id] || saving === p.id}
+                    onClick={() => asignarFecha(p.id, fechaPara(p))}
+                    disabled={!fechaPara(p) || saving === p.id}
                     style={{
-                      background: fechaTemp[p.id] ? "#e8b84b" : "#1e2130",
-                      color: fechaTemp[p.id] ? "#000" : "#444",
+                      background: fechaPara(p) ? "#e8b84b" : "#1e2130",
+                      color: fechaPara(p) ? "#000" : "#444",
                       border:"none", borderRadius:6, padding:"5px 14px",
                       fontSize:13, fontWeight:700,
-                      cursor: fechaTemp[p.id] ? "pointer" : "default",
+                      cursor: fechaPara(p) ? "pointer" : "default",
                     }}
                   >
                     {saving === p.id ? "…" : "✓"}

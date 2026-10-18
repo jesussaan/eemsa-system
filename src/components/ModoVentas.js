@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { authHeaders } from "../lib/auth";
 import { today, uid, siguienteNumPedido, unificarPorTexto, normalizarMedida, cargarBorrador, guardarBorrador, ultimoPedidoDeCliente, avisoMedidaCliente, avisoCajasCliente, avisoTintaCliente, avisoTipoCliente } from "../lib/utils";
 import { rollosPorCaja } from "../lib/produccion";
+import { tasasProduccion, programarProduccion, fechaEntregaSugerida, fechaCorta, esManual } from "../lib/entregas";
+import { chipColor as hexDeTinta } from "../lib/colores";
 import { TIPOS, REBOB_CLIENTE } from "../lib/constants";
 import { sendWhatsApp, mensajePedidoNuevo } from "../utils/whatsapp";
 import Clientes from "./Clientes";
@@ -149,6 +151,17 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
   // el mismo campo -- se unifican entre si para que "Negro"/"NEGRO" no
   // aparezcan como colores distintos en esa grafica.
   const tintasSugeridas   = [...new Set(pedidos.flatMap(p => [p.tinta_tipo, p.color, p.color2]).filter(Boolean))].sort();
+  // Fecha de entrega automatica (ver lib/entregas.js): la cola de la maquina
+  // + lo que de verdad saca por hora. cola[id] dice cuando terminaria cada
+  // pedido activo y si ya no alcanza su fecha prometida.
+  const tasas = useMemo(() => tasasProduccion(pedidos), [pedidos]);
+  const programa = useMemo(() => programarProduccion(pedidos, tasas), [pedidos, tasas]);
+  const cola = programa.porId;
+  const enMaquina = pedActivos.filter(p => p.status === "proceso");
+  const fechaSugerida = fechaEntregaSugerida(pedidos, { medida: normalizarMedida(form.medida), cajas: form.cajas, color: form.tinta_tipo, color2: form.color2 }, tasas);
+  // Ventas puede cambiarla (cliente que la necesita antes); si no la toca,
+  // se queda la calculada y se va actualizando sola con medida/cajas.
+  const fechaEntrega = form.fecha_estimada_manual || fechaSugerida || "";
   const conFecha   = pedActivos.filter(p => p.fecha_estimada).sort((a,b) => a.fecha_estimada.localeCompare(b.fecha_estimada));
   const proximos   = conFecha.filter(p => p.fecha_estimada >= hoy).slice(0, 10);
 
@@ -159,6 +172,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
 
   const chipColor = p => {
     if (p.fecha_estimada && p.fecha_estimada < hoy) return "#e84b4b";
+    if (cola[p.id]?.enRiesgo) return "#ff9900";
     if (p.status === "proceso") return "#4b8fe8";
     return "#e8b84b";
   };
@@ -189,6 +203,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
       color:           colorFinal,
       color2:          unificarPorTexto(form.color2, tintasSugeridas) || null,
       fecha_solicitud: form.fecha_solicitud || hoy,
+      fecha_estimada:  fechaEntrega || null,
       notas:           form.notas.trim() || null,
       status:          "anotado",
       maq:             "SIAT L36 #1",
@@ -304,6 +319,36 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
                         </div>
                       </div>
                       <div style={{ fontSize:12, color:"var(--muted)", marginTop:2 }}>{p.medida} · {p.cajas} cajas{p.rollos_totales ? ` · ${p.rollos_totales} piezas/rollos` : ""}</div>
+                      {cola[p.id]?.enRiesgo && <div style={{ fontSize:12, color:"#ff9900", fontWeight:700, marginTop:4 }}>⚠ No alcanza: con la cola actual saldría el {fechaCorta(cola[p.id].fechaFin)}</div>}
+                    </div>
+                  );
+                })}
+              </>
+            )}
+
+            {/* Orden de produccion -- el mismo programa que ve el operador */}
+            {(enMaquina.length > 0 || programa.anotadosEnOrden.length > 0) && (
+              <>
+                <div style={{ fontSize:12, fontWeight:700, color:"var(--text-2)", letterSpacing:".06em", marginBottom:4, marginTop:16 }}>ORDEN DE PRODUCCIÓN</div>
+                <div style={{ fontSize:11, color:"var(--muted)", marginBottom:8 }}>Se acomoda solo: tinta clara a intensa, sin que ningún pedido llegue tarde.</div>
+                {[...enMaquina, ...programa.anotadosEnOrden].map((p, i) => {
+                  const plan = cola[p.id];
+                  const tinta = p.color || p.tinta_tipo;
+                  const hex = hexDeTinta(tinta);
+                  return (
+                    <div key={p.id} style={{ display:"flex", gap:10, alignItems:"center", background:"var(--surface)", borderRadius:10, padding:"10px 12px", marginBottom:6, border: plan?.enRiesgo ? "1px solid #ff9900" : "1px solid var(--border)" }}>
+                      <div style={{ minWidth:26, textAlign:"center", fontWeight:800, color: p.status === "proceso" ? "#4b8fe8" : "var(--accent)", fontSize:15 }}>{p.status === "proceso" ? "▶" : (esManual(p) ? "📌" : "") + (i + 1 - enMaquina.length)}</div>
+                      <span title={tinta || "Sin tinta"} style={{ width:14, height:14, borderRadius:"50%", flexShrink:0, background: hex || "transparent", border: hex ? "1px solid rgba(0,0,0,.35)" : "2px dashed var(--muted)" }} />
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:13, color:"var(--text)", fontWeight:700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.num} — {p.cliente}</div>
+                        <div style={{ fontSize:11, color:"var(--muted)" }}>{p.medida} · {p.cajas} cajas{tinta ? ` · ${tinta}` : ""}{p.color2 ? ` + ${p.color2}` : ""}</div>
+                        {plan?.enRiesgo && <div style={{ fontSize:11, color:"#ff9900", fontWeight:700 }}>⚠ No alcanza su entrega</div>}
+                      </div>
+                      <div style={{ textAlign:"right", flexShrink:0 }}>
+                        {p.status === "proceso" ? <div style={{ fontSize:11, color:"#4b8fe8", fontWeight:700 }}>En máquina</div>
+                          : plan && <div style={{ fontSize:11, color:"var(--teal)", fontWeight:700 }}>🏭 {fechaCorta(plan.fechaFin)}</div>}
+                        {p.fecha_estimada && <div style={{ fontSize:11, color:"var(--text-2)" }}>🚚 {fechaCorta(p.fecha_estimada)}</div>}
+                      </div>
                     </div>
                   );
                 })}
@@ -312,7 +357,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
 
             {proximos.length === 0 && conFecha.length === 0 && (
               <div style={{ textAlign:"center", padding:"32px 0", color:"var(--muted)", fontSize:13 }}>
-                No hay entregas con fecha asignada.<br />El supervisor las asigna desde el módulo Agenda.
+                No hay entregas pendientes.<br />La fecha de entrega se calcula sola al capturar cada pedido.
               </div>
             )}
           </div>
@@ -341,6 +386,25 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
                 <div>
                   <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>📅 Fecha de solicitud</label>
                   <input type="date" value={form.fecha_solicitud||hoy} onChange={e=>upd("fecha_solicitud",e.target.value)} style={inputStyle} />
+                </div>
+
+                <div style={{ gridColumn:"1/-1" }}>
+                  <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>🚚 Entrega estimada <span style={{ color:"var(--muted)", fontWeight:400 }}>(se calcula sola)</span></label>
+                  <input type="date" value={fechaEntrega} onChange={e=>upd("fecha_estimada_manual",e.target.value)} style={{ ...inputStyle, ...(fechaEntrega ? { borderColor:"var(--green)" } : {}) }} />
+                  {!fechaSugerida && !form.fecha_estimada_manual && (
+                    <div style={{ fontSize:11, color:"var(--muted)", marginTop:5 }}>Pon medida y cajas y se calcula con los pedidos en cola y lo que saca la máquina.</div>
+                  )}
+                  {fechaSugerida && !form.fecha_estimada_manual && (
+                    <div style={{ fontSize:11, color:"var(--green)", marginTop:5, fontWeight:600 }}>✓ {fechaCorta(fechaSugerida)} — con los pedidos en cola y lo que saca la máquina, más 1 día de margen.</div>
+                  )}
+                  {form.fecha_estimada_manual && fechaSugerida && form.fecha_estimada_manual !== fechaSugerida && (
+                    <div style={{ fontSize:11, color: form.fecha_estimada_manual < fechaSugerida ? "#ff9900" : "var(--text-2)", marginTop:5, fontWeight:600 }}>
+                      {form.fecha_estimada_manual < fechaSugerida
+                        ? <>⚠ Es antes de lo calculado ({fechaCorta(fechaSugerida)}): se adelanta en la cola y puede retrasar otros pedidos. </>
+                        : <>Calculada: {fechaCorta(fechaSugerida)}. </>}
+                      <button type="button" onClick={() => upd("fecha_estimada_manual", "")} style={{ background:"none", border:"none", color:"var(--accent)", cursor:"pointer", fontSize:11, fontWeight:700, padding:0, textDecoration:"underline" }}>Usar la calculada</button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -408,6 +472,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
                 ["Cliente", unificarPorTexto(form.cliente, clientesSugeridos) || form.cliente],
                 ["No. Pedido", form.num.trim() || `V-${Date.now().toString().slice(-5)}`],
                 ["Fecha de solicitud", form.fecha_solicitud || hoy],
+                ["Entrega estimada", fechaEntrega ? fechaCorta(fechaEntrega) : "—"],
                 ["Tipo de cinta", form.tipo],
                 ["Medida", normalizarMedida(form.medida)],
                 ["Cajas", form.cajas],

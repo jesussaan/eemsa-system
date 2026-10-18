@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { QRCodeSVG } from 'qrcode.react';
 import CalculadoraProduccion from './CalculadoraProduccion';
 import ClicheImg from './ClicheImg';
@@ -10,6 +10,8 @@ import { horasEfectivasPedido, JORNADA_HORAS } from '../lib/horario';
 import { sendPush } from '../lib/push';
 import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV, UMBRAL_MERMA, REBOB_CLIENTE } from '../lib/constants';
+import { tasasProduccion, programarProduccion, fechaCorta, esManual } from '../lib/entregas';
+import { chipColor } from '../lib/colores';
 import { sendWhatsApp } from '../utils/whatsapp';
 import { IcoOperador, IcoPalette, IcoRoll, IcoClipboard, IcoCamera, IcoCheck, IcoFal, IcoScan, IcoPause, IcoPlay } from './Icons';
 import NotifBell from './NotifBell';
@@ -29,9 +31,15 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
   // "anotado"/"proceso" (ver Rebobinado.js), asi que sin este filtro por
   // cliente se colaban aqui mezclados con los pedidos reales.
   const pedidosEnProceso = pedidos.filter(p => p.status === "proceso" && p.cliente !== REBOB_CLIENTE);
-  const pedidosAnotados = pedidos
-    .filter(p => p.status === "anotado" && p.cliente !== REBOB_CLIENTE)
-    .sort((a, b) => (a.orden ?? 9999) - (b.orden ?? 9999) || (a.fecha_solicitud || "").localeCompare(b.fecha_solicitud || ""));
+  // La cola la acomoda sola el programa de produccion (lib/entregas.js): de
+  // tinta clara a intensa, sin que ningun pedido llegue tarde a su fecha.
+  // Se puede cambiar a mano con las flechas (ver moverPedido): lo movido
+  // queda fijo y el programa acomoda el resto despues. cola[id] dice cuando
+  // terminaria cada uno y si ya no alcanza su fecha.
+  const tasasCola = useMemo(() => tasasProduccion(pedidos), [pedidos]);
+  const programa = useMemo(() => programarProduccion(pedidos, tasasCola), [pedidos, tasasCola]);
+  const cola = programa.porId;
+  const pedidosAnotados = programa.anotadosEnOrden;
   // El pedido abierto, la vista (finalizar/falla) y el borrador de la falla
   // se recuerdan en localStorage -- si sales a revisar algo y regresas (o
   // la app se recarga sola), sigues donde ibas. El pedido se guarda solo
@@ -188,18 +196,29 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
     body: JSON.stringify({ action: 'estado', id, ...campos }),
   });
 
+  // Mover a mano: se intercambian los dos y queda FIJO (con `orden`) todo lo
+  // de arriba hasta ahi, para que el programa no lo vuelva a mover. Lo de
+  // abajo se sigue acomodando solo.
   const moverPedido = async (id, dir) => {
     const idx = pedidosAnotados.findIndex(p => p.id === id);
     const otroIdx = idx + dir;
-    if (otroIdx < 0 || otroIdx >= pedidosAnotados.length) return;
+    if (idx < 0 || otroIdx < 0 || otroIdx >= pedidosAnotados.length) return;
     const nuevaLista = [...pedidosAnotados];
     [nuevaLista[idx], nuevaLista[otroIdx]] = [nuevaLista[otroIdx], nuevaLista[idx]];
-    const updates = nuevaLista.map((p, i) => ({ id: p.id, orden: i }));
+    const hasta = Math.max(idx, otroIdx);
+    const updates = nuevaLista.slice(0, hasta + 1).map((p, i) => ({ id: p.id, orden: i }));
     await Promise.all(updates.map(u => actualizarEstadoPedido(u.id, { orden: u.orden })));
     setPedidos(ps => ps.map(p => {
       const u = updates.find(x => x.id === p.id);
       return u ? { ...p, orden: u.orden } : p;
     }));
+  };
+  const hayAcomodoManual = pedidosAnotados.some(esManual);
+  const volverAcomodoAutomatico = async () => {
+    const manuales = pedidosAnotados.filter(esManual);
+    await Promise.all(manuales.map(p => actualizarEstadoPedido(p.id, { orden: null })));
+    setPedidos(ps => ps.map(p => manuales.some(m => m.id === p.id) ? { ...p, orden: null } : p));
+    showToast("↺ Cola acomodada automáticamente");
   };
 
   const iniciarPedido = async () => {
@@ -446,27 +465,6 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
   const miniCard = { background: "var(--surface)", borderRadius: "var(--r-sm)", padding: "8px 12px" };
   const miniLbl = { fontSize: 10, color: "var(--muted)", marginBottom: 2, textTransform: "uppercase", letterSpacing: ".05em" };
 
-  const COLOR_MAP = {
-    blanco: "#FFFFFF", blanca: "#FFFFFF",
-    negro: "#222222", negra: "#222222",
-    rojo: "#E63946", roja: "#E63946",
-    azul: "#4A90E2",
-    verde: "#3DAA5C",
-    amarillo: "#FFD700", amarilla: "#FFD700",
-    naranja: "#FF8C00",
-    morado: "#9B59B6", morada: "#9B59B6",
-    rosa: "#FF69B4",
-    café: "#795548", cafe: "#795548",
-    canela: "#C19A6B",
-    gris: "#9E9E9E", gris_claro: "#D3D3D3",
-    transparente: null,
-  };
-  const chipColor = (color) => {
-    if (!color) return null;
-    const key = color.toLowerCase().trim().replace(/\s+/g, "_");
-    for (const [k, v] of Object.entries(COLOR_MAP)) { if (key.includes(k)) return v; }
-    return "#c9922a";
-  };
   const ColorChip = ({ color }) => {
     if (!color) return null;
     const bg = chipColor(color);
@@ -600,13 +598,17 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
 
             {pedidosAnotados.length > 0 && (
               <>
-                <h2 style={{ color: "var(--orange)", fontSize: 13, margin: "16px 0 8px", textTransform: "uppercase", letterSpacing: ".08em", display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoClipboard} /> Próximos anotados — orden de salida</h2>
+                <h2 style={{ color: "var(--orange)", fontSize: 13, margin: "16px 0 8px", textTransform: "uppercase", letterSpacing: ".08em", display: "flex", alignItems: "center", gap: 6 }}><Ico icon={IcoClipboard} /> Próximos — de color claro a intenso</h2>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 11, color: "var(--muted)", margin: "-4px 0 10px" }}>
+                  <span>{hayAcomodoManual ? "📌 Hay pedidos acomodados a mano; el resto se acomoda solo." : "Se acomoda solo: tinta clara a intensa, sin que nadie llegue tarde. Usa ▲▼ para cambiarlo."}</span>
+                  {hayAcomodoManual && <button onClick={volverAcomodoAutomatico} style={{ background: "transparent", border: "1px solid var(--border-light)", borderRadius: 6, color: "var(--teal)", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}>↺ Volver al acomodo automático</button>}
+                </div>
                 {pedidosAnotados.map((p, i) => {
                   const al = alertaEntrega(p.fecha_estimada, p.status);
                   return (
                   <div key={p.id} onClick={() => seleccionarPedido(p)} style={{ ...card, borderLeft: `4px solid ${al ? al.borde : "var(--orange)"}`, background: al ? al.bg : card.background, cursor: "pointer", display: "flex", gap: 10, alignItems: "stretch" }}>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                      <div style={{ color: "var(--orange)", fontWeight: 800, fontSize: 16, marginBottom: 2 }}>{i + 1}</div>
+                      <div style={{ color: "var(--orange)", fontWeight: 800, fontSize: 16, marginBottom: 2 }}>{esManual(p) ? "📌" : ""}{i + 1}</div>
                       <button
                         onClick={e => { e.stopPropagation(); moverPedido(p.id, -1); }}
                         disabled={i === 0}
@@ -633,7 +635,12 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
                         {p.rollos_caja && <span style={{ color: "var(--text-2)", fontWeight: 700 }}>{p.rollos_caja} rollos/caja</span>}
                         {p.rollos_totales && <span style={{ color: "var(--text-2)", fontWeight: 700 }}>{p.rollos_totales} piezas/rollos</span>}
                       </div>
-                      {p.fecha_solicitud && <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>Solicitud: {p.fecha_solicitud}</div>}
+                      <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
+                        {cola[p.id] && <span style={{ color: "var(--teal)", fontWeight: 700 }}>🏭 Sale: {fechaCorta(cola[p.id].fechaFin)}</span>}
+                        {cola[p.id] && p.fecha_estimada && " · "}
+                        {p.fecha_estimada && <span style={{ color: "var(--text-2)", fontWeight: 700 }}>🚚 Entrega: {fechaCorta(p.fecha_estimada)}</span>}
+                      </div>
+                      {cola[p.id]?.enRiesgo && <div style={{ fontSize: 12, color: "#ff9900", fontWeight: 700, marginTop: 3 }}>⚠ No alcanza: con la cola actual sale el {fechaCorta(cola[p.id].fechaFin)}</div>}
                       {p.cliche_url && <div style={{ fontSize: 11, color: "var(--orange)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}><Ico icon={IcoCamera} /> Ver diseño →</div>}
                     </div>
                   </div>
