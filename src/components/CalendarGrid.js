@@ -1,14 +1,17 @@
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const DIAS  = ["LUN","MAR","MIÉ","JUE","VIE","SÁB","DOM"];
 
-export default function CalendarGrid({ mes, setMes, diaSel, onSelectDia, pedidos, chipColor, hoy, onHoy }) {
+// fechaDe: en que dia va cada pedido -- por default su fecha de entrega
+// prometida; Ventas tambien lo usa con el dia en que sale de la maquina
+// (programa de produccion, lib/entregas.js).
+export default function CalendarGrid({ mes, setMes, diaSel, onSelectDia, pedidos, chipColor, hoy, onHoy, fechaDe = p => p.fecha_estimada }) {
   const mesStr  = `${mes.y}-${String(mes.m + 1).padStart(2, "0")}`;
   const numDias = new Date(mes.y, mes.m + 1, 0).getDate();
   const offset  = (() => { const d = new Date(mes.y, mes.m, 1).getDay(); return d === 0 ? 6 : d - 1; })();
 
   const porDia = d => {
     const k = `${mesStr}-${String(d).padStart(2, "0")}`;
-    return pedidos.filter(p => p.fecha_estimada === k);
+    return pedidos.filter(p => fechaDe(p) === k);
   };
 
   const prev = () => setMes(x => x.m === 0 ? { y: x.y - 1, m: 11 } : { ...x, m: x.m - 1 });
