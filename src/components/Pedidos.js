@@ -133,6 +133,13 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   const cambiarCliente = (v) => {
     const ult = ultimoPedidoDeCliente(pedidos, v);
     const puedeLlenar = !form.medida || form.medida === autollenadoRef.current;
+    // Se borro el cliente: si lo de abajo vino del autollenado (la medida
+    // sigue igual), se limpia para que el siguiente cliente llene desde cero.
+    if (!v.trim() && form.medida && puedeLlenar) {
+      setForm(f => ({ ...f, cliente: v, tipo: formInicial.tipo, medida: "", ancho: "", largo: "", cajas: "", rollos_caja: "", rollos_totales: "", color: "", color2: "", color_cinta: "" }));
+      autollenadoRef.current = null;
+      return;
+    }
     if (!ult || !puedeLlenar) { upd("cliente", v); return; }
     const tipo = ult.tipo || "Blanca";
     const base = { ...form, cliente: v, tipo, medida: ult.medida || "", ancho: "", largo: "" };

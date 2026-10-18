@@ -94,6 +94,13 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
   const cambiarCliente = (v) => {
     const ult = ultimoPedidoDeCliente(pedidos.filter(p => p.cliente !== REBOB_CLIENTE), v);
     const puedeLlenar = !form.medida || form.medida === form.medida_autollenada;
+    // Se borro el cliente: si lo de abajo vino del autollenado (la medida
+    // sigue igual), se limpia para que el siguiente cliente llene desde cero.
+    if (!v.trim() && form.medida && puedeLlenar) {
+      setForm(f => ({ ...f, cliente: v, tipo: FORM_INIT.tipo, medida: "", cajas: "", rollos_caja: "", rollos_totales: "", tinta_tipo: "", color2: "", medida_autollenada: "" }));
+      setTipoTocado(false);
+      return;
+    }
     if (!ult || !puedeLlenar) { upd("cliente", v); return; }
     const tipo = ult.tipo || "Blanca";
     const medida = ult.medida || "";
