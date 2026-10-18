@@ -347,6 +347,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
     sendPush('✅ Pedido terminado', `#${pedidoSel.num} ${pedidoSel.cliente} — finalizado por William`);
     if (mermaPct != null && Number(mermaPct) > UMBRAL_MERMA) {
       sendWhatsApp(`⚠️ Merma alta: ${mermaPct}% en pedido #${pedidoSel.num}`);
+      sendPush('⚠️ Merma alta', `${mermaPct}% en pedido #${pedidoSel.num} ${pedidoSel.cliente} (meta: ${UMBRAL_MERMA}%)`);
     }
     notificar('pedido_finalizado', {
       num: pedidoSel.num, cliente: pedidoSel.cliente,

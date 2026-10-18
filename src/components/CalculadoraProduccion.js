@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_MP_ROLLO_PRECIO } from '../lib/constants';
+import { ENGOMADO_JUMBO_LARGO_M, ENGOMADO_MP_ROLLO_PRECIO, UMBRAL_MERMA } from '../lib/constants';
 import { calcularProduccion, MP_ANCHO, MP_LARGO, PORTALICHES, rollosPorCaja, anchoDePedido, largoDePedido, disenoEsImagen } from '../lib/produccion';
 import { coberturaDeImagen, cargarMuestraImagen, detectarDosColores } from '../lib/imagenCobertura';
 import { horasEfectivas, JORNADA_HORAS } from '../lib/horario';
@@ -154,6 +154,12 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   // (no guarda nada), asi se puede detectar un error de captura antes de
   // mandarlo a Emilio en vez de despues.
   const [revisando, setRevisando] = useState(false);
+  // Si en la revision final hay algo raro (cajas muy distintas a lo anotado,
+  // merma arriba de la meta), el operador tiene que marcar que ya lo reviso
+  // antes de poder confirmar -- una linea de aviso sola se pasaba por alto
+  // (ej. pedido de 10 cajas capturado como ~15). Se resetea cada vez que se
+  // entra a la revision.
+  const [avisosRevisados, setAvisosRevisados] = useState(false);
   const [costoPreview, setCostoPreview] = useState(null);
   const [costoPreviewLoading, setCostoPreviewLoading] = useState(false);
   const [costoPreviewError, setCostoPreviewError] = useState(false);
@@ -177,6 +183,7 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
   // /api/costos al guardar -- se llama aqui primero, sin guardar, solo para
   // mostrar el numero antes de confirmar.
   const handleAbrirRevision = async () => {
+    setAvisosRevisados(false);
     setRevisando(true);
     setCostoPreview(null);
     setCostoPreviewError(false);
@@ -441,7 +448,12 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
             );
           })()}
           {mermaPct !== null && (
-            <div className="field"><label>% Merma real</label><input readOnly value={mermaPct + "%"} style={{ background: "#1a2744", color: Number(mermaPct) > 3 ? "#ff4d4d" : "#4be87a" }} /></div>
+            <div className="field"><label>% Merma real</label><input readOnly value={mermaPct + "%"} style={{ background: "#1a2744", color: Number(mermaPct) > UMBRAL_MERMA ? "#ff4d4d" : "#4be87a" }} /></div>
+          )}
+          {mermaPct !== null && Number(mermaPct) > UMBRAL_MERMA && (
+            <div className="field full" style={{ fontSize: 11, color: '#ff4d4d', fontWeight: 700, marginTop: -4 }}>
+              ⚠ La merma ({mermaPct}%) pasa la meta de {UMBRAL_MERMA}% — revisa que las piezas de merma estén bien capturadas.
+            </div>
           )}
           {/* Opcionales -- si se llenan, reemplazan el numero teorico de la
               formula al guardar (mas exacto para el inventario) y el teorico
@@ -569,6 +581,13 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
         const cajasOriginal = Number(pedidoInicial?.cajas) || 0;
         const cajasRealesNum = Number(cajas) || 0;
         const difiereMucho = cajasOriginal > 0 && cajasRealesNum > 0 && Math.abs(cajasRealesNum - cajasOriginal) / cajasOriginal > 0.15;
+        const mermaAlta = mermaPct != null && Number(mermaPct) > UMBRAL_MERMA;
+        const avisosRevision = [
+          difiereMucho && `El pedido se anotó con ${cajasOriginal} cajas y aquí llevas ~${Math.round(cajasRealesNum)} — revisa que no sea un error de captura.`,
+          mermaAlta && `La merma es de ${mermaPct}%, arriba de la meta de ${UMBRAL_MERMA}%.`,
+        ].filter(Boolean);
+        const hayAvisos = avisosRevision.length > 0;
+        const bloqueado = hayAvisos && !avisosRevisados;
         const filas = [
           ['Cajas producidas', cajasProd !== '' ? cajasProd : (cajasRealesNum ? cajasRealesNum.toFixed(1) : '—')],
           ['Piezas producidas', piezasProd || '—'],
@@ -607,9 +626,14 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
               </div>
             </div>
 
-            {difiereMucho && (
-              <div style={{ fontSize: 12, color: '#ff9900', fontWeight: 700, marginBottom: 14, textAlign: 'center' }}>
-                ⚠ El pedido se anotó con {cajasOriginal} cajas y aquí llevas ~{Math.round(cajasRealesNum)} — revisa que no sea un error de captura.
+            {hayAvisos && (
+              <div style={{ border: '1.5px solid #ff9900', background: 'rgba(255,153,0,0.08)', borderRadius: 10, padding: '12px 14px', marginBottom: 14 }}>
+                {avisosRevision.map(t => (
+                  <div key={t} style={{ fontSize: 13, color: '#ff9900', fontWeight: 700, marginBottom: 6 }}>⚠ {t}</div>
+                ))}
+                <button type="button" onClick={() => setAvisosRevisados(v => !v)} style={{ marginTop: 6, width: '100%', padding: '11px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 800, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: avisosRevisados ? '#4be87a' : '#2a2112', color: avisosRevisados ? '#000' : '#ff9900' }}>
+                  {avisosRevisados ? '✓ Revisado, los datos están bien' : 'Toca aquí si ya lo revisaste y está bien'}
+                </button>
               </div>
             )}
 
@@ -619,7 +643,8 @@ export default function CalculadoraProduccion({ pedidos, onClose, pedidoInicial,
               </button>
               <button
                 className="btn btn-primary"
-                style={{ flex: 2, padding: '13px 0', fontSize: 15 }}
+                style={{ flex: 2, padding: '13px 0', fontSize: 15, opacity: bloqueado ? 0.4 : 1 }}
+                disabled={bloqueado}
                 onClick={() => {
                   // Tinta/alcohol reales anotados a mano SI reemplazan el
                   // numero teorico al guardar (mas exacto para el inventario
