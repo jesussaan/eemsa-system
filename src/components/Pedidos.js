@@ -132,7 +132,12 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   const estiloAviso = { fontSize: 12, color: "#ff9900", marginTop: 4, fontWeight: 600 };
   const cambiarCliente = (v) => {
     const ult = ultimoPedidoDeCliente(pedidos, v);
-    const puedeLlenar = !form.medida || form.medida === autollenadoRef.current;
+    // "Vino del autollenado" = la medida es la que se autolleno, o es la misma
+    // del ultimo pedido del cliente que estaba escrito.
+    const ultActual = ultimoPedidoDeCliente(pedidos, form.cliente);
+    const vinoDeAutollenado = form.medida === autollenadoRef.current
+      || (ultActual && normalizarMedida(form.medida) === normalizarMedida(ultActual.medida));
+    const puedeLlenar = !form.medida || vinoDeAutollenado;
     // Se borro el cliente: si lo de abajo vino del autollenado (la medida
     // sigue igual), se limpia para que el siguiente cliente llene desde cero.
     if (!v.trim() && form.medida && puedeLlenar) {

@@ -93,7 +93,13 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
   const estiloAviso = { fontSize:12, color:"#ff9900", marginTop:5, fontWeight:600 };
   const cambiarCliente = (v) => {
     const ult = ultimoPedidoDeCliente(pedidos.filter(p => p.cliente !== REBOB_CLIENTE), v);
-    const puedeLlenar = !form.medida || form.medida === form.medida_autollenada;
+    // "Vino del autollenado" = la medida es la marcada al autollenar, o es la
+    // misma del ultimo pedido del cliente que estaba escrito (cubre borradores
+    // de antes de que existiera la marca).
+    const ultActual = ultimoPedidoDeCliente(pedidosDeClientes, form.cliente);
+    const vinoDeAutollenado = form.medida === form.medida_autollenada
+      || (ultActual && normalizarMedida(form.medida) === normalizarMedida(ultActual.medida));
+    const puedeLlenar = !form.medida || vinoDeAutollenado;
     // Se borro el cliente: si lo de abajo vino del autollenado (la medida
     // sigue igual), se limpia para que el siguiente cliente llene desde cero.
     if (!v.trim() && form.medida && puedeLlenar) {
