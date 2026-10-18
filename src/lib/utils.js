@@ -81,25 +81,66 @@ const pedidosRecientesDeCliente = (pedidos, cliente) => {
 export const ultimoPedidoDeCliente = (pedidos, cliente) =>
   pedidosRecientesDeCliente(pedidos, cliente)[0] || null;
 
-// Aviso cuando la medida que se esta capturando NO aparece en ninguno de los
-// ultimos pedidos de ese cliente (ej. ARIAT con 2"x100 cuando siempre pide
-// 3"x100). Solo avisa, no bloquea: a veces si piden una medida nueva. Pide
-// al menos 2 pedidos previos para no avisar con un cliente casi nuevo, y que
-// la medida ya tenga sus dos numeros para no avisar a media escritura de "2".
-// Devuelve { habitual, veces, total } con la medida que mas pide, o null.
-export const avisoMedidaCliente = (pedidos, cliente, medida, ultimos = 10) => {
+// Avisos al capturar un pedido nuevo cuando un dato no cuadra con lo que ese
+// cliente pide siempre (ej. ARIAT con 2"x100 cuando siempre pide 3"x100).
+// Solo avisan, no bloquean: a veces si piden algo distinto. Piden al menos 2
+// pedidos previos del cliente, para no avisar con un cliente casi nuevo.
+const ULTIMOS_PEDIDOS_AVISO = 10;
+const recientesParaAviso = (pedidos, cliente) => {
+  const recientes = pedidosRecientesDeCliente(pedidos, cliente).slice(0, ULTIMOS_PEDIDOS_AVISO);
+  return recientes.length >= 2 ? recientes : null;
+};
+
+// Valor que nunca aparece en sus ultimos pedidos. `clave` normaliza para
+// comparar ("2x100" = 2"x100, "negro" = "NEGRO"). Devuelve
+// { habitual, veces, total } con el valor que mas pide (tal como se guardo
+// la primera vez), o null.
+const avisoValorNuevo = (recientes, valor, extraer, clave) => {
+  const k = clave(valor);
+  const conteo = {};
+  const original = {};
+  recientes.forEach(p => {
+    const v = extraer(p);
+    const kp = clave(v);
+    if (!kp) return;
+    conteo[kp] = (conteo[kp] || 0) + 1;
+    if (!(kp in original)) original[kp] = String(v).trim();
+  });
+  if (conteo[k]) return null;
+  const [habitual, veces] = Object.entries(conteo).sort((a, b) => b[1] - a[1])[0] || [];
+  return habitual ? { habitual: original[habitual], veces, total: recientes.length } : null;
+};
+
+// Medida: solo cuando ya trae sus dos numeros, para no avisar a media
+// escritura de "2".
+export const avisoMedidaCliente = (pedidos, cliente, medida) => {
   const m = normalizarMedida(medida);
   if (!/^\d+(\.\d+)?"x\d+/.test(m)) return null;
-  const recientes = pedidosRecientesDeCliente(pedidos, cliente).slice(0, ultimos);
-  if (recientes.length < 2) return null;
-  const conteo = {};
-  recientes.forEach(p => {
-    const k = normalizarMedida(p.medida);
-    if (k) conteo[k] = (conteo[k] || 0) + 1;
-  });
-  if (conteo[m]) return null;
-  const [habitual, veces] = Object.entries(conteo).sort((a, b) => b[1] - a[1])[0] || [];
-  return habitual ? { habitual, veces, total: recientes.length } : null;
+  const recientes = recientesParaAviso(pedidos, cliente);
+  return recientes && avisoValorNuevo(recientes, m, p => normalizarMedida(p.medida), v => normalizarMedida(v));
+};
+
+// Tinta: tinta_tipo y color son el mismo dato segun de donde vino el
+// pedido (ver ModoVentas.js save), se compara sin may/min ni espacios.
+export const avisoTintaCliente = (pedidos, cliente, tinta) => {
+  const clave = v => String(v ?? '').trim().toLowerCase();
+  if (!clave(tinta)) return null;
+  const recientes = recientesParaAviso(pedidos, cliente);
+  return recientes && avisoValorNuevo(recientes, tinta, p => p.tinta_tipo || p.color, clave);
+};
+
+// Cajas: avisa si se sale del rango de sus ultimos pedidos por mas de la
+// mitad (ARIAT siempre 10 -> avisa con 100 o con 5, no con 12). Devuelve
+// { min, max, total } o null.
+export const avisoCajasCliente = (pedidos, cliente, cajas) => {
+  const n = Number(cajas);
+  if (!(n > 0)) return null;
+  const recientes = recientesParaAviso(pedidos, cliente);
+  if (!recientes) return null;
+  const previas = recientes.map(p => Number(p.cajas)).filter(c => c > 0);
+  if (previas.length < 2) return null;
+  const min = Math.min(...previas), max = Math.max(...previas);
+  return (n > max * 1.5 || n < min / 1.5) ? { min, max, total: recientes.length } : null;
 };
 // Fecha de hoy en hora de Mexico (America/Mexico_City), NO UTC -- antes esto
 // era new Date().toISOString().slice(0,10), que da la fecha en UTC sin

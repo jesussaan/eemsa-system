@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { authHeaders } from "../lib/auth";
-import { today, uid, siguienteNumPedido, unificarPorTexto, normalizarMedida, cargarBorrador, guardarBorrador, ultimoPedidoDeCliente, avisoMedidaCliente } from "../lib/utils";
+import { today, uid, siguienteNumPedido, unificarPorTexto, normalizarMedida, cargarBorrador, guardarBorrador, ultimoPedidoDeCliente, avisoMedidaCliente, avisoCajasCliente, avisoTintaCliente } from "../lib/utils";
 import { rollosPorCaja } from "../lib/produccion";
 import { TIPOS, REBOB_CLIENTE } from "../lib/constants";
 import { sendWhatsApp, mensajePedidoNuevo } from "../utils/whatsapp";
@@ -75,8 +75,18 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
   // ultimo pedido (tipo, medida, cajas, tintas) -- mismo criterio que
   // Pedidos.js: solo si Medida sigue vacia o trae lo que se autolleno antes.
   const [medidaAutollenada, setMedidaAutollenada] = useState(null);
-  const avisoMedida = avisoMedidaCliente(pedidos.filter(p => p.cliente !== REBOB_CLIENTE), form.cliente, form.medida);
-  const textoAvisoMedida = avisoMedida && `${form.cliente.trim()} no ha pedido esta medida en sus últimos ${avisoMedida.total} pedidos — normalmente pide ${avisoMedida.habitual}`;
+  // Avisos (no bloquean) cuando medida, cajas o tinta no cuadran con lo que
+  // ese cliente pide siempre -- ver avisoMedidaCliente y compania en utils.js.
+  const pedidosDeClientes = pedidos.filter(p => p.cliente !== REBOB_CLIENTE);
+  const nombreCliente = form.cliente.trim();
+  const avisoMedida = avisoMedidaCliente(pedidosDeClientes, form.cliente, form.medida);
+  const avisoCajas  = avisoCajasCliente(pedidosDeClientes, form.cliente, form.cajas);
+  const avisoTinta  = avisoTintaCliente(pedidosDeClientes, form.cliente, form.tinta_tipo);
+  const textoAvisoMedida = avisoMedida && `${nombreCliente} no ha pedido esta medida en sus últimos ${avisoMedida.total} pedidos — normalmente pide ${avisoMedida.habitual}`;
+  const textoAvisoCajas  = avisoCajas && `${nombreCliente} normalmente pide ${avisoCajas.min === avisoCajas.max ? avisoCajas.min : `entre ${avisoCajas.min} y ${avisoCajas.max}`} cajas`;
+  const textoAvisoTinta  = avisoTinta && `${nombreCliente} no ha usado esta tinta en sus últimos ${avisoTinta.total} pedidos — normalmente lleva ${avisoTinta.habitual}`;
+  const avisosPedido = [textoAvisoMedida, textoAvisoCajas, textoAvisoTinta].filter(Boolean);
+  const estiloAviso = { fontSize:12, color:"#ff9900", marginTop:5, fontWeight:600 };
   const cambiarCliente = (v) => {
     const ult = ultimoPedidoDeCliente(pedidos.filter(p => p.cliente !== REBOB_CLIENTE), v);
     const puedeLlenar = !form.medida || form.medida === medidaAutollenada;
@@ -319,12 +329,13 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
                 <div>
                   <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Medida *</label>
                   <input value={form.medida} onChange={e=>upd("medida",e.target.value)} placeholder="Ej: 2x100" style={{ ...inputStyle, ...campoEstilo(form.medida) }} />
-                  {textoAvisoMedida && <div style={{ fontSize:12, color:"var(--orange, #ff9900)", marginTop:5, fontWeight:600 }}>⚠ {textoAvisoMedida}</div>}
+                  {textoAvisoMedida && <div style={estiloAviso}>⚠ {textoAvisoMedida}</div>}
                 </div>
 
                 <div>
                   <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Cajas *</label>
                   <input type="number" min="0" value={form.cajas} onChange={e=>upd("cajas",e.target.value)} placeholder="0" style={{ ...inputStyle, ...campoEstilo(form.cajas) }} />
+                  {textoAvisoCajas && <div style={estiloAviso}>⚠ {textoAvisoCajas}</div>}
                 </div>
 
                 <div>
@@ -341,6 +352,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
                   <label style={{ fontSize:12, color:"var(--text-2)", display:"block", marginBottom:5, fontWeight:600 }}>Tinta</label>
                   <input value={form.tinta_tipo} onChange={e=>upd("tinta_tipo",e.target.value)} placeholder="Ej: Roja UV, Azul PMS…" style={{ ...inputStyle, ...campoEstilo(form.tinta_tipo) }} list="tintas-list-ventas" />
                   <datalist id="tintas-list-ventas">{tintasSugeridas.map(t => <option key={t} value={t} />)}</datalist>
+                  {textoAvisoTinta && <div style={estiloAviso}>⚠ {textoAvisoTinta}</div>}
                 </div>
 
                 <div>
@@ -377,7 +389,12 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
               return (
                 <div>
                   <div style={{ fontSize:11, color:"var(--green)", fontWeight:700, letterSpacing:1, marginBottom:14, textTransform:"uppercase" }}>Revisa antes de guardar</div>
-                  {textoAvisoMedida && <div style={{ padding:"10px 12px", marginBottom:12, borderRadius:8, border:"1px solid #ff9900", background:"#ff990018", color:"#ff9900", fontSize:13, fontWeight:700 }}>⚠ {textoAvisoMedida}. ¿Seguro que es {normalizarMedida(form.medida)}?</div>}
+                  {avisosPedido.length > 0 && (
+                    <div style={{ padding:"10px 12px", marginBottom:12, borderRadius:8, border:"1px solid #ff9900", background:"#ff990018", color:"#ff9900", fontSize:13, fontWeight:700, display:"grid", gap:6 }}>
+                      {avisosPedido.map(t => <div key={t}>⚠ {t}</div>)}
+                      <div style={{ fontWeight:600 }}>Revisa que esté bien antes de guardar.</div>
+                    </div>
+                  )}
                   <div style={{ display:"grid", gap:8, marginBottom:14 }}>
                     {filas.map(([lbl, val]) => (
                       <div key={lbl} style={{ display:"flex", justifyContent:"space-between", padding:"9px 12px", background:"var(--surface)", borderRadius:8, fontSize:13 }}>

@@ -3,7 +3,7 @@ import ClicheImg from './ClicheImg';
 import CalculadoraProduccion from './CalculadoraProduccion';
 import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
-import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada, unificarPorTexto, normalizarMedida, ultimoPedidoDeCliente, avisoMedidaCliente } from '../lib/utils';
+import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada, unificarPorTexto, normalizarMedida, ultimoPedidoDeCliente, avisoMedidaCliente, avisoCajasCliente, avisoTintaCliente } from '../lib/utils';
 import { rollosPorCaja, anchoDePedido, largoDePedido } from '../lib/produccion';
 import { horasEfectivasPedido, JORNADA_HORAS } from '../lib/horario';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT, REBOB_CLIENTE } from '../lib/constants';
@@ -126,6 +126,9 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   // pisar algo que ya escribieron a mano.
   const autollenadoRef = useRef(null);
   const avisoMedida = avisoMedidaCliente(pedidos, form.cliente, form.medida);
+  const avisoCajas  = avisoCajasCliente(pedidos, form.cliente, form.cajas);
+  const avisoTinta  = avisoTintaCliente(pedidos, form.cliente, form.color);
+  const estiloAviso = { fontSize: 12, color: "#ff9900", marginTop: 4, fontWeight: 600 };
   const cambiarCliente = (v) => {
     const ult = ultimoPedidoDeCliente(pedidos, v);
     const puedeLlenar = !form.medida || form.medida === autollenadoRef.current;
@@ -501,14 +504,17 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
         <div className="field"><label>No. Pedido * <span style={{ color: "#666", fontWeight: 400 }}>(sugerido)</span></label><input value={form.num} onChange={e => upd("num", e.target.value)} placeholder="84, 85…" /></div>
         <div className="field"><label>Tipo cinta</label><select value={form.tipo} onChange={e => upd("tipo", e.target.value)}>{TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
         <div className="field"><label>Medida *</label><input className={form.medida ? 'campo-listo' : 'campo-pendiente'} value={form.medida} onChange={e => upd("medida", e.target.value)} placeholder='2"x100' />
-          {avisoMedida && <div style={{ fontSize: 12, color: "#ff9900", marginTop: 4, fontWeight: 600 }}>⚠ {form.cliente.trim()} no ha pedido esta medida en sus últimos {avisoMedida.total} pedidos — normalmente pide {avisoMedida.habitual}</div>}
+          {avisoMedida && <div style={estiloAviso}>⚠ {form.cliente.trim()} no ha pedido esta medida en sus últimos {avisoMedida.total} pedidos — normalmente pide {avisoMedida.habitual}</div>}
         </div>
-        <div className="field"><label>Cajas solicitadas *</label><input className={form.cajas ? 'campo-listo' : 'campo-pendiente'} type="number" value={form.cajas} onChange={e => upd("cajas", e.target.value)} placeholder="50" /></div>
+        <div className="field"><label>Cajas solicitadas *</label><input className={form.cajas ? 'campo-listo' : 'campo-pendiente'} type="number" value={form.cajas} onChange={e => upd("cajas", e.target.value)} placeholder="50" />
+          {avisoCajas && <div style={estiloAviso}>⚠ {form.cliente.trim()} normalmente pide {avisoCajas.min === avisoCajas.max ? avisoCajas.min : `entre ${avisoCajas.min} y ${avisoCajas.max}`} cajas</div>}
+        </div>
         <div className="field"><label>Rollos por caja <span style={{ color: "#666", fontWeight: 400 }}>(automático de tipo + medida)</span></label><input type="number" readOnly value={form.rollos_caja} placeholder="36" style={{ background: "#1a2744", color: "#c9922a" }} /></div>
         <div className="field"><label>Rollos / piezas totales <span style={{ color: "#666", fontWeight: 400 }}>(automático)</span></label><input type="number" readOnly value={form.rollos_totales} placeholder="Cajas × Rollos/caja" style={{ background: "#1a2744", color: "#c9922a" }} /></div>
         <div className="field"><label>Color impresión</label>
           <input className={form.color ? 'campo-listo' : 'campo-pendiente'} value={form.color} onChange={e => upd("color", e.target.value)} placeholder="Rojo PMS 485" list="tintas-list-nuevo" />
           <datalist id="tintas-list-nuevo">{tintasSugeridas.map(t => <option key={t} value={t} />)}</datalist>
+          {avisoTinta && <div style={estiloAviso}>⚠ {form.cliente.trim()} no ha usado esta tinta en sus últimos {avisoTinta.total} pedidos — normalmente lleva {avisoTinta.habitual}</div>}
         </div>
         <div className="field"><label>2do color (opcional)</label><input value={form.color2} onChange={e => upd("color2", e.target.value)} placeholder="Solo si el pedido lleva 2 tintas" /></div>
         <div className="field full"><label>📷 Foto del cliché</label><input type="file" accept="image/*" onChange={e => { const f = e.target.files[0]; if (!f) return; setClicheImg(f); setClichePreview(URL.createObjectURL(f)); }} />{clichePreview && <img src={clichePreview} alt="cliché" style={{ width: "100%", maxWidth: 260, marginTop: 8, borderRadius: 8, border: "1px solid #2a2d3a" }} />}</div>

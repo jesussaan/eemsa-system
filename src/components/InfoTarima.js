@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { fmt } from "../lib/utils";
 
-// Publica (sin login): las tablas materiales/tarimas/movimientos_inventario_mp
-// ya tienen lectura abierta a la anon key (ver supabase_inventario_mp.sql),
-// que es la misma key que ya trae el bundle del sitio -- no se expone nada
-// que no estuviera ya accesible, solo se presenta bonito para quien escanee
-// el QR con la camara normal del celular (no hace falta entrar a la app).
+// Publica (sin login): la anon key lee tarimas completa y SOLO las columnas
+// de materiales y movimientos_inventario_mp que se muestran aqui (sin costos
+// ni correos, ver supabase_seguridad_fase1b.sql) -- por eso los select van
+// con columnas explicitas y no con "*". Pensada para quien escanee el QR con
+// la camara normal del celular (no hace falta entrar a la app).
 const CONTENEDOR = {
   rollo_mp: { label: "Tarima", icon: "🧱" },
   centro:   { label: "Caja",   icon: "📦" },
@@ -34,9 +34,9 @@ export default function InfoTarima({ id }) {
       if (!activo) return;
       if (error || !t) { setEstado("invalido"); return; }
       setTarima(t);
-      const { data: m } = await supabase.from("materiales").select("*").eq("id", t.material_id).single();
+      const { data: m } = await supabase.from("materiales").select("id, nombre, unidad, stock_min, categoria, match_valor").eq("id", t.material_id).single();
       if (activo) setMaterial(m || null);
-      const { data: movs } = await supabase.from("movimientos_inventario_mp").select("*").eq("tarima_id", id).order("created", { ascending: false }).limit(8);
+      const { data: movs } = await supabase.from("movimientos_inventario_mp").select("id, created, material_id, tarima_id, tipo, cantidad, origen").eq("tarima_id", id).order("created", { ascending: false }).limit(8);
       if (activo) setMovimientos(movs || []);
       if (activo) setEstado("ok");
     })();

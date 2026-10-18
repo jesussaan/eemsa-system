@@ -9,17 +9,14 @@ import {
 } from '../src/lib/jarvis.js';
 import { META_CAJAS } from '../src/lib/constants.js';
 
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.REACT_APP_SUPABASE_KEY
-);
-
-// refacciones/proveedores ya no aceptan escritura de la anon key (RLS) —
-// estas herramientas usan la service key para seguir funcionando.
+// La anon key ya no lee casi ninguna tabla (supabase_seguridad_fase1b.sql)
+// -- todo este archivo lee y escribe con la service key. Quien puede ver
+// que lo decide el gate de cada rama (requiereAlgunModo / tieneAccesoModulo).
 const supabaseAdmin = createClient(
   process.env.REACT_APP_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
+const supabase = supabaseAdmin;
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 // Antes: new Date().toISOString().slice(0,10) -- daba la fecha en UTC, no en

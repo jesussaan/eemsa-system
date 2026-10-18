@@ -1,4 +1,4 @@
-import { unificarPorTexto, normalizarMedida, ultimoPedidoDeCliente, avisoMedidaCliente } from './utils';
+import { unificarPorTexto, normalizarMedida, ultimoPedidoDeCliente, avisoMedidaCliente, avisoTintaCliente, avisoCajasCliente } from './utils';
 
 describe('unificarPorTexto', () => {
   test('valor nuevo que no existe se guarda tal cual', () => {
@@ -78,5 +78,38 @@ describe('avisoMedidaCliente', () => {
   test('no avisa a media escritura ni con clientes de menos de 2 pedidos', () => {
     expect(avisoMedidaCliente(ariat, 'ARIAT', '2')).toBeNull();
     expect(avisoMedidaCliente(ariat.slice(0, 1), 'ARIAT', '2x100')).toBeNull();
+  });
+});
+
+describe('avisoTintaCliente', () => {
+  const ariat = [
+    { num: '140', cliente: 'ARIAT', tinta_tipo: 'NEGRO', fecha_solicitud: '2026-08-25' },
+    { num: '151', cliente: 'ARIAT', color: 'NEGRO', fecha_solicitud: '2026-09-25' },
+  ];
+
+  test('avisa con una tinta que no ha usado, y dice cual usa (tal como se guardo)', () => {
+    expect(avisoTintaCliente(ariat, 'ARIAT', 'Rojo')).toEqual({ habitual: 'NEGRO', veces: 2, total: 2 });
+  });
+
+  test('no avisa con la misma tinta en minusculas, ni con tinta vacia', () => {
+    expect(avisoTintaCliente(ariat, 'ARIAT', ' negro ')).toBeNull();
+    expect(avisoTintaCliente(ariat, 'ARIAT', '')).toBeNull();
+  });
+});
+
+describe('avisoCajasCliente', () => {
+  const ariat = [
+    { num: '140', cliente: 'ARIAT', cajas: 8, fecha_solicitud: '2026-08-25' },
+    { num: '151', cliente: 'ARIAT', cajas: 10, fecha_solicitud: '2026-09-25' },
+  ];
+
+  test('avisa si se pasa mucho o se queda muy corto de su rango', () => {
+    expect(avisoCajasCliente(ariat, 'ARIAT', '100')).toEqual({ min: 8, max: 10, total: 2 });
+    expect(avisoCajasCliente(ariat, 'ARIAT', '3')).toEqual({ min: 8, max: 10, total: 2 });
+  });
+
+  test('no avisa dentro de un margen razonable', () => {
+    expect(avisoCajasCliente(ariat, 'ARIAT', '12')).toBeNull();
+    expect(avisoCajasCliente(ariat, 'ARIAT', '6')).toBeNull();
   });
 });
