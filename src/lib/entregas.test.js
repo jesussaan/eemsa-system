@@ -1,9 +1,11 @@
-import { tasasProduccion, simularCola, fechaEntregaSugerida, compararPorEntrega, programarProduccion, impactoPedidoNuevo } from './entregas';
+import { horasEstimadas, RITMO_PLANTA, simularCola, fechaEntregaSugerida, compararPorEntrega, programarProduccion, impactoPedidoNuevo } from './entregas';
 import { sumarHorasHabiles, sumarDiasHabiles, fechaLocalISO } from './horario';
 
 // Lunes 19 oct 2026, 8:00 (hora local)
 const LUNES_8AM = new Date(2026, 9, 19, 8, 0);
-const TASA_FIJA = { porMedida: {}, general: 1.5 };
+// Ritmo de prueba: 1.5 cajas/hora parejo y sin arranque (14.625 cajas en la
+// jornada de 9.75h), para que los casos se puedan sacar a mano.
+const TASA_FIJA = { arranqueHoras: 0, cajasDia1Tinta: 14.625, cajasDia2Tintas: 14.625 };
 
 describe('sumarHorasHabiles / sumarDiasHabiles', () => {
   test('lo que no cabe en el dia sigue al dia habil siguiente', () => {
@@ -54,12 +56,15 @@ describe('simularCola / fechaEntregaSugerida', () => {
   });
 });
 
-describe('tasasProduccion', () => {
-  test('usa las cajas por hora reales por medida', () => {
-    const hecho = (n) => ({ num: String(n), cliente: 'X', status: 'terminado', medida: '2"x100', cajas: 6, inicio_ts: new Date(2026, 9, 19, 8, 0).toISOString(), fin_ts: new Date(2026, 9, 19, 12, 0).toISOString() });
-    const t = tasasProduccion([hecho(1), hecho(2), hecho(3)]);
-    expect(t.porMedida['2"x100']).toBeCloseTo(1.5);
-    expect(t.general).toBeCloseTo(1.5);
+describe('horasEstimadas (ritmo de planta)', () => {
+  test('12 cajas de una tinta llenan un dia completo, con su hora de arranque', () => {
+    expect(horasEstimadas({ cajas: 12 }, RITMO_PLANTA)).toBeCloseTo(9.75);
+  });
+  test('con 2 tintas un dia completo son 10 cajas', () => {
+    expect(horasEstimadas({ cajas: 10, color2: 'Negro' }, RITMO_PLANTA)).toBeCloseTo(9.75);
+  });
+  test('un pedido chico pesa mas por el arranque (3 cajas ~3.2h)', () => {
+    expect(horasEstimadas({ cajas: 3 }, RITMO_PLANTA)).toBeCloseTo(1 + 3 * 8.75 / 12);
   });
 });
 

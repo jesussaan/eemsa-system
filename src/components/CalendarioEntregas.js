@@ -4,7 +4,7 @@ import { today } from "../lib/utils";
 import { STATUS_PED, REBOB_CLIENTE } from "../lib/constants";
 import CalendarGrid from "./CalendarGrid";
 import BadgeUrgente from "./BadgeUrgente";
-import { tasasProduccion, simularCola, fechaCorta } from "../lib/entregas";
+import { ritmoProduccion, simularCola, fechaCorta } from "../lib/entregas";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
@@ -27,7 +27,7 @@ export default function CalendarioEntregas({ pedidos: pedidosProp, setPedidos })
   // Cuando terminaria cada pedido con la cola y lo que saca la maquina, y si
   // ya no alcanza su fecha (lib/entregas.js) -- tambien da la fecha
   // calculada para los que no tienen.
-  const tasas = useMemo(() => tasasProduccion(pedidosProp), [pedidosProp]);
+  const tasas = ritmoProduccion();
   const cola  = useMemo(() => simularCola(pedidosProp, tasas), [pedidosProp, tasas]);
   const fechaPara = p => fechaTemp[p.id] || cola[p.id]?.fechaSugerida || "";
   const sinFecha = pedidosActivos.filter(p => !p.fecha_estimada);

@@ -10,7 +10,7 @@ import { horasEfectivasPedido, JORNADA_HORAS } from '../lib/horario';
 import { sendPush } from '../lib/push';
 import { notificar } from '../lib/notificaciones';
 import { COMPS, SEV, UMBRAL_MERMA, REBOB_CLIENTE } from '../lib/constants';
-import { tasasProduccion, programarProduccion, fechaCorta, esManual } from '../lib/entregas';
+import { ritmoProduccion, programarProduccion, fechaCorta, esManual } from '../lib/entregas';
 import { chipColor } from '../lib/colores';
 import BadgeUrgente from './BadgeUrgente';
 import { sendWhatsApp } from '../utils/whatsapp';
@@ -37,7 +37,7 @@ export default function ModoOperador({ pedidos, setPedidos, fallas, setFallas, c
   // Se puede cambiar a mano con las flechas (ver moverPedido): lo movido
   // queda fijo y el programa acomoda el resto despues. cola[id] dice cuando
   // terminaria cada uno y si ya no alcanza su fecha.
-  const tasasCola = useMemo(() => tasasProduccion(pedidos), [pedidos]);
+  const tasasCola = ritmoProduccion();
   const programa = useMemo(() => programarProduccion(pedidos, tasasCola), [pedidos, tasasCola]);
   const cola = programa.porId;
   const pedidosAnotados = programa.anotadosEnOrden;

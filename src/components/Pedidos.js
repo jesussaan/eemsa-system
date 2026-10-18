@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import ClicheImg from './ClicheImg';
 import CalculadoraProduccion from './CalculadoraProduccion';
 import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
 import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada, unificarPorTexto, normalizarMedida, ultimoPedidoDeCliente, avisoMedidaCliente, avisoCajasCliente, avisoTintaCliente, avisoTipoCliente } from '../lib/utils';
 import { rollosPorCaja, anchoDePedido, largoDePedido } from '../lib/produccion';
-import { tasasProduccion, fechaEntregaSugerida, fechaCorta } from '../lib/entregas';
+import { ritmoProduccion, fechaEntregaSugerida, fechaCorta } from '../lib/entregas';
 import { horasEfectivasPedido, JORNADA_HORAS } from '../lib/horario';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT, REBOB_CLIENTE } from '../lib/constants';
 import { sendWhatsApp, mensajePedidoNuevo } from '../utils/whatsapp';
@@ -128,7 +128,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   const autollenadoRef = useRef(null);
   // Fecha de entrega automatica para un pedido anotado (cola + lo que saca
   // la maquina, ver lib/entregas.js) -- si no se escribe una a mano, se usa esta.
-  const tasasEntrega = useMemo(() => tasasProduccion(pedidosProp), [pedidosProp]);
+  const tasasEntrega = ritmoProduccion();
   const fechaSugerida = form.status === "anotado"
     ? fechaEntregaSugerida(pedidos, { medida: normalizarMedida(form.medida), cajas: form.cajas, maq: form.maq, color: form.color, color2: form.color2 }, tasasEntrega)
     : null;

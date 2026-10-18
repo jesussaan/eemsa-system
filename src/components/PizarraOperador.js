@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../lib/supabase";
 import { alertaEntrega } from "../lib/utils";
 import { REBOB_CLIENTE, PEDIDOS_COLUMNAS_PUBLICAS } from "../lib/constants";
-import { tasasProduccion, programarProduccion } from "../lib/entregas";
+import { ritmoProduccion, programarProduccion } from "../lib/entregas";
 import { chipColor } from "../lib/colores";
 import BadgeUrgente from "./BadgeUrgente";
 
@@ -27,9 +27,6 @@ const ColorChip = ({ color }) => {
 
 export default function PizarraOperador() {
   const [pedidos, setPedidos] = useState([]);
-  // Pedidos ya terminados con sus tiempos -- solo para saber cuanto saca la
-  // maquina y armar el mismo programa que Modo Operador.
-  const [historial, setHistorial] = useState([]);
   const [cargado, setCargado] = useState(false);
   const [ahora, setAhora] = useState(new Date());
 
@@ -49,12 +46,8 @@ export default function PizarraOperador() {
     // -- los jumbos que se planean en Modo Rebobinado tambien usan status
     // "anotado"/"proceso" (ver Rebobinado.js), asi que se excluyen aqui
     // para que no se mezclen con los pedidos reales.
-    const [{ data }, { data: hechos }] = await Promise.all([
-      supabase.from("pedidos").select(PEDIDOS_COLUMNAS_PUBLICAS).in("status", ["anotado", "proceso"]).neq("cliente", REBOB_CLIENTE),
-      supabase.from("pedidos").select("cliente, status, medida, cajas, piezas_prod, rollos_caja, inicio_ts, fin_ts, pausas").eq("status", "terminado").not("fin_ts", "is", null).order("fin_ts", { ascending: false }).limit(300),
-    ]);
+    const { data } = await supabase.from("pedidos").select(PEDIDOS_COLUMNAS_PUBLICAS).in("status", ["anotado", "proceso"]).neq("cliente", REBOB_CLIENTE);
     setPedidos(data || []);
-    setHistorial(hechos || []);
     setCargado(true);
   };
 
@@ -78,8 +71,8 @@ export default function PizarraOperador() {
   // Mismo programa que Modo Operador: de tinta clara a intensa, sin que
   // ningun pedido llegue tarde (lib/entregas.js).
   const pedidosAnotados = useMemo(
-    () => programarProduccion(pedidos, tasasProduccion(historial)).anotadosEnOrden,
-    [pedidos, historial]
+    () => programarProduccion(pedidos, ritmoProduccion()).anotadosEnOrden,
+    [pedidos]
   );
 
   const card = { background: "#181b24", borderRadius: 14, padding: 18, marginBottom: 14 };

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { authHeaders } from "../lib/auth";
 import { today, uid, siguienteNumPedido, unificarPorTexto, normalizarMedida, cargarBorrador, guardarBorrador, ultimoPedidoDeCliente, avisoMedidaCliente, avisoCajasCliente, avisoTintaCliente, avisoTipoCliente } from "../lib/utils";
 import { rollosPorCaja } from "../lib/produccion";
-import { tasasProduccion, programarProduccion, fechaEntregaSugerida, fechaCorta, esManual, impactoPedidoNuevo } from "../lib/entregas";
+import { ritmoProduccion, programarProduccion, fechaEntregaSugerida, fechaCorta, esManual, impactoPedidoNuevo } from "../lib/entregas";
 import { sendPush } from "../lib/push";
 import { chipColor as hexDeTinta } from "../lib/colores";
 import { TIPOS, REBOB_CLIENTE } from "../lib/constants";
@@ -156,7 +156,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
   // Fecha de entrega automatica (ver lib/entregas.js): la cola de la maquina
   // + lo que de verdad saca por hora. cola[id] dice cuando terminaria cada
   // pedido activo y si ya no alcanza su fecha prometida.
-  const tasas = useMemo(() => tasasProduccion(pedidos), [pedidos]);
+  const tasas = ritmoProduccion();
   const programa = useMemo(() => programarProduccion(pedidos, tasas), [pedidos, tasas]);
   const cola = programa.porId;
   const enMaquina = pedActivos.filter(p => p.status === "proceso");
