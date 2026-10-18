@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { authHeaders } from "../lib/auth";
-import { today, uid, siguienteNumPedido, unificarPorTexto, normalizarMedida, cargarBorrador, guardarBorrador, ultimoPedidoDeCliente, avisoMedidaCliente, avisoCajasCliente, avisoTintaCliente } from "../lib/utils";
+import { today, uid, siguienteNumPedido, unificarPorTexto, normalizarMedida, cargarBorrador, guardarBorrador, ultimoPedidoDeCliente, avisoMedidaCliente, avisoCajasCliente, avisoTintaCliente, avisoTipoCliente } from "../lib/utils";
 import { rollosPorCaja } from "../lib/produccion";
 import { TIPOS, REBOB_CLIENTE } from "../lib/constants";
 import { sendWhatsApp, mensajePedidoNuevo } from "../utils/whatsapp";
@@ -84,10 +84,12 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
   const avisoMedida = avisoMedidaCliente(pedidosDeClientes, form.cliente, form.medida);
   const avisoCajas  = avisoCajasCliente(pedidosDeClientes, form.cliente, form.cajas);
   const avisoTinta  = avisoTintaCliente(pedidosDeClientes, form.cliente, form.tinta_tipo);
+  const avisoTipo   = avisoTipoCliente(pedidosDeClientes, form.cliente, form.tipo);
   const textoAvisoMedida = avisoMedida && `${nombreCliente} no ha pedido esta medida en sus últimos ${avisoMedida.total} pedidos — normalmente pide ${avisoMedida.habitual}`;
   const textoAvisoCajas  = avisoCajas && `${nombreCliente} normalmente pide ${avisoCajas.min === avisoCajas.max ? avisoCajas.min : `entre ${avisoCajas.min} y ${avisoCajas.max}`} cajas`;
   const textoAvisoTinta  = avisoTinta && `${nombreCliente} no ha usado esta tinta en sus últimos ${avisoTinta.total} pedidos — normalmente lleva ${avisoTinta.habitual}`;
-  const avisosPedido = [textoAvisoMedida, textoAvisoCajas, textoAvisoTinta].filter(Boolean);
+  const textoAvisoTipo   = avisoTipo && `${nombreCliente} no ha pedido cinta ${form.tipo} en sus últimos ${avisoTipo.total} pedidos — normalmente pide ${avisoTipo.habitual}`;
+  const avisosPedido = [textoAvisoTipo, textoAvisoMedida, textoAvisoCajas, textoAvisoTinta].filter(Boolean);
   const estiloAviso = { fontSize:12, color:"#ff9900", marginTop:5, fontWeight:600 };
   const cambiarCliente = (v) => {
     const ult = ultimoPedidoDeCliente(pedidos.filter(p => p.cliente !== REBOB_CLIENTE), v);
@@ -338,6 +340,7 @@ export default function ModoVentas({ pedidos, setPedidos, clientesDisenos = [], 
                   <select value={form.tipo} onChange={e=>upd("tipo",e.target.value)} onClick={() => setTipoTocado(true)} style={{ ...inputStyle, ...campoEstilo(tipoTocado) }}>
                     {TIPOS.map(t => <option key={t}>{t}</option>)}
                   </select>
+                  {textoAvisoTipo && <div style={estiloAviso}>⚠ {textoAvisoTipo}</div>}
                 </div>
 
                 <div>

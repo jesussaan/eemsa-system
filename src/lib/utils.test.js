@@ -1,4 +1,4 @@
-import { unificarPorTexto, normalizarMedida, ultimoPedidoDeCliente, avisoMedidaCliente, avisoTintaCliente, avisoCajasCliente } from './utils';
+import { unificarPorTexto, normalizarMedida, ultimoPedidoDeCliente, avisoMedidaCliente, avisoTintaCliente, avisoCajasCliente, avisoTipoCliente } from './utils';
 
 describe('unificarPorTexto', () => {
   test('valor nuevo que no existe se guarda tal cual', () => {
@@ -111,5 +111,20 @@ describe('avisoCajasCliente', () => {
   test('no avisa dentro de un margen razonable', () => {
     expect(avisoCajasCliente(ariat, 'ARIAT', '12')).toBeNull();
     expect(avisoCajasCliente(ariat, 'ARIAT', '6')).toBeNull();
+  });
+});
+
+describe('avisoTipoCliente', () => {
+  const ariat = [
+    { num: '140', cliente: 'ARIAT', tipo: 'Canela', fecha_solicitud: '2026-08-25' },
+    { num: '151', cliente: 'ARIAT', tipo: 'Canela', fecha_solicitud: '2026-09-25' },
+  ];
+
+  test('avisa si se queda en Blanca con un cliente que siempre pide Canela', () => {
+    expect(avisoTipoCliente(ariat, 'ARIAT', 'Blanca')).toEqual({ habitual: 'Canela', veces: 2, total: 2 });
+  });
+
+  test('no avisa con el tipo de siempre', () => {
+    expect(avisoTipoCliente(ariat, 'ARIAT', 'Canela')).toBeNull();
   });
 });

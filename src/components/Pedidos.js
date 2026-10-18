@@ -3,7 +3,7 @@ import ClicheImg from './ClicheImg';
 import CalculadoraProduccion from './CalculadoraProduccion';
 import { supabase } from '../lib/supabase';
 import { authHeaders } from '../lib/auth';
-import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada, unificarPorTexto, normalizarMedida, ultimoPedidoDeCliente, avisoMedidaCliente, avisoCajasCliente, avisoTintaCliente } from '../lib/utils';
+import { uid, today, diasHabilesRestantes, estadoPlazo, alertaEntrega, siguienteNumPedido, subirConUrlFirmada, unificarPorTexto, normalizarMedida, ultimoPedidoDeCliente, avisoMedidaCliente, avisoCajasCliente, avisoTintaCliente, avisoTipoCliente } from '../lib/utils';
 import { rollosPorCaja, anchoDePedido, largoDePedido } from '../lib/produccion';
 import { horasEfectivasPedido, JORNADA_HORAS } from '../lib/horario';
 import { MAQUINAS, TIPOS, OPERADORES, STATUS_PED, META_MERMA_PCT, REBOB_CLIENTE } from '../lib/constants';
@@ -128,6 +128,7 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
   const avisoMedida = avisoMedidaCliente(pedidos, form.cliente, form.medida);
   const avisoCajas  = avisoCajasCliente(pedidos, form.cliente, form.cajas);
   const avisoTinta  = avisoTintaCliente(pedidos, form.cliente, form.color);
+  const avisoTipo   = avisoTipoCliente(pedidos, form.cliente, form.tipo);
   const estiloAviso = { fontSize: 12, color: "#ff9900", marginTop: 4, fontWeight: 600 };
   const cambiarCliente = (v) => {
     const ult = ultimoPedidoDeCliente(pedidos, v);
@@ -502,7 +503,9 @@ export default function Pedidos({ pedidos: pedidosProp, setPedidos }) {
           <datalist id="clientes-list">{clientesSugeridos.map(c => <option key={c} value={c} />)}</datalist>
         </div>
         <div className="field"><label>No. Pedido * <span style={{ color: "#666", fontWeight: 400 }}>(sugerido)</span></label><input value={form.num} onChange={e => upd("num", e.target.value)} placeholder="84, 85…" /></div>
-        <div className="field"><label>Tipo cinta</label><select value={form.tipo} onChange={e => upd("tipo", e.target.value)}>{TIPOS.map(t => <option key={t}>{t}</option>)}</select></div>
+        <div className="field"><label>Tipo cinta</label><select value={form.tipo} onChange={e => upd("tipo", e.target.value)}>{TIPOS.map(t => <option key={t}>{t}</option>)}</select>
+          {avisoTipo && <div style={estiloAviso}>⚠ {form.cliente.trim()} no ha pedido cinta {form.tipo} en sus últimos {avisoTipo.total} pedidos — normalmente pide {avisoTipo.habitual}</div>}
+        </div>
         <div className="field"><label>Medida *</label><input className={form.medida ? 'campo-listo' : 'campo-pendiente'} value={form.medida} onChange={e => upd("medida", e.target.value)} placeholder='2"x100' />
           {avisoMedida && <div style={estiloAviso}>⚠ {form.cliente.trim()} no ha pedido esta medida en sus últimos {avisoMedida.total} pedidos — normalmente pide {avisoMedida.habitual}</div>}
         </div>

@@ -129,6 +129,16 @@ export const avisoTintaCliente = (pedidos, cliente, tinta) => {
   return recientes && avisoValorNuevo(recientes, tinta, p => p.tinta_tipo || p.color, clave);
 };
 
+// Tipo de cinta (Blanca, Canela, Transparente, Engomado): el select siempre
+// trae uno (Blanca por default), asi que tambien avisa si se quedo en Blanca
+// sin tocar con un cliente que siempre pide Canela.
+export const avisoTipoCliente = (pedidos, cliente, tipo) => {
+  const clave = v => String(v ?? '').trim().toLowerCase();
+  if (!clave(tipo)) return null;
+  const recientes = recientesParaAviso(pedidos, cliente);
+  return recientes && avisoValorNuevo(recientes, tipo, p => p.tipo, clave);
+};
+
 // Cajas: avisa si se sale del rango de sus ultimos pedidos por mas de la
 // mitad (ARIAT siempre 10 -> avisa con 100 o con 5, no con 12). Devuelve
 // { min, max, total } o null.
