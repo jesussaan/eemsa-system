@@ -481,19 +481,19 @@ export default function ModoHerramienta({ onSalir, tipoInicial, cajaInicial }) {
           </div>
           <div className="herr-qr-lista" style={{ display: "flex", flexWrap: "wrap", gap: 16, padding: 16, justifyContent: "center" }}>
             {qrDe.tipo ? (
-              <div className="herr-qr-card" style={{ border: "2px solid #111", borderRadius: 12, padding: 14, textAlign: "center", width: 220, boxSizing: "border-box" }}>
+              <div className="herr-qr-card" style={{ border: "2px solid #111", borderRadius: 12, padding: 10, textAlign: "center", width: 220, boxSizing: "border-box" }}>
                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".1em", color: "#666" }}>EEMSA · HERRAMIENTA</div>
                 <div style={{ fontSize: 19, fontWeight: 900, margin: "4px 0 10px" }}>{qrDe.tipo.nombre}</div>
-                <QRCodeSVG value={urlQR(qrDe.tipo.id)} size={170} />
+                <QRCodeSVG value={urlQR(qrDe.tipo.id)} size={140} />
                 <div style={{ fontSize: 11, color: "#444", marginTop: 8 }}>{qrDe.tipo.cantidad ? `Piezas #1 a #${qrDe.tipo.cantidad}` : ""}{cajaDe(qrDe.tipo) ? ` · ${nombreCaja(cajaDe(qrDe.tipo))}` : ""}</div>
                 <div style={{ fontSize: 10, color: "#888", marginTop: 4 }}>Escanéalo para sacar o regresar</div>
               </div>
-            ) : (qrDe === "todos" ? cajas : [qrDe.caja]).map(c => (
-              <div key={c.id} className="herr-qr-card" style={{ border: "2px solid #111", borderTop: `10px solid ${c.color || "#111"}`, borderRadius: 12, padding: 14, textAlign: "center", width: 220, boxSizing: "border-box" }}>
+            ) : (qrDe === "todos" ? bloques.flatMap(b => b.cajas) : [qrDe.caja]).map(c => (
+              <div key={c.id} className="herr-qr-card" style={{ border: "2px solid #111", borderTop: `10px solid ${c.color || "#111"}`, borderRadius: 12, padding: 10, textAlign: "center", width: 220, boxSizing: "border-box" }}>
                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".1em", color: "#666" }}>EEMSA · HERRAMIENTA</div>
                 {c.grupo && <div style={{ fontSize: 13, fontWeight: 800, color: "#444", marginTop: 4 }}>{c.grupo}</div>}
                 <div style={{ fontSize: 19, fontWeight: 900, margin: c.grupo ? "0 0 10px" : "4px 0 10px" }}>{c.nombre}</div>
-                <QRCodeSVG value={urlQRCaja(c.id)} size={170} />
+                <QRCodeSVG value={urlQRCaja(c.id)} size={140} />
                 <div style={{ fontSize: 11, color: "#444", marginTop: 8, lineHeight: 1.4 }}>
                   {tiposDeCaja(c.id).map(t => t.nombre + (t.cantidad ? ` (${t.cantidad})` : "")).join(" · ")}
                 </div>
