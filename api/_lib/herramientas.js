@@ -7,8 +7,8 @@ import { uid } from '../../src/lib/utils.js';
 // Lectura: el frontend lee directo de Supabase (cuentas activas, RLS).
 // Escritura: solo aqui, con la service key, para quien tenga el permiso
 // "herramienta" (supervisor y admin tambien pasan, ver _lib/auth.js).
-//   POST   { action: "caja", nombre, color? }                     -> alta de caja
-//   PUT    { action: "caja", id, nombre?, color? }                -> editar caja
+//   POST   { action: "caja", nombre, grupo?, color? }             -> alta de caja
+//   PUT    { action: "caja", id, nombre?, grupo?, color? }        -> editar caja
 //   DELETE { action: "caja", id }                                 -> borrar caja (vacia)
 //   POST   { action: "tipo", nombre, cantidad, ubicacion, caja_id } -> alta de tipo
 //   PUT    { action: "tipo", id, nombre?, cantidad?, ubicacion?, caja_id? } -> editar tipo
@@ -38,6 +38,7 @@ export async function manejarHerramientas(req, res) {
         cambios.nombre = n;
       }
       if (body.color !== undefined) cambios.color = body.color || null;
+      if (body.grupo !== undefined) cambios.grupo = String(body.grupo || '').trim() || null;
       if (req.method === 'PUT') {
         if (!body.id) return res.status(400).json({ error: 'Falta id' });
         const { error } = await supabase.from('herramienta_cajas').update(cambios).eq('id', body.id);

@@ -6,8 +6,9 @@ import { confirmar } from "../lib/confirm";
 import { OPERADORES, REBOB_OPERADORES } from "../lib/constants";
 
 // Control de herramientas del taller (modo "herramienta", ver App.js).
-// La herramienta se guarda por cajas (Caja roja, Caja negra, Archivero
-// cajon 1...). Cada caja tiene su QR (/herramienta/caja/<id>) que se pega en
+// La herramienta se guarda por cajas (Caja roja, Caja negra...). Las cajas
+// con el mismo `grupo` son cajones de un mismo mueble (Archivero: Cajon 1,
+// 2, 3) y salen juntas. Cada caja tiene su QR (/herramienta/caja/<id>) que se pega en
 // la caja: al escanearlo se abre solo lo que hay adentro. Cada tipo
 // (Desarmadores, Dados 1/4"...) tiene `cantidad` piezas numeradas del 1 en
 // adelante, y tambien su propio QR (/herramienta/<id>). Tablas y reglas en
@@ -95,6 +96,15 @@ export default function ModoHerramienta({ onSalir, tipoInicial, cajaInicial }) {
   const prestamosDe = (tipoId) => prestamos.filter(p => p.tipo_id === tipoId);
   const prestamoDePieza = (tipoId, numero) => prestamos.find(p => p.tipo_id === tipoId && p.numero === numero);
   const cajaDe = (t) => cajas.find(c => c.id === t?.caja_id) || null;
+  // "Archivero · Cajón 1": las cajas con el mismo grupo son cajones de un mismo mueble.
+  const nombreCaja = (c) => c ? (c.grupo ? `${c.grupo} · ${c.nombre}` : c.nombre) : "";
+  // Para la pantalla principal: cada caja sola, o un grupo con sus cajones.
+  const bloques = cajas.reduce((acc, c) => {
+    const previo = c.grupo && acc.find(b => b.grupo === c.grupo);
+    if (previo) previo.cajas.push(c);
+    else acc.push({ grupo: c.grupo || null, cajas: [c] });
+    return acc;
+  }, []);
   const tiposDeCaja = (id) => tipos.filter(t => t.caja_id === id);
   const sinCaja = tipos.filter(t => !cajaDe(t));
   const sel = tipos.find(t => t.id === selId) || null;
@@ -164,12 +174,12 @@ export default function ModoHerramienta({ onSalir, tipoInicial, cajaInicial }) {
   };
 
   const guardarCaja = async () => {
-    const { id, nombre, color } = editandoCaja;
+    const { id, nombre, grupo, color } = editandoCaja;
     if (!String(nombre || "").trim()) { showToast("⚠ Ponle nombre a la caja"); return; }
     setOcupado(true);
     try {
-      if (id) await llamar("PUT", { action: "caja", id, nombre, color });
-      else await llamar("POST", { action: "caja", nombre, color });
+      if (id) await llamar("PUT", { action: "caja", id, nombre, grupo, color });
+      else await llamar("POST", { action: "caja", nombre, grupo, color });
       showToast("✓ Caja guardada");
       setEditandoCaja(null);
       cargar();
@@ -178,7 +188,7 @@ export default function ModoHerramienta({ onSalir, tipoInicial, cajaInicial }) {
   };
 
   const borrarCaja = async (c) => {
-    if (!(await confirmar(`¿Borrar la caja "${c.nombre}"?`))) return;
+    if (!(await confirmar(`¿Borrar la caja "${nombreCaja(c)}"?`))) return;
     try {
       await llamar("DELETE", { action: "caja", id: c.id });
       showToast("✓ Caja borrada");
@@ -227,21 +237,21 @@ export default function ModoHerramienta({ onSalir, tipoInicial, cajaInicial }) {
   };
 
   // Encabezado de una caja: color, nombre, cuantas piezas hay fuera y su QR.
-  const encabezadoCaja = (c, lista, abrible) => {
+  const encabezadoCaja = (c, lista, abrible, enGrupo) => {
     const r = resumen(lista);
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0 8px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, margin: enGrupo ? "12px 0 8px" : "18px 0 8px" }}>
         <div onClick={abrible ? () => setCajaId(c.id) : undefined} style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0, cursor: abrible ? "pointer" : "default" }}>
-          <PuntoCaja color={c.color} size={18} />
+          <PuntoCaja color={c.color} size={enGrupo ? 14 : 18} />
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 20, fontWeight: 800, color: "var(--text)", letterSpacing: ".02em" }}>{c.nombre}</div>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: enGrupo ? 17 : 20, fontWeight: 800, color: "var(--text)", letterSpacing: ".02em" }}>{enGrupo ? c.nombre : nombreCaja(c)}</div>
             <div style={{ fontSize: 11, color: r.atrasadas ? "var(--red)" : r.fuera ? COLOR : "var(--muted)" }}>
               {lista.length} tipo{lista.length === 1 ? "" : "s"} · {r.total - r.fuera} de {r.total} en su lugar{r.fuera ? ` · ${r.fuera} prestada${r.fuera === 1 ? "" : "s"}` : ""}
             </div>
           </div>
         </div>
         <button onClick={() => setQrDe({ caja: c })} className="btn btn-ghost btn-sm">QR</button>
-        <button onClick={() => setEditandoCaja({ id: c.id, nombre: c.nombre, color: c.color || "" })} className="btn btn-ghost btn-sm">✏️</button>
+        <button onClick={() => setEditandoCaja({ id: c.id, nombre: c.nombre, grupo: c.grupo || "", color: c.color || "" })} className="btn btn-ghost btn-sm">✏️</button>
       </div>
     );
   };
@@ -267,7 +277,7 @@ export default function ModoHerramienta({ onSalir, tipoInicial, cajaInicial }) {
       <main style={{ flex: 1, padding: "16px 16px 82px", maxWidth: 720, margin: "0 auto", width: "100%" }}>
         {!cargado ? <p className="empty">Cargando…</p> : sel ? (
           <>
-            <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={cerrarTipo}>← {cajaSel ? cajaSel.nombre : "Todas las cajas"}</button>
+            <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={cerrarTipo}>← {cajaSel ? nombreCaja(cajaSel) : "Todas las cajas"}</button>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 4 }}>
               <h2 className="sec-title" style={{ margin: 0 }}>{sel.nombre}</h2>
               <div style={{ display: "flex", gap: 6 }}>
@@ -276,7 +286,7 @@ export default function ModoHerramienta({ onSalir, tipoInicial, cajaInicial }) {
               </div>
             </div>
             <div style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 14, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-              {cajaDelSel && <><PuntoCaja color={cajaDelSel.color} size={12} /> {cajaDelSel.nombre} · </>}
+              {cajaDelSel && <><PuntoCaja color={cajaDelSel.color} size={12} /> {nombreCaja(cajaDelSel)} · </>}
               {(sel.cantidad || 0) - prestamosDe(sel.id).length} de {sel.cantidad || 0} disponibles
             </div>
 
@@ -355,10 +365,26 @@ export default function ModoHerramienta({ onSalir, tipoInicial, cajaInicial }) {
               <div className={`stat-card ${general.atrasadas ? "red" : "green"}`}><div className="stat-val">{general.atrasadas}</div><div className="stat-lbl">{DIAS_AVISO}+ días fuera</div></div>
             </div>
 
-            {cajas.map(c => (
-              <div key={c.id}>
-                {encabezadoCaja(c, tiposDeCaja(c.id), true)}
-                {tiposDeCaja(c.id).map(tarjetaTipo)}
+            {bloques.map(b => b.grupo ? (
+              <div key={"g-" + b.grupo} style={{ marginTop: 18 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <PuntoCaja color={b.cajas[0].color} size={18} />
+                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 20, fontWeight: 800, color: "var(--text)", letterSpacing: ".02em" }}>{b.grupo}</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)" }}>{b.cajas.length} cajones</div>
+                </div>
+                <div style={{ borderLeft: "2px solid var(--border-light)", paddingLeft: 12, marginLeft: 8 }}>
+                  {b.cajas.map(c => (
+                    <div key={c.id}>
+                      {encabezadoCaja(c, tiposDeCaja(c.id), true, true)}
+                      {tiposDeCaja(c.id).map(tarjetaTipo)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div key={b.cajas[0].id}>
+                {encabezadoCaja(b.cajas[0], tiposDeCaja(b.cajas[0].id), true)}
+                {tiposDeCaja(b.cajas[0].id).map(tarjetaTipo)}
               </div>
             ))}
             {sinCaja.length > 0 && (
@@ -370,7 +396,7 @@ export default function ModoHerramienta({ onSalir, tipoInicial, cajaInicial }) {
 
             <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
               <div style={{ flex: 1 }}>{botonNuevoTipo(null)}</div>
-              <button onClick={() => setEditandoCaja({ nombre: "", color: COLORES_CAJA[0] })} style={{ flex: 1, padding: "11px 0", borderRadius: 14, border: "1.5px dashed var(--border-light)", background: "transparent", color: "var(--text-2)", fontWeight: 800, fontSize: 14, cursor: "pointer", marginTop: 2 }}>+ Nueva caja</button>
+              <button onClick={() => setEditandoCaja({ nombre: "", grupo: "", color: COLORES_CAJA[0] })} style={{ flex: 1, padding: "11px 0", borderRadius: 14, border: "1.5px dashed var(--border-light)", background: "transparent", color: "var(--text-2)", fontWeight: 800, fontSize: 14, cursor: "pointer", marginTop: 2 }}>+ Nueva caja</button>
             </div>
           </>
         )}
@@ -391,7 +417,7 @@ export default function ModoHerramienta({ onSalir, tipoInicial, cajaInicial }) {
                 const activa = editando.caja_id === c.id;
                 return (
                   <button key={c.id} type="button" onClick={() => setEditando(x => ({ ...x, caja_id: c.id }))} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 999, cursor: "pointer", fontSize: 13, fontWeight: 700, border: `1.5px solid ${activa ? COLOR : "var(--border-light)"}`, background: activa ? "var(--orange-dim)" : "transparent", color: activa ? COLOR : "var(--text-2)" }}>
-                    <PuntoCaja color={c.color} size={12} /> {c.nombre}
+                    <PuntoCaja color={c.color} size={12} /> {nombreCaja(c)}
                   </button>
                 );
               })}
@@ -413,7 +439,9 @@ export default function ModoHerramienta({ onSalir, tipoInicial, cajaInicial }) {
           <div style={{ background: "var(--surface)", borderRadius: "18px 18px 0 0", width: "100%", maxWidth: 520, padding: "20px 16px 32px" }} onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text)", marginBottom: 14 }}>{editandoCaja.id ? "Editar caja" : "Nueva caja"}</div>
             <label style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>Nombre</label>
-            <input value={editandoCaja.nombre} onChange={e => setEditandoCaja(x => ({ ...x, nombre: e.target.value }))} placeholder="Ej: Caja azul, Archivero · Cajón 4" style={{ ...inputStyle, margin: "4px 0 12px" }} />
+            <input value={editandoCaja.nombre} onChange={e => setEditandoCaja(x => ({ ...x, nombre: e.target.value }))} placeholder="Ej: Caja azul, Cajón 4" style={{ ...inputStyle, margin: "4px 0 12px" }} />
+            <label style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>¿Es un cajón de un mueble? <span style={{ color: "var(--muted)", fontWeight: 400 }}>(opcional: los cajones con el mismo mueble salen juntos)</span></label>
+            <input value={editandoCaja.grupo} onChange={e => setEditandoCaja(x => ({ ...x, grupo: e.target.value }))} placeholder="Ej: Archivero" style={{ ...inputStyle, margin: "4px 0 12px" }} />
             <label style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>Color</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "6px 0 16px" }}>
               {COLORES_CAJA.map(col => (
@@ -446,13 +474,14 @@ export default function ModoHerramienta({ onSalir, tipoInicial, cajaInicial }) {
                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".1em", color: "#666" }}>EEMSA · HERRAMIENTA</div>
                 <div style={{ fontSize: 19, fontWeight: 900, margin: "4px 0 10px" }}>{qrDe.tipo.nombre}</div>
                 <QRCodeSVG value={urlQR(qrDe.tipo.id)} size={170} />
-                <div style={{ fontSize: 11, color: "#444", marginTop: 8 }}>{qrDe.tipo.cantidad ? `Piezas #1 a #${qrDe.tipo.cantidad}` : ""}{cajaDe(qrDe.tipo) ? ` · ${cajaDe(qrDe.tipo).nombre}` : ""}</div>
+                <div style={{ fontSize: 11, color: "#444", marginTop: 8 }}>{qrDe.tipo.cantidad ? `Piezas #1 a #${qrDe.tipo.cantidad}` : ""}{cajaDe(qrDe.tipo) ? ` · ${nombreCaja(cajaDe(qrDe.tipo))}` : ""}</div>
                 <div style={{ fontSize: 10, color: "#888", marginTop: 4 }}>Escanéalo para sacar o regresar</div>
               </div>
             ) : (qrDe === "todos" ? cajas : [qrDe.caja]).map(c => (
               <div key={c.id} style={{ border: "2px solid #111", borderTop: `10px solid ${c.color || "#111"}`, borderRadius: 12, padding: 14, textAlign: "center", width: 220, breakInside: "avoid" }}>
                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".1em", color: "#666" }}>EEMSA · HERRAMIENTA</div>
-                <div style={{ fontSize: 19, fontWeight: 900, margin: "4px 0 10px" }}>{c.nombre}</div>
+                {c.grupo && <div style={{ fontSize: 13, fontWeight: 800, color: "#444", marginTop: 4 }}>{c.grupo}</div>}
+                <div style={{ fontSize: 19, fontWeight: 900, margin: c.grupo ? "0 0 10px" : "4px 0 10px" }}>{c.nombre}</div>
                 <QRCodeSVG value={urlQRCaja(c.id)} size={170} />
                 <div style={{ fontSize: 11, color: "#444", marginTop: 8, lineHeight: 1.4 }}>
                   {tiposDeCaja(c.id).map(t => t.nombre + (t.cantidad ? ` (${t.cantidad})` : "")).join(" · ")}

@@ -55,3 +55,9 @@ update public.herramienta_tipos set caja_id = 'caja-roja'
 update public.herramienta_tipos set caja_id = 'archivero-cajon-1' where id = 'matraca-extensiones' and caja_id is null;
 update public.herramienta_tipos set caja_id = 'archivero-cajon-2' where id = 'remachadoras' and caja_id is null;
 update public.herramienta_tipos set caja_id = 'archivero-cajon-3' where id = 'prensas-c' and caja_id is null;
+
+-- Cajones de un mismo mueble: mismo `grupo` (Archivero -> Cajon 1, 2, 3).
+alter table public.herramienta_cajas add column if not exists grupo text;
+update public.herramienta_cajas set grupo = 'Archivero', nombre = 'Cajón 1' where id = 'archivero-cajon-1';
+update public.herramienta_cajas set grupo = 'Archivero', nombre = 'Cajón 2' where id = 'archivero-cajon-2';
+update public.herramienta_cajas set grupo = 'Archivero', nombre = 'Cajón 3' where id = 'archivero-cajon-3';
