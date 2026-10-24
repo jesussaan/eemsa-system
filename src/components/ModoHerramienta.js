@@ -469,6 +469,7 @@ export default function ModoHerramienta({ onSalir, tipoInicial, cajaInicial }) {
             @page { size: letter; margin: 10mm; }
             body > *:not(.herr-qr-hoja) { display: none !important; }
             html, body { background: #fff !important; height: auto !important; overflow: visible !important; }
+            .herr-qr-hoja, .herr-qr-hoja * { visibility: visible !important; }
             .herr-qr-hoja { position: static !important; overflow: visible !important; inset: auto !important; }
             .herr-no-print { display: none !important; }
             .herr-qr-lista { display: block !important; padding: 0 !important; text-align: left; }
