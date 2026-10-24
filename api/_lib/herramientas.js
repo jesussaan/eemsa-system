@@ -7,8 +7,11 @@ import { uid } from '../../src/lib/utils.js';
 // Lectura: el frontend lee directo de Supabase (cuentas activas, RLS).
 // Escritura: solo aqui, con la service key, para quien tenga el permiso
 // "herramienta" (supervisor y admin tambien pasan, ver _lib/auth.js).
-//   POST   { action: "tipo", nombre, cantidad, ubicacion }        -> alta de tipo
-//   PUT    { action: "tipo", id, nombre?, cantidad?, ubicacion? } -> editar tipo
+//   POST   { action: "caja", nombre, color? }                     -> alta de caja
+//   PUT    { action: "caja", id, nombre?, color? }                -> editar caja
+//   DELETE { action: "caja", id }                                 -> borrar caja (vacia)
+//   POST   { action: "tipo", nombre, cantidad, ubicacion, caja_id } -> alta de tipo
+//   PUT    { action: "tipo", id, nombre?, cantidad?, ubicacion?, caja_id? } -> editar tipo
 //   DELETE { id }                                                 -> borrar tipo
 //   POST   { action: "sacar", tipo_id, numeros: [..], persona, notas? }
 //   PUT    { action: "regresar", ids: [..] }                      -> ids de prestamos
@@ -27,12 +30,42 @@ export async function manejarHerramientas(req, res) {
   const body = req.body || {};
 
   try {
+    if (body.action === 'caja' && (req.method === 'POST' || req.method === 'PUT')) {
+      const cambios = {};
+      if (body.nombre !== undefined || req.method === 'POST') {
+        const n = String(body.nombre || '').trim();
+        if (!n) return res.status(400).json({ error: 'Ponle nombre a la caja' });
+        cambios.nombre = n;
+      }
+      if (body.color !== undefined) cambios.color = body.color || null;
+      if (req.method === 'PUT') {
+        if (!body.id) return res.status(400).json({ error: 'Falta id' });
+        const { error } = await supabase.from('herramienta_cajas').update(cambios).eq('id', body.id);
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json({ ok: true });
+      }
+      const { data: ultimas } = await supabase.from('herramienta_cajas').select('orden').order('orden', { ascending: false }).limit(1);
+      const nueva = { id: `${slug(cambios.nombre) || 'caja'}-${uid().slice(-4)}`, ...cambios, orden: (ultimas?.[0]?.orden || 0) + 1 };
+      const { error } = await supabase.from('herramienta_cajas').insert([nueva]);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json(nueva);
+    }
+
+    if (req.method === 'DELETE' && body.action === 'caja') {
+      if (!body.id) return res.status(400).json({ error: 'Falta id' });
+      const { data: adentro } = await supabase.from('herramienta_tipos').select('id').eq('caja_id', body.id);
+      if (adentro?.length) return res.status(409).json({ error: `La caja tiene ${adentro.length} tipo(s) de herramienta; muévelos o bórralos antes.` });
+      const { error } = await supabase.from('herramienta_cajas').delete().eq('id', body.id);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ ok: true });
+    }
+
     if (req.method === 'POST' && body.action === 'tipo') {
       const nombre = String(body.nombre || '').trim();
       if (!nombre) return res.status(400).json({ error: 'Falta el nombre' });
       const cantidad = Math.max(0, parseInt(body.cantidad, 10) || 0);
       const { data: ultimos } = await supabase.from('herramienta_tipos').select('orden').order('orden', { ascending: false }).limit(1);
-      const nuevo = { id: `${slug(nombre) || 'tipo'}-${uid().slice(-4)}`, nombre, cantidad, ubicacion: body.ubicacion || null, orden: (ultimos?.[0]?.orden || 0) + 1 };
+      const nuevo = { id: `${slug(nombre) || 'tipo'}-${uid().slice(-4)}`, nombre, cantidad, ubicacion: body.ubicacion || null, caja_id: body.caja_id || null, orden: (ultimos?.[0]?.orden || 0) + 1 };
       const { error } = await supabase.from('herramienta_tipos').insert([nuevo]);
       if (error) return res.status(500).json({ error: error.message });
       return res.status(200).json(nuevo);
@@ -47,6 +80,7 @@ export async function manejarHerramientas(req, res) {
         cambios.nombre = n;
       }
       if (body.ubicacion !== undefined) cambios.ubicacion = body.ubicacion || null;
+      if (body.caja_id !== undefined) cambios.caja_id = body.caja_id || null;
       if (body.cantidad !== undefined) {
         const cantidad = parseInt(body.cantidad, 10);
         if (!(cantidad >= 0)) return res.status(400).json({ error: 'Cantidad inválida' });

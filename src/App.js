@@ -167,9 +167,10 @@ function EemsaApp() {
   // Se recuerda en localStorage -- si el celular/tablet mata la app en
   // segundo plano (o la recarga por una actualizacion), regresa directo al
   // modo donde estabas en vez de mandar siempre al menu.
-  // QR de un tipo de herramienta (/herramienta/<id>, ver ModoHerramienta.js):
-  // abre directo ese modulo en ese tipo (si la cuenta tiene el permiso).
-  const herramientaMatch = window.location.pathname.match(/^\/herramienta\/([^/]+)\/?$/);
+  // QR de una caja (/herramienta/caja/<id>) o de un tipo de herramienta
+  // (/herramienta/<id>, ver ModoHerramienta.js): abre directo ese modulo en
+  // esa caja o ese tipo (si la cuenta tiene el permiso).
+  const herramientaMatch = window.location.pathname.match(/^\/herramienta\/(?:(caja)\/)?([^/]+)\/?$/);
   const [modo, setModo] = useState(() => herramientaMatch ? "herramienta" : (localStorage.getItem("eemsa_modo") || null));
 
   // undefined = todavia verificando si hay sesion guardada; null = sin sesion.
@@ -455,7 +456,8 @@ function EemsaApp() {
   if (modo === "herramienta") pantalla = (
     <Suspense fallback={<PantallaCargando />}>
       <ModoHerramienta
-        tipoInicial={herramientaMatch?.[1]}
+        tipoInicial={herramientaMatch && !herramientaMatch[1] ? herramientaMatch[2] : null}
+        cajaInicial={herramientaMatch?.[1] ? herramientaMatch[2] : null}
         onSalir={() => { if (herramientaMatch) window.history.replaceState(null, "", "/"); setModo(null); }}
       />
     </Suspense>
