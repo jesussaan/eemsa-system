@@ -1,19 +1,18 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { resumenProduccionTodas, resumenAgenda } from "../lib/jarvis";
+import { resumenProduccionTodas, resumenAgenda, hoyMexico } from "../lib/jarvis";
 import { detectarInventarioCritico } from "../lib/alertas";
 import { META_CAJAS } from "../lib/constants";
 
-// Publica (sin login), pensada para dejarse fija en una pantalla/TV de la
-// planta -- mismo criterio que PizarraOperador.js/PizarraRebobinado.js:
-// pedidos y materiales ya tienen lectura abierta a la anon key (las mismas
-// politicas RLS que ya usan Inventario.js/Dashboard.js), asi que esto no
-// expone nada que no estuviera ya accesible, solo lo junta en una vista
-// grande y de solo lectura. Sin botones, sin login, sin nada que controle
-// una maquina -- se recarga sola con Supabase Realtime.
-const hoyMexico = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Mexico_City" }).format(new Date());
-
-export default function CommandCenter() {
+// Requiere sesion y el permiso "command_center" (o admin) -- ver el gate en
+// App.js, que es quien decide si esto se monta o no. Antes era publica (sin
+// login); pedidos y materiales ya tienen lectura abierta a la anon key (las
+// mismas politicas RLS que ya usan Inventario.js/Dashboard.js), asi que
+// nunca expuso nada que no estuviera ya accesible, pero se pidio que la
+// pantalla en si dejara de ser publica y quedara revocable como cualquier
+// otro modulo. Sin botones de escritura, sin nada que controle una maquina
+// -- se recarga sola con Supabase Realtime.
+export default function CommandCenter({ onCerrarSesion }) {
   const [pedidos, setPedidos] = useState([]);
   const [materiales, setMateriales] = useState([]);
   const [prodDiaria, setProdDiaria] = useState([]);
@@ -62,7 +61,10 @@ export default function CommandCenter() {
     <div style={{ minHeight: "100vh", background: "#0a0c10", color: "#e8e8e8", padding: 32, fontFamily: "'Barlow Condensed', sans-serif" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 28, borderBottom: "3px solid #c9922a", paddingBottom: 14 }}>
         <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: ".04em" }}>🖥️ EEMSA · COMMAND CENTER</div>
-        <div style={{ fontSize: 20, color: "#999" }}>{ahora.toLocaleString("es-MX", { timeZone: "America/Mexico_City", dateStyle: "full", timeStyle: "short" })}</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 16 }}>
+          <div style={{ fontSize: 20, color: "#999" }}>{ahora.toLocaleString("es-MX", { timeZone: "America/Mexico_City", dateStyle: "full", timeStyle: "short" })}</div>
+          {onCerrarSesion && <button onClick={onCerrarSesion} style={{ fontSize: 11, color: "#555", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>Cerrar sesión</button>}
+        </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 24 }}>

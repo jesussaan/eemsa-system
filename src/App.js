@@ -6,7 +6,7 @@ import NotifBell from "./components/NotifBell";
 import Login from "./components/Login";
 import ConfirmModal from "./components/ConfirmModal";
 import ThemeToggle from "./components/ThemeToggle";
-import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoOperador, IcoVentas, IcoEmilio, IcoCotizador, IcoSpinner, IcoRoll, IcoBox } from "./components/Icons";
+import { IcoDash, IcoPed, IcoProd, IcoRef, IcoFal, IcoCli, IcoIA, IcoCal, IcoOperador, IcoVentas, IcoEmilio, IcoCotizador, IcoSpinner, IcoRoll, IcoBox, IcoTool } from "./components/Icons";
 import { REBOB_CLIENTE } from "./lib/constants";
 
 // Cada pantalla se carga solo cuando se visita, en vez de todas juntas en el
@@ -32,6 +32,7 @@ const PizarraRebobinado = lazy(() => import("./components/PizarraRebobinado"));
 const AdminUsuarios = lazy(() => import("./components/AdminUsuarios"));
 const Jarvis = lazy(() => import("./components/Jarvis"));
 const CommandCenter = lazy(() => import("./components/CommandCenter"));
+const ModoHerramienta = lazy(() => import("./components/ModoHerramienta"));
 
 const PantallaCargando = () => (
   <div className="loading-screen">
@@ -109,6 +110,7 @@ const MODOS_DISPONIBLES = [
   { id: "emilio",     Icon: IcoEmilio,    lbl: "Modo Emilio",     cls: "mode-btn-emi", grupo: "admin" },
   { id: "supervisor", Icon: IcoDash,      lbl: "Modo Supervisor", cls: "mode-btn-sup", grupo: "admin" },
   { id: "inventario", Icon: IcoBox,       lbl: "Inventario",      cls: "mode-btn-inv", grupo: "admin" },
+  { id: "herramienta", Icon: IcoTool,     lbl: "Herramienta",     cls: "mode-btn-her", grupo: "admin" },
 ];
 // Orden fijo en que aparecen los grupos en la pantalla de seleccion de modo.
 const GRUPOS_MODO = [
@@ -126,9 +128,6 @@ export default function App() {
   // operador lo escanee cuantas veces quiera sin necesitar cuenta.
   const pizarraMatch = window.location.pathname.match(/^\/pizarra\/?$/);
   const pizarraRebobMatch = window.location.pathname.match(/^\/pizarra-rebobinado\/?$/);
-  // Command Center: mismo criterio que /pizarra -- publica, sin login,
-  // pensada para dejarse fija en una TV de la planta (ver CommandCenter.js).
-  const commandCenterMatch = window.location.pathname.match(/^\/command-center\/?$/);
   return (
     <>
       <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 1000, display: "flex", flexDirection: "column" }}>
@@ -144,14 +143,15 @@ export default function App() {
         ? <Suspense fallback={<PantallaCargando />}><PizarraOperador /></Suspense>
         : pizarraRebobMatch
         ? <Suspense fallback={<PantallaCargando />}><PizarraRebobinado /></Suspense>
-        : commandCenterMatch
-        ? <Suspense fallback={<PantallaCargando />}><CommandCenter /></Suspense>
         : <EemsaApp />}
     </>
   );
 }
 
 function EemsaApp() {
+  // Command Center: ya no es publica -- ver el gate mas abajo (requiere
+  // sesion + el permiso "command_center", igual que cualquier otro modulo).
+  const commandCenterMatch = window.location.pathname.match(/^\/command-center\/?$/);
   const [tab, setTab] = useState("dash");
   const [pedidos, setPedidos] = useState([]);
   const [fallas, setFallas] = useState([]);
@@ -167,7 +167,10 @@ function EemsaApp() {
   // Se recuerda en localStorage -- si el celular/tablet mata la app en
   // segundo plano (o la recarga por una actualizacion), regresa directo al
   // modo donde estabas en vez de mandar siempre al menu.
-  const [modo, setModo] = useState(() => localStorage.getItem("eemsa_modo") || null);
+  // QR de un tipo de herramienta (/herramienta/<id>, ver ModoHerramienta.js):
+  // abre directo ese modulo en ese tipo (si la cuenta tiene el permiso).
+  const herramientaMatch = window.location.pathname.match(/^\/herramienta\/([^/]+)\/?$/);
+  const [modo, setModo] = useState(() => herramientaMatch ? "herramienta" : (localStorage.getItem("eemsa_modo") || null));
 
   // undefined = todavia verificando si hay sesion guardada; null = sin sesion.
   const [sesion, setSesion] = useState(undefined);
@@ -188,6 +191,23 @@ function EemsaApp() {
       .then(r => r.json())
       .then(d => setPerfil(d?.error ? null : d))
       .catch(() => setPerfil(null));
+  }, [sesion]);
+
+  // Antes, revocar el acceso de alguien solo surtia efecto hasta su proximo
+  // login -- una sesion ya abierta (ej. el Command Center de una TV, pensado
+  // para quedarse prendido dias enteros) no se enteraba. Se refresca el
+  // perfil cada 5 minutos mientras haya sesion para que una revocacion (o un
+  // "activo" en false) se refleje pronto sin depender de que alguien cierre
+  // sesion y vuelva a entrar.
+  useEffect(() => {
+    if (!sesion) return;
+    const t = setInterval(() => {
+      fetch("/api/usuarios?propio=1", { headers: authHeaders() })
+        .then(r => r.json())
+        .then(d => { if (!d?.error) setPerfil(d); })
+        .catch(() => {});
+    }, 5 * 60 * 1000);
+    return () => clearInterval(t);
   }, [sesion]);
 
   // Valida el modo recordado contra los permisos reales una vez que el
@@ -296,6 +316,32 @@ function EemsaApp() {
       <div className="mode-bottom">Asesoría · Calidad · Innovación</div>
     </div>
   );
+
+  // Command Center (TV de planta): ya con sesion valida y cuenta activa
+  // (los returns de arriba ya se encargaron de eso), pero necesita ademas el
+  // permiso dedicado "command_center" (o ser admin) -- no es un "modo" mas
+  // del menu, es una ruta aparte (ver commandCenterMatch arriba).
+  if (commandCenterMatch) {
+    const tieneCommandCenter = perfil.esAdmin || perfil.modos.includes("command_center");
+    if (!tieneCommandCenter) return (
+      <div className="mode-screen">
+        <div className="mode-glow" aria-hidden="true" />
+        <div className="mode-top">EEMSA System</div>
+        <div className="mode-hero">
+          <img src="/logo192.png" alt="EEMSA" className="mode-logo" />
+          <div style={{ background: "rgba(232,75,75,0.12)", border: "1px solid rgba(232,75,75,0.4)", color: "#ff9b9b", borderRadius: 10, padding: "14px 18px", fontSize: 13, textAlign: "center", maxWidth: 320, marginBottom: 20, lineHeight: 1.6 }}>
+            Tu cuenta ({perfil.email}) no tiene acceso al Command Center. Pídele a un administrador que te lo active en Usuarios.
+          </div>
+          <button className="btn btn-primary" onClick={() => cerrarSesion()}>Cerrar sesión</button>
+        </div>
+      </div>
+    );
+    return (
+      <Suspense fallback={<PantallaCargando />}>
+        <CommandCenter onCerrarSesion={() => cerrarSesion()} />
+      </Suspense>
+    );
+  }
 
   const modosVisibles = perfil.esAdmin ? MODOS_DISPONIBLES : MODOS_DISPONIBLES.filter(m => perfil.modos.includes(m.id));
 
@@ -406,6 +452,14 @@ function EemsaApp() {
     </Suspense>
   );
 
+  if (modo === "herramienta") pantalla = (
+    <Suspense fallback={<PantallaCargando />}>
+      <ModoHerramienta
+        tipoInicial={herramientaMatch?.[1]}
+        onSalir={() => { if (herramientaMatch) window.history.replaceState(null, "", "/"); setModo(null); }}
+      />
+    </Suspense>
+  );
   if (modo === "inventario") pantalla = (
     <Suspense fallback={<PantallaCargando />}>
       <Inventario materiales={materiales} setMateriales={setMateriales} tarimas={tarimas} setTarimas={setTarimas} pedidos={pedidos} listaMateriales={listaMateriales} setListaMateriales={setListaMateriales} onSalir={() => setModo(null)} />

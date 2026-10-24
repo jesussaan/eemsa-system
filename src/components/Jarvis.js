@@ -84,7 +84,10 @@ export default function Jarvis({ perfil }) {
   const puedeHablar = typeof window !== "undefined" && "speechSynthesis" in window;
   const puedeEscuchar = !!RecognitionCtor;
 
-  const tieneAcceso = !!perfil && (perfil.esAdmin || perfil.modos?.includes("jarvis"));
+  // "direccion" da acceso al resumen ejecutivo vía Jarvis (ver MODULOS_JARVIS
+  // en lib/jarvis.js) pero no aparece como módulo propio en el menú -- sin
+  // esto, alguien con SOLO ese permiso no tendría ninguna forma de preguntar.
+  const tieneAcceso = !!perfil && (perfil.esAdmin || perfil.modos?.includes("jarvis") || perfil.modos?.includes("direccion"));
 
   // getVoices() puede llegar vacío la primera vez (carga async, sobre todo
   // en Safari) -- se reintenta con onvoiceschanged. Se prefiere es-MX, si no

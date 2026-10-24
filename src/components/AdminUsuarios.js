@@ -10,8 +10,10 @@ const MODOS = [
   { id: "supervisor", label: "Supervisor" },
   { id: "cotizador", label: "Cotizador" },
   { id: "inventario", label: "Inventario" },
+  { id: "herramienta", label: "Herramienta" },
   { id: "jarvis", label: "Jarvis" },
   { id: "direccion", label: "Dirección (resumen ejecutivo en Jarvis)" },
+  { id: "command_center", label: "Command Center / TV" },
 ];
 
 export default function AdminUsuarios({ onSalir }) {

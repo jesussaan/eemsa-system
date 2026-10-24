@@ -1,6 +1,11 @@
 import { supabaseAdmin, requiereAdmin } from './_lib/auth.js';
 
-const MODOS_VALIDOS = ['operador', 'ventas', 'emilio', 'rebobinado', 'supervisor', 'cotizador', 'inventario'];
+// "jarvis" y "direccion" faltaban aqui desde que se agregaron sus checkboxes
+// en AdminUsuarios.js -- el PUT de abajo rechazaba (400) cualquier intento de
+// activarlos, asi que nadie podia darselos a nadie desde la pantalla de
+// Usuarios. "command_center" es nuevo: permiso dedicado para la pantalla de
+// TV de planta (ver App.js), que dejo de ser publica.
+const MODOS_VALIDOS = ['operador', 'ventas', 'emilio', 'rebobinado', 'supervisor', 'cotizador', 'inventario', 'jarvis', 'direccion', 'command_center', 'herramienta'];
 
 // ?propio=1 (GET): perfil del usuario que manda el token -- cualquier cuenta
 // logueada, incluso sin modos asignados/pendiente de aprobar (es justo el

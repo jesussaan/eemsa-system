@@ -393,8 +393,11 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
     showToast("✓ Compra actualizada");
   };
 
-  const hoy = new Date();
-  const [mesSel, setMesSel] = useState(() => hoy.toISOString().slice(0, 7));
+  // today() (hora de Mexico) en vez de new Date().toISOString() crudo (UTC) --
+  // ese ultimo se adelanta un dia despues de las 6pm hora CDMX, lo que podia
+  // mostrar/bloquear el mes equivocado cerca de fin de mes.
+  const hoyStr = today();
+  const [mesSel, setMesSel] = useState(() => hoyStr.slice(0, 7));
   const cambiarMes = (d) => {
     const [y, m] = mesSel.split("-").map(Number);
     const nd = new Date(y, m - 1 + d, 1);
@@ -464,7 +467,7 @@ export default function Refacciones({ refs, setRefs, proveedores, setProveedores
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1a1d26", borderRadius: 10, padding: "8px 12px", marginBottom: 10 }}>
             <button onClick={() => cambiarMes(-1)} style={{ background: "transparent", border: "none", color: "#c9922a", fontSize: 20, cursor: "pointer", padding: "0 6px" }}>‹</button>
             <span style={{ fontSize: 14, fontWeight: 700, color: "#e0e0e0", textTransform: "capitalize" }}>{nomMes} · <span style={{ color: "#c9922a" }}>${fmt(totalCompras)}</span></span>
-            <button onClick={() => cambiarMes(1)} disabled={mesSel >= hoy.toISOString().slice(0, 7)} style={{ background: "transparent", border: "none", color: mesSel >= hoy.toISOString().slice(0, 7) ? "#333" : "#c9922a", fontSize: 20, cursor: mesSel >= hoy.toISOString().slice(0, 7) ? "default" : "pointer", padding: "0 6px" }}>›</button>
+            <button onClick={() => cambiarMes(1)} disabled={mesSel >= hoyStr.slice(0, 7)} style={{ background: "transparent", border: "none", color: mesSel >= hoyStr.slice(0, 7) ? "#333" : "#c9922a", fontSize: 20, cursor: mesSel >= hoyStr.slice(0, 7) ? "default" : "pointer", padding: "0 6px" }}>›</button>
           </div>
           <input value={busquedaCompras} onChange={e => setBusquedaCompras(e.target.value)} placeholder="🔍 Buscar proveedor, qué se compró…" style={{ width: "100%", marginBottom: 8, background: "#1a1d26", border: "1px solid #2a2d3a", borderRadius: 8, padding: "8px 12px", color: "#e0e0e0", fontSize: 13 }} />
           {proveedores.length === 0 ? <p className="empty">Sin compras registradas.</p> : (

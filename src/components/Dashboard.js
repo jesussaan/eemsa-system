@@ -5,6 +5,7 @@ import { authHeaders } from '../lib/auth';
 import { today, fmt, diasHabilesRestantes, estadoPlazo } from '../lib/utils';
 import { META_CAJAS, META_MERMA_PCT, REBOB_CLIENTE, REBOB_COLOR, SEV } from '../lib/constants';
 import { notificar } from '../lib/notificaciones';
+import { detectarPedidosUrgentes, detectarInventarioCritico, detectarProduccionSinRegistrar } from '../lib/alertas';
 import { exportarExcel } from '../lib/exportExcel';
 import { analizarComponentes } from '../lib/mantenimiento';
 import { IcoDash, IcoFal, IcoMoney, IcoCompare, IcoTrendUp, IcoTrophy, IcoDroplet, IcoTapeRoll, IcoRef, IcoRoll, IcoStamp, IcoBox } from './Icons';
@@ -102,6 +103,25 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, m
     if (!v) return null;
     return materiales.find(m => m.categoria === categoria && (m.match_valor || '').trim().toLowerCase() === v) || null;
   };
+
+  // Centro de Control (tab Resumen): mismos detectores "duros" que ya usa el
+  // cron diario (api/analisis-diario.js) y el Command Center -- para que
+  // "qué urge hoy" sea la MISMA definición en todos lados. Van fuera del
+  // useMemo de arriba (que no depende de `materiales`) para no complicar sus
+  // dependencias; son filtros de una sola pasada sobre cientos de filas, no
+  // hace falta memoizarlos.
+  const hoyStr = today();
+  const ayerStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(new Date(Date.now() - 86400000));
+  const pedidosAtrasados = detectarPedidosUrgentes(pedidosProp, hoyStr);
+  const inventarioCritico = detectarInventarioCritico(materiales);
+  const produccionSinRegistrar = detectarProduccionSinRegistrar(pedidosProp, prodDiaria, ayerStr);
+  const siguienteAccion = pedidosAtrasados.length
+    ? `${pedidosAtrasados.length} pedido${pedidosAtrasados.length === 1 ? '' : 's'} atrasado${pedidosAtrasados.length === 1 ? '' : 's'} en su fecha de entrega — revisa Pedidos.`
+    : inventarioCritico.length
+    ? `${inventarioCritico.length} material${inventarioCritico.length === 1 ? '' : 'es'} bajo el mínimo — revisa Inventario antes de que falte para un pedido.`
+    : produccionSinRegistrar.length
+    ? `${produccionSinRegistrar.length} máquina${produccionSinRegistrar.length === 1 ? '' : 's'} sin registrar producción de ayer — pide que capturen en Producción.`
+    : 'Sin pendientes urgentes por ahora.';
 
   useEffect(() => {
     const hoy = today();
@@ -716,6 +736,68 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, m
       </div>
 
       {seccion === 'resumen' && <>
+      {/* ── Centro de Control: qué urge hoy ── */}
+      <div style={{
+        background: (pedidosAtrasados.length || inventarioCritico.length || produccionSinRegistrar.length) ? "rgba(232,75,75,0.08)" : "rgba(75,232,122,0.08)",
+        border: `1px solid ${(pedidosAtrasados.length || inventarioCritico.length || produccionSinRegistrar.length) ? "var(--red)" : "var(--green)"}`,
+        borderRadius: 12, padding: 14, marginBottom: 16,
+      }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".04em", color: "var(--text-2)", marginBottom: 6 }}>🎯 SIGUIENTE ACCIÓN RECOMENDADA</div>
+        <div style={{ fontSize: 15, fontWeight: 600 }}>{siguienteAccion}</div>
+      </div>
+
+      <div className="stat-grid" style={{ marginBottom: 20 }}>
+        <div className={`stat-card ${pedidosAtrasados.length ? "red" : "green"}`}><div className="stat-val">{pedidosAtrasados.length}</div><div className="stat-lbl">Atrasados (entrega)</div></div>
+        <div className={`stat-card ${inventarioCritico.length ? "red" : "green"}`}><div className="stat-val">{inventarioCritico.length}</div><div className="stat-lbl">Inventario crítico</div></div>
+        <div className={`stat-card ${produccionSinRegistrar.length ? "orange" : "green"}`}><div className="stat-val">{produccionSinRegistrar.length}</div><div className="stat-lbl">Sin registrar ayer</div></div>
+      </div>
+
+      {pedidosAtrasados.length > 0 && (
+        <>
+          <SubTitle icon={IcoFal}>Pedidos atrasados (fecha de entrega)</SubTitle>
+          <div className="list" style={{ marginBottom: 20 }}>
+            {pedidosAtrasados.slice(0, 8).map(p => (
+              <div key={p.num} className="list-item" style={{ borderLeft: "3px solid var(--red)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div><strong>#{p.num}</strong> — {p.cliente}</div>
+                  <span className="badge b-red">{p.dias_vencido === 0 ? "Vence hoy" : `${p.dias_vencido}d vencido`}</span>
+                </div>
+                <div className="muted">Entrega comprometida: {p.fecha_estimada}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {inventarioCritico.length > 0 && (
+        <>
+          <SubTitle icon={IcoBox}>Inventario crítico</SubTitle>
+          <div className="list" style={{ marginBottom: 20 }}>
+            {inventarioCritico.slice(0, 8).map(m => (
+              <div key={m.nombre} className="list-item" style={{ borderLeft: "3px solid var(--red)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div><strong>{m.nombre}</strong></div>
+                  <span className="badge b-red">{m.stock} / {m.stock_min}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {produccionSinRegistrar.length > 0 && (
+        <>
+          <SubTitle icon={IcoTrendUp}>Producción sin registrar (ayer)</SubTitle>
+          <div className="list" style={{ marginBottom: 20 }}>
+            {produccionSinRegistrar.map(p => (
+              <div key={`${p.maq}-${p.num}`} className="list-item" style={{ borderLeft: "3px solid var(--orange)" }}>
+                <div><strong>{p.maq}</strong> — #{p.num} {p.cliente}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {/* ── KPIs principales (4 tarjetas) ── */}
       <div className="stat-grid" style={{ marginBottom: 20 }}>
         <div className="stat-card accent"><div className="stat-val">{activos}</div><div className="stat-lbl">Pedidos activos</div></div>
@@ -724,10 +806,10 @@ export default function Dashboard({ pedidos: pedidosProp, fallas, refacciones, m
         <div className={`stat-card ${fallasAbiertas > 0 ? "red" : "green"}`}><div className="stat-val">{fallasAbiertas}</div><div className="stat-lbl">Fallas abiertas</div></div>
       </div>
 
-      {/* ── Próximos a vencer ── */}
+      {/* ── Próximos a vencer (SLA interno: 15 días hábiles desde que se solicitó) ── */}
       {pedidosUrgentes.length > 0 && (
         <>
-          <SubTitle icon={IcoFal}>Próximos a vencer</SubTitle>
+          <SubTitle icon={IcoFal}>Próximos a vencer (SLA interno de producción)</SubTitle>
           <div className="list" style={{ marginBottom: 20 }}>
             {pedidosUrgentes.map(p => {
               const ep = estadoPlazo(p.diasRest);
