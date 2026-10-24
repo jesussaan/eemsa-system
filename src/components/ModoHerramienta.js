@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "../lib/supabase";
 import { authHeaders } from "../lib/auth";
@@ -459,18 +460,28 @@ export default function ModoHerramienta({ onSalir, tipoInicial, cajaInicial }) {
         </div>
       )}
 
-      {/* QR de una caja o un tipo, o la hoja con todas las cajas para imprimir */}
-      {qrDe && (
+      {/* QR de una caja o un tipo, o la hoja con todas las cajas para imprimir.
+          Va directo en <body> (portal) para que al imprimir se pueda esconder
+          toda la app y la hoja fluya en varias paginas sin cortarse. */}
+      {qrDe && createPortal(
         <div className="herr-qr-hoja" style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 400, overflowY: "auto", color: "#111" }}>
-          <style>{`@media print { body * { visibility: hidden; } .herr-qr-hoja, .herr-qr-hoja * { visibility: visible; } .herr-qr-hoja { position: absolute !important; inset: 0; } .herr-no-print { display: none !important; } }`}</style>
+          <style>{`@media print {
+            @page { size: letter; margin: 10mm; }
+            body > *:not(.herr-qr-hoja) { display: none !important; }
+            html, body { background: #fff !important; height: auto !important; overflow: visible !important; }
+            .herr-qr-hoja { position: static !important; overflow: visible !important; inset: auto !important; }
+            .herr-no-print { display: none !important; }
+            .herr-qr-lista { display: block !important; padding: 0 !important; text-align: left; }
+            .herr-qr-card { display: inline-block !important; vertical-align: top; margin: 0 3mm 5mm 0 !important; break-inside: avoid; page-break-inside: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          }`}</style>
           <div className="herr-no-print" style={{ display: "flex", gap: 8, padding: 12, borderBottom: "1px solid #ddd", position: "sticky", top: 0, background: "#fff" }}>
             <button onClick={() => window.print()} style={{ padding: "10px 16px", borderRadius: 8, border: "none", background: "#e8894b", color: "#fff", fontWeight: 800, cursor: "pointer" }}>🖨️ Imprimir</button>
             <button onClick={() => setQrDe(null)} style={{ padding: "10px 16px", borderRadius: 8, border: "1px solid #ccc", background: "#fff", color: "#333", fontWeight: 700, cursor: "pointer" }}>Cerrar</button>
             <span style={{ alignSelf: "center", fontSize: 12, color: "#666" }}>Pega cada QR en su caja o cajón.</span>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: qrDe === "todos" ? "repeat(auto-fill, minmax(230px, 1fr))" : "1fr", gap: 16, padding: 16, justifyItems: "center" }}>
+          <div className="herr-qr-lista" style={{ display: "flex", flexWrap: "wrap", gap: 16, padding: 16, justifyContent: "center" }}>
             {qrDe.tipo ? (
-              <div style={{ border: "2px solid #111", borderRadius: 12, padding: 14, textAlign: "center", width: 220, breakInside: "avoid" }}>
+              <div className="herr-qr-card" style={{ border: "2px solid #111", borderRadius: 12, padding: 14, textAlign: "center", width: 220, boxSizing: "border-box" }}>
                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".1em", color: "#666" }}>EEMSA · HERRAMIENTA</div>
                 <div style={{ fontSize: 19, fontWeight: 900, margin: "4px 0 10px" }}>{qrDe.tipo.nombre}</div>
                 <QRCodeSVG value={urlQR(qrDe.tipo.id)} size={170} />
@@ -478,7 +489,7 @@ export default function ModoHerramienta({ onSalir, tipoInicial, cajaInicial }) {
                 <div style={{ fontSize: 10, color: "#888", marginTop: 4 }}>Escanéalo para sacar o regresar</div>
               </div>
             ) : (qrDe === "todos" ? cajas : [qrDe.caja]).map(c => (
-              <div key={c.id} style={{ border: "2px solid #111", borderTop: `10px solid ${c.color || "#111"}`, borderRadius: 12, padding: 14, textAlign: "center", width: 220, breakInside: "avoid" }}>
+              <div key={c.id} className="herr-qr-card" style={{ border: "2px solid #111", borderTop: `10px solid ${c.color || "#111"}`, borderRadius: 12, padding: 14, textAlign: "center", width: 220, boxSizing: "border-box" }}>
                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".1em", color: "#666" }}>EEMSA · HERRAMIENTA</div>
                 {c.grupo && <div style={{ fontSize: 13, fontWeight: 800, color: "#444", marginTop: 4 }}>{c.grupo}</div>}
                 <div style={{ fontSize: 19, fontWeight: 900, margin: c.grupo ? "0 0 10px" : "4px 0 10px" }}>{c.nombre}</div>
@@ -490,7 +501,8 @@ export default function ModoHerramienta({ onSalir, tipoInicial, cajaInicial }) {
               </div>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {toast && <div className="toast">{toast}</div>}
