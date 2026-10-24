@@ -31,7 +31,7 @@ end $$;
 insert into public.herramienta_cajas (id, nombre, color, orden) values
   ('caja-roja',         'Caja roja',                    '#e84b4b', 1),
   ('caja-negra',        'Caja negra',                   '#2b2f36', 2),
-  ('caja-dados-1-4',    'Caja de dados 1/4"',           '#6b7a8f', 3),
+  ('caja-dados-1-4',    'Caja de dados de 1/4',           '#6b7a8f', 3),
   ('juego-milwaukee',   'Llaves combinadas Milwaukee',  '#b5121b', 4),
   ('archivero-cajon-1', 'Archivero · Cajón 1',          '#8a6d3b', 5),
   ('archivero-cajon-2', 'Archivero · Cajón 2',          '#8a6d3b', 6),
@@ -40,12 +40,12 @@ on conflict (id) do nothing;
 
 -- Tipos nuevos (la cantidad se pone desde la app).
 insert into public.herramienta_tipos (id, nombre, orden, caja_id) values
-  ('dados-1-4',                'Dados 1/4"',                   7,  'caja-negra'),
-  ('dados-3-8',                'Dados 3/8"',                   8,  'caja-negra'),
-  ('dados-1-2',                'Dados 1/2"',                   9,  'caja-negra'),
+  ('dados-1-4',                'Dados de 1/4',                   7,  'caja-negra'),
+  ('dados-3-8',                'Dados de 3/8',                   8,  'caja-negra'),
+  ('dados-1-2',                'Dados de 1/2',                   9,  'caja-negra'),
   ('llaves-espanolas-mm',      'Llaves españolas (mm)',        10, 'caja-negra'),
   ('llaves-espanolas-estandar','Llaves españolas (estándar)',  11, 'caja-negra'),
-  ('dados-1-4-caja',           'Dados 1/4"',                   12, 'caja-dados-1-4'),
+  ('dados-1-4-caja',           'Dados de 1/4',                   12, 'caja-dados-1-4'),
   ('llaves-combinadas-milwaukee','Llaves combinadas Milwaukee', 13, 'juego-milwaukee')
 on conflict (id) do nothing;
 
