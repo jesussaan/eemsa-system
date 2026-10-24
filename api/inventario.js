@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { requiereAlgunModo } from './_lib/auth.js';
 import { uid, today } from '../src/lib/utils.js';
+import { manejarHerramientas } from './_lib/herramientas.js';
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -13,6 +14,10 @@ const supabase = createClient(
 const MODOS_INVENTARIO = ['inventario'];
 
 export default async function handler(req, res) {
+  // Modulo Herramienta (control de herramientas del taller) -- va aqui y no
+  // en su propio archivo por el limite de 12 funciones de Vercel.
+  if (req.query.modulo === 'herramientas') return manejarHerramientas(req, res);
+
   if (req.query.accion === 'movimientos') {
     const usuario = await requiereAlgunModo(req, MODOS_INVENTARIO);
     if (!usuario) return res.status(401).json({ error: 'No autorizado' });
